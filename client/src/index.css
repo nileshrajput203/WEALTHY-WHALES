@@ -64,6 +64,12 @@
 
   --accent-foreground: 0 0% 98%;
 
+  --success: 142 76% 45%;
+  --success-foreground: 0 0% 98%;
+
+  --bullish: 142 76% 45%;
+  --bearish: 0 84% 60%;
+
   --destructive: 0 84% 60%;
 
   --destructive-foreground: 0 0% 98%;
@@ -181,6 +187,12 @@
   --accent: 220 14% 22%;
 
   --accent-foreground: 0 0% 98%;
+
+  --success: 142 76% 55%;
+  --success-foreground: 0 0% 98%;
+
+  --bullish: 142 76% 55%;
+  --bearish: 0 84% 60%;
 
   --destructive: 0 84% 60%;
 

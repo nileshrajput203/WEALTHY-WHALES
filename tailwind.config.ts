@@ -59,6 +59,12 @@ export default {
           "4": "hsl(var(--chart-4) / <alpha-value>)",
           "5": "hsl(var(--chart-5) / <alpha-value>)",
         },
+        success: {
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
+          foreground: "hsl(var(--success-foreground) / <alpha-value>)",
+        },
+        bullish: "hsl(var(--bullish) / <alpha-value>)",
+        bearish: "hsl(var(--bearish) / <alpha-value>)",
         sidebar: {
           ring: "hsl(var(--sidebar-ring) / <alpha-value>)",
           DEFAULT: "hsl(var(--sidebar) / <alpha-value>)",
@@ -96,10 +102,25 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "marquee": {
+          "0%": { transform: "translateX(0%)" },
+          "100%": { transform: "translateX(-100%)" },
+        },
+        "pulse-green": {
+          "0%, 100%": { backgroundColor: "transparent" },
+          "50%": { backgroundColor: "hsl(142 76% 45% / 0.2)" },
+        },
+        "pulse-red": {
+          "0%, 100%": { backgroundColor: "transparent" },
+          "50%": { backgroundColor: "hsl(0 84% 60% / 0.2)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "marquee": "marquee 30s linear infinite",
+        "pulse-green": "pulse-green 0.5s ease-in-out",
+        "pulse-red": "pulse-red 0.5s ease-in-out",
       },
     },
   },
