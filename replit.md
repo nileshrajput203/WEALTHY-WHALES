@@ -1,8 +1,8 @@
-# StockIQ - Professional Stock Analysis Platform
+# GenAI-Stock - Professional Stock Analysis Platform
 
 ## Overview
 
-StockIQ is a professional stock analysis platform focused on Indian markets (NSE/BSE). It provides AI-powered insights, live market data, expert stock recommendations, and trading tools. The platform features a dark-themed financial UI with real-time data visualization, stock scanners, news feeds, and an AI chatbot for market analysis.
+GenAI-Stock is a professional stock analysis platform focused on Indian markets (NSE/BSE). It provides AI-powered insights, live market data, expert stock recommendations, and trading tools. The platform features a dark-themed financial UI with real-time data visualization, stock scanners, news feeds, and an AI chatbot for market analysis.
 
 ## User Preferences
 

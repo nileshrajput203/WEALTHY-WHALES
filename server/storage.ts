@@ -41,6 +41,9 @@ export interface IStorage {
   // News
   getAllNews(): Promise<NewsItem[]>;
   createNewsItem(news: InsertNewsItem): Promise<NewsItem>;
+  
+  // Delete operations
+  deleteRecommendation(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -116,6 +119,13 @@ export class DatabaseStorage implements IStorage {
   async createNewsItem(news: InsertNewsItem): Promise<NewsItem> {
     const [created] = await db.insert(newsItems).values(news).returning();
     return created;
+  }
+
+  // Delete operations
+  async deleteRecommendation(id: string): Promise<void> {
+    console.log(`Attempting to delete recommendation with id: ${id}`);
+    const result = await db.delete(stockRecommendations).where(eq(stockRecommendations.id, id));
+    console.log(`Delete result:`, result);
   }
 }
 

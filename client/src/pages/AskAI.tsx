@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Send, Bot, User } from "lucide-react";
@@ -9,22 +11,40 @@ import type { ChatMessage } from "@shared/schema";
 export default function AskAI() {
   const [message, setMessage] = useState("");
   const [sessionId] = useState(() => `session-${Date.now()}`);
-
-  const { data: messages = [], isLoading } = useQuery<ChatMessage[]>({
-    queryKey: ["/api/chat", sessionId],
-  });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (userMessage: string) => {
-      return await apiRequest("POST", "/api/chat", {
+      // Add user message immediately
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        userId: null,
+        sessionId,
+        message: userMessage,
+        role: "user",
+        stockContext: null,
+        createdAt: new Date(),
+      };
+      setMessages(prev => [...prev, userMsg]);
+
+      // Send to API and get AI response
+      const response = await apiRequest("POST", "/api/chat", {
         message: userMessage,
         sessionId,
         role: "user",
       });
+      return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/chat", sessionId] });
+    onSuccess: (aiResponse: ChatMessage) => {
+      console.log("AI Response received:", aiResponse);
+      // Add AI response to messages
+      setMessages(prev => [...prev, aiResponse]);
       setMessage("");
+    },
+    onError: (error) => {
+      console.error("Chat error:", error);
+      // Remove the user message if there was an error
+      setMessages(prev => prev.slice(0, -1));
     },
   });
 
@@ -72,7 +92,13 @@ export default function AskAI() {
                 <div className={`rounded-lg p-4 ${
                   msg.role === 'user' ? 'bg-primary/20' : 'bg-secondary'
                 }`}>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-invert max-w-none prose-p:my-2 prose-table:w-full prose-th:font-semibold prose-th:px-3 prose-td:px-3 prose-th:py-2 prose-td:py-2 prose-thead:border-b prose-tr:border-b">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.message}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
+                  )}
                 </div>
               </div>
             </div>

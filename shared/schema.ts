@@ -49,6 +49,7 @@ export const stockRecommendations = pgTable("stock_recommendations", {
   targetPrice: varchar("target_price").notNull(),
   stopLoss: varchar("stop_loss").notNull(),
   currentPrice: varchar("current_price").notNull(),
+  imageUrl: varchar("image_url"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
