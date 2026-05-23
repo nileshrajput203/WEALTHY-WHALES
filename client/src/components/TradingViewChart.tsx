@@ -16,6 +16,7 @@
  * Yahoo price data from our own API.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useTheme } from "next-themes";
 
 /* ── Global singleton script loader ──────────────────────── */
 declare global {
@@ -102,6 +103,8 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<any>(null);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
 
   // Fetch data from our Yahoo proxy
   useEffect(() => {
@@ -144,7 +147,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     const chartH = H - padTop - padBottom;
 
     // Background
-    ctx.fillStyle = "#0a0a0a";
+    ctx.fillStyle = isDark ? "#0a0a0a" : "#fafafa";
     ctx.fillRect(0, 0, W, H);
 
     // Data range
@@ -160,10 +163,10 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
 
     // Grid lines (horizontal)
     const gridSteps = 6;
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.strokeStyle = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
     ctx.lineWidth = 1;
     ctx.font = "11px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillStyle = isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.55)";
     ctx.textAlign = "right";
     for (let i = 0; i <= gridSteps; i++) {
       const price = minPrice + (i / gridSteps) * priceRange;
@@ -206,7 +209,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     // Draw SMA 20 line
     if (closes.length >= 20) {
       ctx.beginPath();
-      ctx.strokeStyle = "rgba(168,85,247,0.6)";
+      ctx.strokeStyle = "rgba(168,85,247,0.7)";
       ctx.lineWidth = 1.5;
       let started = false;
       for (let i = 19; i < closes.length; i++) {
@@ -223,7 +226,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     // Draw SMA 50 line
     if (closes.length >= 50) {
       ctx.beginPath();
-      ctx.strokeStyle = "rgba(251,191,36,0.5)";
+      ctx.strokeStyle = "rgba(251,191,36,0.6)";
       ctx.lineWidth = 1.5;
       let started = false;
       for (let i = 49; i < closes.length; i++) {
@@ -238,7 +241,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     }
 
     // X-axis labels (dates)
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillStyle = isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.45)";
     ctx.textAlign = "center";
     ctx.font = "10px monospace";
     const labelStep = Math.max(1, Math.floor(candles.length / 8));
@@ -250,7 +253,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     }
 
     // Symbol title
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillStyle = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.85)";
     ctx.font = "bold 13px monospace";
     ctx.textAlign = "left";
     const displaySym = symbol.replace(/\.(NS|BO)$/i, "");
@@ -267,14 +270,14 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
     // Hovered candle info
     if (hoveredCandle) {
       const c = hoveredCandle;
-      ctx.fillStyle = "rgba(0,0,0,0.85)";
+      ctx.fillStyle = isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.95)";
       ctx.fillRect(padLeft + 8, 30, 260, 22);
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillStyle = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.8)";
       ctx.font = "10px monospace";
       const d = new Date(c.date || c.timestamp).toLocaleDateString("en-IN");
       ctx.fillText(`${d}  O:₹${Number(c.open).toFixed(2)}  H:₹${Number(c.high).toFixed(2)}  L:₹${Number(c.low).toFixed(2)}  C:₹${Number(c.close).toFixed(2)}`, padLeft + 12, 44);
     }
-  }, [candles, symbol, hoveredCandle]);
+  }, [candles, symbol, hoveredCandle, isDark]);
 
   useEffect(() => { drawChart(); }, [drawChart]);
 
@@ -303,10 +306,10 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
 
   if (loading) {
     return (
-      <div style={{ height }} className="flex items-center justify-center bg-[#0a0a0a] rounded-xl">
+      <div style={{ height }} className="flex items-center justify-center bg-card border border-border rounded-xl">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <span className="text-xs text-white/30 font-mono">Loading chart data...</span>
+          <span className="text-xs text-muted-foreground font-mono">Loading chart data...</span>
         </div>
       </div>
     );
@@ -314,8 +317,8 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
 
   if (error) {
     return (
-      <div style={{ height }} className="flex items-center justify-center bg-[#0a0a0a] rounded-xl">
-        <div className="flex flex-col items-center gap-3 text-white/40">
+      <div style={{ height }} className="flex items-center justify-center bg-card border border-border rounded-xl">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M3 3l18 18M10.5 6H6a2 2 0 00-2 2v10c0 1.1.9 2 2 2h12a2 2 0 002-2v-3.5" />
           </svg>
@@ -326,7 +329,7 @@ function FallbackChart({ symbol, height }: { symbol: string; height: number | st
   }
 
   return (
-    <div ref={containerRef} style={{ height }} className="relative w-full bg-[#0a0a0a] rounded-xl overflow-hidden cursor-crosshair">
+    <div ref={containerRef} style={{ height }} className="relative w-full bg-card border border-border rounded-xl overflow-hidden cursor-crosshair">
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
@@ -369,6 +372,7 @@ export function TradingViewChart({
   const [loading, setLoading]       = useState(true);
   const [tvError, setTvError]       = useState(false);
   const [useFallback, setUseFallback] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   // Build final TV symbol
   const tvSymbol = toTVSymbol(symbol, exchange);
@@ -401,10 +405,10 @@ export function TradingViewChart({
           symbol:               tvSymbol,
           interval,
           timezone:             "Asia/Kolkata",
-          theme:                "dark",
+          theme:                resolvedTheme === "light" ? "light" : "dark",
           style:                "1",           // Candlestick
           locale:               "en",
-          toolbar_bg:           "#0a0a0a",
+          toolbar_bg:           resolvedTheme === "light" ? "#fafafa" : "#0a0a0a",
           enable_publishing:    false,
           allow_symbol_change:  allowSymbolChange,
           hide_top_toolbar:     !showToolbar,
@@ -414,11 +418,11 @@ export function TradingViewChart({
           hide_side_toolbar:    false,
           studies,
           container_id:         widgetId.current,
-          loading_screen:       { backgroundColor: "#0a0a0a", foregroundColor: "#7c3aed" },
+          loading_screen:       { backgroundColor: resolvedTheme === "light" ? "#fafafa" : "#0a0a0a", foregroundColor: "#7c3aed" },
           overrides: {
-            "paneProperties.background":           "#0a0a0a",
+            "paneProperties.background":           resolvedTheme === "light" ? "#fafafa" : "#0a0a0a",
             "paneProperties.backgroundType":       "solid",
-            "scalesProperties.textColor":          "#666",
+            "scalesProperties.textColor":          resolvedTheme === "light" ? "#666666" : "#888888",
             "scalesProperties.fontSize":           11,
           },
         });
@@ -461,12 +465,12 @@ export function TradingViewChart({
       clearTimeout(errorCheckTimer);
       while (container.firstChild) container.removeChild(container.firstChild);
     };
-  }, [tvSymbol, interval, showToolbar, studies.join(",")]);
+  }, [tvSymbol, interval, showToolbar, studies.join(","), resolvedTheme]);
 
   // If fallback mode, show our own chart
   if (useFallback) {
     return (
-      <div className={`relative w-full rounded-xl overflow-hidden bg-[#0a0a0a] ${className}`}>
+      <div className={`relative w-full rounded-xl overflow-hidden ${className}`}>
         <FallbackChart symbol={symbol} height={typeof height === "number" ? height : 500} />
       </div>
     );
@@ -474,21 +478,21 @@ export function TradingViewChart({
 
   return (
     <div
-      className={`relative w-full rounded-xl overflow-hidden bg-[#0a0a0a] ${className}`}
+      className={`relative w-full rounded-xl overflow-hidden border border-border bg-card ${className}`}
       style={{ height }}
     >
       {/* Loading skeleton */}
       {loading && (
-        <div className="absolute inset-0 z-10 flex flex-col gap-3 p-4 bg-[#0a0a0a]">
-          <div className="h-8 w-48 rounded-lg bg-white/5 animate-pulse" />
-          <div className="flex-1 rounded-lg bg-white/3 animate-pulse" />
-          <div className="h-20 rounded-lg bg-white/3 animate-pulse" />
+        <div className="absolute inset-0 z-10 flex flex-col gap-3 p-4 bg-card">
+          <div className="h-8 w-48 rounded-lg bg-muted animate-pulse" />
+          <div className="flex-1 rounded-lg bg-muted animate-pulse" />
+          <div className="h-20 rounded-lg bg-muted animate-pulse" />
         </div>
       )}
 
       {/* Error fallback */}
       {tvError && !useFallback && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-white/40 gap-3">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-muted-foreground gap-3">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M3 3l18 18M10.5 6H6a2 2 0 00-2 2v10c0 1.1.9 2 2 2h12a2 2 0 002-2v-3.5" />
             <path d="M14 2v4h4" /><path d="M14 2l6 6" />

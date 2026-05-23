@@ -10,7 +10,7 @@ export default function ViewModeToggle() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full p-0.5 shadow-inner">
+        <div className="flex items-center gap-1 bg-muted border border-border rounded-full p-0.5 shadow-inner">
           <Button
             variant="ghost"
             size="sm"
@@ -19,7 +19,7 @@ export default function ViewModeToggle() {
               "h-7 px-3 rounded-full text-[11px] font-bold gap-1 transition-all duration-300",
               viewMode === "pro"
                 ? "bg-gradient-to-r from-primary to-violet-600 text-white shadow-md shadow-primary/20 scale-100"
-                : "text-white/60 hover:text-white"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Zap className={cn("h-3 w-3", viewMode === "pro" && "animate-pulse")} />
@@ -33,7 +33,7 @@ export default function ViewModeToggle() {
               "h-7 px-3 rounded-full text-[11px] font-bold gap-1 transition-all duration-300",
               viewMode === "simple"
                 ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 scale-100"
-                : "text-white/60 hover:text-white"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Eye className="h-3 w-3" />
@@ -41,7 +41,7 @@ export default function ViewModeToggle() {
           </Button>
         </div>
       </TooltipTrigger>
-      <TooltipContent className="bg-popover border border-white/10 text-popover-foreground">
+      <TooltipContent className="bg-popover border border-border text-popover-foreground">
         <p className="text-xs font-medium">
           {viewMode === "pro"
             ? "Showing advanced analytical details, radial breakdowns, and detailed charts."

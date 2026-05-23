@@ -55,7 +55,7 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
   const strokeDashoffset = circumference - (totalScore / 100) * circumference;
 
   return (
-    <Card className="relative overflow-hidden border border-white/5 bg-black/40 backdrop-blur-xl shadow-xl">
+    <Card className="relative overflow-hidden border border-border bg-card/45 backdrop-blur-xl shadow-xl">
       {/* Background glow */}
       <div className={cn("absolute -right-20 -top-20 w-48 h-48 rounded-full blur-3xl opacity-20 bg-gradient-to-br", colors.gradient)} />
       
@@ -65,11 +65,11 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
           <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-semibold text-white/40 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
                   Proprietary Stock Rating
                 </span>
                 <div className="flex items-center gap-3">
-                  <h3 className="text-2xl font-bold font-display text-white">StockIQ Verdict</h3>
+                  <h3 className="text-2xl font-bold font-display text-foreground">StockIQ Verdict</h3>
                   <Badge className={cn("px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider border", colors.bg, colors.text)}>
                     {verdict}
                   </Badge>
@@ -77,33 +77,33 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
               </div>
               <div className="flex items-center gap-4">
                 {/* Traffic light indicator */}
-                <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 shadow-inner">
-                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore < 40 ? "bg-rose-500 animate-pulse shadow-[0_0_8px_#f43f5e]" : "bg-neutral-800")} />
-                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore >= 40 && totalScore < 60 ? "bg-amber-500 animate-pulse shadow-[0_0_8px_#f59e0b]" : "bg-neutral-800")} />
-                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore >= 60 ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" : "bg-neutral-800")} />
+                <div className="flex items-center gap-1.5 bg-muted/30 px-3 py-1.5 rounded-full border border-border shadow-inner">
+                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore < 40 ? "bg-rose-500 animate-pulse shadow-[0_0_8px_#f43f5e]" : "bg-muted-foreground/30")} />
+                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore >= 40 && totalScore < 60 ? "bg-amber-500 animate-pulse shadow-[0_0_8px_#f59e0b]" : "bg-muted-foreground/30")} />
+                  <span className={cn("w-3.5 h-3.5 rounded-full transition-all duration-500", totalScore >= 60 ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" : "bg-muted-foreground/30")} />
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-extrabold font-display leading-none text-white">{totalScore}</span>
-                  <span className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Score</span>
+                  <span className="text-3xl font-extrabold font-display leading-none text-foreground">{totalScore}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Score</span>
                 </div>
               </div>
             </div>
 
             {/* Verdict Box */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-start gap-3 shadow-inner">
+            <div className="bg-muted/40 border border-border rounded-xl p-4 flex items-start gap-3 shadow-inner">
               {totalScore >= 60 ? (
-                <Award className="h-5 w-5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                <Award className="h-5 w-5 text-emerald-500 mt-0.5 flex-shrink-0" />
               ) : totalScore >= 40 ? (
-                <TrendingUp className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <TrendingUp className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
               ) : (
-                <ShieldAlert className="h-5 w-5 text-rose-400 mt-0.5 flex-shrink-0" />
+                <ShieldAlert className="h-5 w-5 text-rose-500 mt-0.5 flex-shrink-0" />
               )}
               <div>
-                <p className="text-sm font-semibold text-white/90 leading-snug">
+                <p className="text-sm font-semibold text-foreground leading-snug">
                   {simpleVerdict}
                 </p>
-                <p className="text-xs text-white/50 mt-1">
-                  Overall rating grade is <span className="font-bold text-white">{grade}</span>. Based on underlying fundamentals, momentum trends, tech setups, and cap size stability.
+                <p className="text-xs text-muted-foreground mt-1">
+                  Overall rating grade is <span className="font-bold text-foreground">{grade}</span>. Based on underlying fundamentals, momentum trends, tech setups, and cap size stability.
                 </p>
               </div>
             </div>
@@ -135,7 +135,7 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
                     cx="80"
                     cy="80"
                     r={radius}
-                    className="stroke-neutral-800"
+                    className="stroke-muted"
                     strokeWidth={strokeWidth}
                     fill="transparent"
                   />
@@ -155,11 +155,11 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
                 </svg>
                 {/* Center score details */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xs text-white/40 uppercase tracking-widest leading-none mb-1">StockIQ</span>
+                  <span className="text-xs text-muted-foreground uppercase tracking-widest leading-none mb-1">StockIQ</span>
                   <span className={cn("text-5xl font-black font-display leading-none", colors.text)}>
                     {totalScore}
                   </span>
-                  <span className="text-xs font-semibold text-white/70 uppercase tracking-widest mt-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mt-1">
                     Grade {grade}
                   </span>
                 </div>
@@ -172,20 +172,20 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
             {/* Right: Radial sub-scores */}
             <div className="md:col-span-7 flex flex-col gap-4">
               <div>
-                <span className="text-xs font-semibold text-white/40 uppercase tracking-wider block mb-1">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
                   Proprietary Scoring Engine
                 </span>
-                <h3 className="text-2xl font-bold font-display text-white">Analysis Pillars</h3>
+                <h3 className="text-2xl font-bold font-display text-foreground">Analysis Pillars</h3>
               </div>
 
               <div className="space-y-3">
                 {/* Fundamentals */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-white/80">🏗️ Fundamentals (30%)</span>
+                    <span className="text-foreground/80">🏗️ Fundamentals (30%)</span>
                     <span className={cn("font-bold", getScoreColor(fundamentals.score).text)}>{fundamentals.score}/100</span>
                   </div>
-                  <div className="relative h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="relative h-2 w-full bg-muted rounded-full overflow-hidden">
                     <div
                       className="absolute top-0 bottom-0 left-0 rounded-full transition-all duration-700 bg-gradient-to-r from-blue-500 to-indigo-500"
                       style={{ width: `${fundamentals.score}%` }}
@@ -196,10 +196,10 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
                 {/* Technicals */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-white/80">📊 Technicals (25%)</span>
+                    <span className="text-foreground/80">📊 Technicals (25%)</span>
                     <span className={cn("font-bold", getScoreColor(technicals.score).text)}>{technicals.score}/100</span>
                   </div>
-                  <div className="relative h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="relative h-2 w-full bg-muted rounded-full overflow-hidden">
                     <div
                       className="absolute top-0 bottom-0 left-0 rounded-full transition-all duration-700 bg-gradient-to-r from-orange-500 to-amber-500"
                       style={{ width: `${technicals.score}%` }}
@@ -210,10 +210,10 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
                 {/* Momentum */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-white/80">🚀 Momentum (25%)</span>
+                    <span className="text-foreground/80">🚀 Momentum (25%)</span>
                     <span className={cn("font-bold", getScoreColor(momentum.score).text)}>{momentum.score}/100</span>
                   </div>
-                  <div className="relative h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="relative h-2 w-full bg-muted rounded-full overflow-hidden">
                     <div
                       className="absolute top-0 bottom-0 left-0 rounded-full transition-all duration-700 bg-gradient-to-r from-rose-500 to-pink-500"
                       style={{ width: `${momentum.score}%` }}
@@ -224,10 +224,10 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
                 {/* Insider Activity */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-white/80">👁️ Insider Activity (20%)</span>
+                    <span className="text-foreground/80">👁️ Insider Activity (20%)</span>
                     <span className={cn("font-bold", getScoreColor(insider.score).text)}>{insider.score}/100</span>
                   </div>
-                  <div className="relative h-2 w-full bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="relative h-2 w-full bg-muted rounded-full overflow-hidden">
                     <div
                       className="absolute top-0 bottom-0 left-0 rounded-full transition-all duration-700 bg-gradient-to-r from-emerald-500 to-teal-500"
                       style={{ width: `${insider.score}%` }}

@@ -267,7 +267,11 @@ function computePredicta(candles: any[]): PredictaResult | null {
    COMPONENT
 ══════════════════════════════════════════════════════════════ */
 
-const colorMap = { green: "text-emerald-400", red: "text-red-400", neutral: "text-white/50" };
+const colorMap = {
+  green: "text-emerald-600 dark:text-emerald-400",
+  red: "text-red-600 dark:text-red-400",
+  neutral: "text-muted-foreground"
+};
 
 export function PredictaPanel({ symbol }: { symbol: string }) {
   const { data, isLoading } = useQuery({
@@ -284,11 +288,11 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
 
   if (isLoading) {
     return (
-      <div className="glass-card rounded-2xl border border-white/6 p-6 animate-pulse">
-        <div className="h-6 w-48 bg-white/5 rounded mb-4" />
+      <div className="glass-card rounded-2xl border border-border p-6 animate-pulse">
+        <div className="h-6 w-48 bg-muted rounded mb-4" />
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-40 bg-white/3 rounded-xl" />
-          <div className="h-40 bg-white/3 rounded-xl" />
+          <div className="h-40 bg-muted/50 rounded-xl" />
+          <div className="h-40 bg-muted/50 rounded-xl" />
         </div>
       </div>
     );
@@ -296,7 +300,7 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
 
   if (!predicta) {
     return (
-      <div className="glass-card rounded-2xl border border-white/6 p-6 text-center text-white/30 text-sm">
+      <div className="glass-card rounded-2xl border border-border p-6 text-center text-muted-foreground text-sm">
         Insufficient data for PREDICTA V4 analysis
       </div>
     );
@@ -310,25 +314,24 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1 }}
-      className="glass-card rounded-2xl border border-white/6 overflow-hidden"
+      className="glass-card rounded-2xl border border-border overflow-hidden"
     >
       {/* Header */}
-      <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3"
-        style={{ background: "linear-gradient(135deg, rgba(26,26,46,0.9), rgba(13,13,26,0.9))" }}>
-        <Activity className="w-5 h-5 text-purple-400" />
-        <span className="text-sm font-bold font-mono text-white tracking-wide">PREDICTA V4</span>
-        <span className="text-[10px] font-mono text-white/30 ml-1">
+      <div className="px-5 py-3 border-b border-border flex items-center gap-3 bg-muted/20">
+        <Activity className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+        <span className="text-sm font-bold font-mono text-foreground tracking-wide">PREDICTA V4</span>
+        <span className="text-[10px] font-mono text-muted-foreground ml-1">
           ATR: {predicta.adxVal <= 25 ? "↓ LOW" : "→ MID"}
         </span>
         {/* Prediction badges */}
         <div className="ml-auto flex items-center gap-2">
           <div className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold font-mono
-            ${isBullish ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
+            ${isBullish ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25" : "bg-muted text-muted-foreground border border-border"}`}>
             <ArrowUpCircle className="w-3.5 h-3.5" />
             LONG {longPct}%
           </div>
           <div className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold font-mono
-            ${!isBullish ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 text-white/30 border border-white/10"}`}>
+            ${!isBullish ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/25" : "bg-muted text-muted-foreground border border-border"}`}>
             <ArrowDownCircle className="w-3.5 h-3.5" />
             SHORT {shortPct}%
           </div>
@@ -337,20 +340,20 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
         {/* ── LONG ANALYSIS ──────────────────────── */}
-        <div className="border-r border-white/5 p-4">
+        <div className="border-r border-border p-4">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-bold text-emerald-400/80 uppercase tracking-wider">Long Analysis</span>
+            <TrendingUp className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            <span className="text-xs font-bold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wider">Long Analysis</span>
             <span className={`ml-auto text-xs font-mono font-bold px-2 py-0.5 rounded
-              ${longPct >= 60 ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/30"}`}>
+              ${longPct >= 60 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
               {longPct}%
             </span>
           </div>
           <div className="space-y-1.5">
             {signals.map((sig) => (
-              <div key={sig.name} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-white/3 transition-colors">
-                <span className="text-[11px] text-white/40 font-mono">{sig.name}</span>
-                <span className={`text-[11px] font-mono font-semibold ${sig.bullish ? "text-emerald-400" : "text-red-400"}`}>
+              <div key={sig.name} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted transition-colors">
+                <span className="text-[11px] text-muted-foreground font-mono">{sig.name}</span>
+                <span className={`text-[11px] font-mono font-semibold ${sig.bullish ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                   {sig.value}
                 </span>
               </div>
@@ -359,31 +362,31 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
           {/* Footer */}
           <div className="flex gap-2 mt-3">
             <div className={`flex-1 text-center py-1.5 rounded-md text-[11px] font-bold font-mono
-              ${longPct >= 60 ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-white/20"}`}>
+              ${longPct >= 60 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground/45"}`}>
               LONG
             </div>
             <div className={`flex-1 text-center py-1.5 rounded-md text-[11px] font-bold font-mono
-              ${longPct < 60 ? "bg-orange-500/20 text-orange-400" : "bg-white/5 text-white/20"}`}>
+              ${longPct < 60 ? "bg-orange-500/15 text-orange-600 dark:text-orange-400" : "bg-muted text-muted-foreground/45"}`}>
               WAIT
             </div>
           </div>
         </div>
 
         {/* ── SHORT ANALYSIS ─────────────────────── */}
-        <div className="border-r border-white/5 p-4">
+        <div className="border-r border-border p-4">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingDown className="w-4 h-4 text-red-400" />
-            <span className="text-xs font-bold text-red-400/80 uppercase tracking-wider">Short Analysis</span>
+            <TrendingDown className="w-4 h-4 text-red-500 dark:text-red-400" />
+            <span className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider">Short Analysis</span>
             <span className={`ml-auto text-xs font-mono font-bold px-2 py-0.5 rounded
-              ${shortPct >= 60 ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/30"}`}>
+              ${shortPct >= 60 ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted text-muted-foreground"}`}>
               {shortPct}%
             </span>
           </div>
           <div className="space-y-1.5">
             {signals.map((sig) => (
-              <div key={`s-${sig.name}`} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-white/3 transition-colors">
-                <span className="text-[11px] text-white/40 font-mono">{sig.name}</span>
-                <span className={`text-[11px] font-mono font-semibold ${!sig.bullish ? "text-red-400" : "text-emerald-400"}`}>
+              <div key={`s-${sig.name}`} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted transition-colors">
+                <span className="text-[11px] text-muted-foreground font-mono">{sig.name}</span>
+                <span className={`text-[11px] font-mono font-semibold ${!sig.bullish ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                   {sig.value}
                 </span>
               </div>
@@ -392,11 +395,11 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
           {/* Footer */}
           <div className="flex gap-2 mt-3">
             <div className={`flex-1 text-center py-1.5 rounded-md text-[11px] font-bold font-mono
-              ${shortPct >= 60 ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/20"}`}>
+              ${shortPct >= 60 ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted text-muted-foreground/45"}`}>
               SHORT
             </div>
             <div className={`flex-1 text-center py-1.5 rounded-md text-[11px] font-bold font-mono
-              ${shortPct < 60 ? "bg-orange-500/20 text-orange-400" : "bg-white/5 text-white/20"}`}>
+              ${shortPct < 60 ? "bg-orange-500/15 text-orange-600 dark:text-orange-400" : "bg-muted text-muted-foreground/45"}`}>
               WAIT
             </div>
           </div>
@@ -405,14 +408,14 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
         {/* ── METRICS PANEL ──────────────────────── */}
         <div className="p-4">
           <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-4 h-4 text-purple-400" />
-            <span className="text-xs font-bold text-purple-400/80 uppercase tracking-wider">Metrics</span>
+            <BarChart3 className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+            <span className="text-xs font-bold text-purple-600/80 dark:text-purple-400/80 uppercase tracking-wider">Metrics</span>
             <Zap className="w-3 h-3 ml-auto text-yellow-500/40" />
           </div>
           <div className="space-y-1">
             {metrics.map((m) => (
-              <div key={m.label} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-white/3 transition-colors">
-                <span className="text-[11px] text-white/40 font-mono">{m.label}</span>
+              <div key={m.label} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted transition-colors">
+                <span className="text-[11px] text-muted-foreground font-mono">{m.label}</span>
                 <span className={`text-[11px] font-mono font-semibold ${colorMap[m.color]}`}>
                   {m.value}
                 </span>
@@ -423,9 +426,8 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
       </div>
 
       {/* Bottom prediction bar */}
-      <div className="px-4 py-3 border-t border-white/5 flex items-center gap-3"
-        style={{ background: "rgba(255,255,255,0.01)" }}>
-        <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
+      <div className="px-4 py-3 border-t border-border flex items-center gap-3 bg-muted/10">
+        <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${longPct}%` }}
@@ -440,7 +442,7 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
             }}
           />
         </div>
-        <span className={`text-xs font-bold font-mono ${isBullish ? "text-emerald-400" : "text-red-400"}`}>
+        <span className={`text-xs font-bold font-mono ${isBullish ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
           {isBullish ? `LONG ${longPct}%` : `SHORT ${shortPct}%`}
         </span>
       </div>

@@ -29,9 +29,8 @@ export function StockRecommendationCard({ recommendation, onViewChart }: StockRe
     <motion.div
       whileHover={{ scale: 1.015, y: -2 }}
       transition={{ type: "spring", stiffness: 400, damping: 28 }}
-      className="group relative flex flex-col rounded-2xl overflow-hidden glass-card border border-white/6
-        hover:border-white/12 cursor-pointer transition-all duration-300"
-      style={{ boxShadow: "0 4px 24px 0 rgba(0,0,0,0.5)" }}
+      className="group relative flex flex-col rounded-2xl overflow-hidden glass-card border border-border
+        hover:border-border/80 cursor-pointer transition-all duration-300 shadow-xl shadow-black/5 dark:shadow-black/40"
       onClick={() => onViewChart(payload)}
     >
       {/* Colored top accent */}
@@ -47,21 +46,21 @@ export function StockRecommendationCard({ recommendation, onViewChart }: StockRe
       <div className="flex items-start justify-between p-5 pb-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="text-xl font-mono font-extrabold tracking-tight text-white">
+            <h3 className="text-xl font-mono font-extrabold tracking-tight text-foreground">
               {recommendation.stockSymbol}
             </h3>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/6 text-white/40 border border-white/8">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
               {recommendation.exchange}
             </span>
           </div>
-          <p className="text-xs text-white/45 font-sans truncate">{recommendation.stockName}</p>
+          <p className="text-xs text-muted-foreground font-sans truncate">{recommendation.stockName}</p>
         </div>
         <RecommendationBadge type={recommendation.recommendationType as any} size="md" />
       </div>
 
       {/* Reason */}
       <div
-        className="mx-4 mb-3 rounded-xl p-3.5 border"
+        className="mx-4 mb-3 rounded-xl p-3.5 border animate-pulse-subtle"
         style={{
           background: `${accentColor}0c`,
           borderColor: `${accentColor}28`,
@@ -71,7 +70,7 @@ export function StockRecommendationCard({ recommendation, onViewChart }: StockRe
           <TrendingUp className="w-3.5 h-3.5" style={{ color: accentColor }} />
           <span className="text-[10px] font-mono font-semibold uppercase tracking-widest" style={{ color: accentColor }}>Reason</span>
         </div>
-        <p className="text-xs text-white/50 leading-relaxed line-clamp-3 font-sans">
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 font-sans">
           {recommendation.reasonToBuy}
         </p>
       </div>
@@ -79,34 +78,33 @@ export function StockRecommendationCard({ recommendation, onViewChart }: StockRe
       {/* Price grid */}
       <div className="mx-4 mb-3 grid grid-cols-3 gap-2">
         {/* Current */}
-        <div className="rounded-xl p-3 bg-white/3 border border-white/6 col-span-1">
-          <div className="text-[9px] text-white/35 font-mono uppercase tracking-wider mb-1">Price</div>
-          <div className="text-sm font-mono font-bold text-white tabular-nums">₹{recommendation.currentPrice}</div>
+        <div className="rounded-xl p-3 bg-muted/40 border border-border col-span-1">
+          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Price</div>
+          <div className="text-sm font-mono font-bold text-foreground tabular-nums">₹{recommendation.currentPrice}</div>
         </div>
         {/* Target */}
-        <div className="rounded-xl p-3 bg-emerald-500/6 border border-emerald-500/15 col-span-1">
+        <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/25 col-span-1">
           <div className="flex items-center gap-1 mb-1">
-            <Target className="w-2.5 h-2.5 text-emerald-400" />
-            <span className="text-[9px] text-emerald-400/70 font-mono uppercase tracking-wider">Target</span>
+            <Target className="w-2.5 h-2.5 text-emerald-500 dark:text-emerald-400" />
+            <span className="text-[9px] text-emerald-600/70 dark:text-emerald-400/70 font-mono uppercase tracking-wider">Target</span>
           </div>
-          <div className="text-sm font-mono font-bold text-emerald-400 tabular-nums">₹{recommendation.targetPrice}</div>
+          <div className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">₹{recommendation.targetPrice}</div>
         </div>
         {/* SL */}
-        <div className="rounded-xl p-3 bg-red-500/6 border border-red-500/15 col-span-1">
+        <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/25 col-span-1">
           <div className="flex items-center gap-1 mb-1">
-            <ShieldAlert className="w-2.5 h-2.5 text-red-400" />
-            <span className="text-[9px] text-red-400/70 font-mono uppercase tracking-wider">SL</span>
+            <ShieldAlert className="w-2.5 h-2.5 text-red-500 dark:text-red-400" />
+            <span className="text-[9px] text-red-600/70 dark:text-red-400/70 font-mono uppercase tracking-wider">SL</span>
           </div>
-          <div className="text-sm font-mono font-bold text-red-400 tabular-nums">₹{recommendation.stopLoss}</div>
+          <div className="text-sm font-mono font-bold text-red-600 dark:text-red-400 tabular-nums">₹{recommendation.stopLoss}</div>
         </div>
       </div>
 
       {/* CTA row */}
       <div
-        className="flex items-center justify-between px-5 py-3.5 mt-auto border-t border-white/5"
-        style={{ background: "rgba(255,255,255,0.02)" }}
+        className="flex items-center justify-between px-5 py-3.5 mt-auto border-t border-border bg-muted/20"
       >
-        <div className="flex items-center gap-1.5 text-xs text-white/35 font-mono">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
           <BarChart2 className="w-3.5 h-3.5" />
           Click to view live chart
         </div>

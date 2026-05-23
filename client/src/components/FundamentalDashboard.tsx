@@ -173,7 +173,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
   return (
     <div className="relative w-36 h-36 flex-shrink-0">
       <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="hsl(var(--border) / 0.5)" strokeWidth="8" />
         <motion.circle
           cx="60" cy="60" r={r} fill="none"
           stroke={color} strokeWidth="8" strokeLinecap="round"
@@ -194,7 +194,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
         >
           {score}
         </motion.span>
-        <span className="text-xs text-white/40 font-mono">/ 100</span>
+        <span className="text-xs text-muted-foreground font-mono">/ 100</span>
         <span className="text-lg font-bold font-display mt-0.5" style={{ color }}>{grade}</span>
       </div>
     </div>
@@ -208,10 +208,10 @@ function ScoreBar({ label, score, max }: { label: string; score: number; max: nu
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-white/55 font-sans">{label}</span>
+        <span className="text-muted-foreground font-sans">{label}</span>
         <span className="font-mono font-semibold" style={{ color }}>{score}/{max}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
         <motion.div
           className="h-full rounded-full"
           style={{ background: color }}
@@ -238,25 +238,25 @@ function ConcallCarousel({ concalls }: { concalls: Concall[] }) {
         <button
           onClick={() => setIdx(i => Math.max(0, i - 1))}
           disabled={idx === 0}
-          className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-white/25 disabled:opacity-25 transition-all"
+          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition-all"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
         <div className="flex gap-1.5">
           {concalls.map((_, i) => (
             <button key={i} onClick={() => setIdx(i)}
-              className={`w-2 h-2 rounded-full transition-all ${i === idx ? "bg-primary w-4" : "bg-white/15 hover:bg-white/30"}`}
+              className={`w-2 h-2 rounded-full transition-all ${i === idx ? "bg-primary w-4" : "bg-muted hover:bg-muted-foreground/30"}`}
             />
           ))}
         </div>
         <button
           onClick={() => setIdx(i => Math.min(concalls.length - 1, i + 1))}
           disabled={idx === concalls.length - 1}
-          className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-white/25 disabled:opacity-25 transition-all"
+          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition-all"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
-        <span className="text-[10px] text-white/30 font-mono ml-auto">{idx + 1} of {concalls.length}</span>
+        <span className="text-[10px] text-muted-foreground font-mono ml-auto">{idx + 1} of {concalls.length}</span>
       </div>
 
       {/* Card */}
@@ -271,14 +271,14 @@ function ConcallCarousel({ concalls }: { concalls: Concall[] }) {
           style={{ borderColor: `${cfg.color}30` }}
         >
           {/* Card header */}
-          <div className="px-5 py-4 border-b border-white/5 flex items-start justify-between gap-3"
+          <div className="px-5 py-4 border-b border-border/40 flex items-start justify-between gap-3"
             style={{ background: `${cfg.bg}` }}>
             <div>
-              <div className="text-[11px] font-mono text-white/40 uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
+              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-0.5 flex items-center gap-1.5">
                 <PhoneCall className="w-3 h-3" /> Earnings Call
               </div>
-              <div className="text-lg font-display font-bold text-white">{call.quarter}</div>
-              <div className="text-xs text-white/40 font-mono">{call.date}</div>
+              <div className="text-lg font-display font-bold text-foreground">{call.quarter}</div>
+              <div className="text-xs text-muted-foreground font-mono">{call.date}</div>
             </div>
             <div
               className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold border flex-shrink-0 mt-1"
@@ -289,7 +289,7 @@ function ConcallCarousel({ concalls }: { concalls: Concall[] }) {
           </div>
 
           {/* Metrics row */}
-          <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
+          <div className="grid grid-cols-3 divide-x divide-border/50 border-b border-border/50">
             {[
               { label: "Revenue", value: call.revenueActual, delta: call.revenueGrowthYoY },
               { label: "PAT",     value: call.patActual,     delta: call.patGrowthYoY },
@@ -298,10 +298,10 @@ function ConcallCarousel({ concalls }: { concalls: Concall[] }) {
               const isPos = m.delta ? m.delta.startsWith("+") : true;
               return (
                 <div key={m.label} className="px-4 py-3 text-center">
-                  <div className="text-[10px] text-white/35 font-mono mb-1">{m.label}</div>
-                  <div className="text-sm font-mono font-bold text-white">{m.value}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono mb-1">{m.label}</div>
+                  <div className="text-sm font-mono font-bold text-foreground">{m.value}</div>
                   {m.delta && (
-                    <div className={`text-[10px] font-mono font-semibold ${isPos ? "text-emerald-400" : "text-red-400"}`}>
+                    <div className={`text-[10px] font-mono font-semibold ${isPos ? "text-emerald-500 font-bold" : "text-red-500 font-bold"}`}>
                       {m.delta}
                     </div>
                   )}
@@ -312,19 +312,19 @@ function ConcallCarousel({ concalls }: { concalls: Concall[] }) {
 
           {/* Highlights */}
           <div className="px-5 py-4 space-y-3">
-            <div className="text-[11px] font-mono text-white/35 uppercase tracking-widest">Key Highlights</div>
+            <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">Key Highlights</div>
             <ul className="space-y-2">
               {call.keyHighlights.map((h, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-white/60 font-sans">
+                <li key={i} className="flex items-start gap-2 text-xs text-foreground/80 font-sans">
                   <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: cfg.color }} />
                   {h}
                 </li>
               ))}
             </ul>
             {call.managementGuidance && (
-              <div className="mt-3 rounded-xl p-3 border border-white/6 bg-white/2">
-                <div className="text-[10px] font-mono text-white/35 mb-1">Management Guidance</div>
-                <p className="text-xs text-white/55 font-sans leading-relaxed">{call.managementGuidance}</p>
+              <div className="mt-3 rounded-xl p-3 border border-border bg-muted/30">
+                <div className="text-[10px] font-mono text-muted-foreground mb-1">Management Guidance</div>
+                <p className="text-xs text-muted-foreground font-sans leading-relaxed">{call.managementGuidance}</p>
               </div>
             )}
           </div>
@@ -354,12 +354,12 @@ function AnnualReportTable({ fy2024, fy2023 }: { fy2024: AnnualReport; fy2023: A
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/6">
+    <div className="overflow-hidden rounded-2xl border border-border">
       {/* Header */}
-      <div className="grid grid-cols-3 bg-white/3 border-b border-white/6">
-        <div className="px-4 py-3 text-[11px] font-mono text-white/40 uppercase tracking-widest">Metric</div>
-        <div className="px-4 py-3 text-[11px] font-mono text-primary uppercase tracking-widest text-right border-l border-white/5">{fy2024.year}</div>
-        <div className="px-4 py-3 text-[11px] font-mono text-white/40 uppercase tracking-widest text-right border-l border-white/5">{fy2023.year}</div>
+      <div className="grid grid-cols-3 bg-muted/50 border-b border-border">
+        <div className="px-4 py-3 text-[11px] font-mono text-muted-foreground uppercase tracking-widest">Metric</div>
+        <div className="px-4 py-3 text-[11px] font-mono text-primary uppercase tracking-widest text-right border-l border-border/50">{fy2024.year}</div>
+        <div className="px-4 py-3 text-[11px] font-mono text-muted-foreground uppercase tracking-widest text-right border-l border-border/50">{fy2023.year}</div>
       </div>
       {rows.map((row, i) => {
         const v24 = String(fy2024[row.key] || "—");
@@ -368,17 +368,17 @@ function AnnualReportTable({ fy2024, fy2023 }: { fy2024: AnnualReport; fy2023: A
         const pos = isGrowth && v24.startsWith("+");
         const neg = isGrowth && v24.startsWith("-");
         return (
-          <div key={row.key} className={`grid grid-cols-3 border-b border-white/4 hover:bg-white/2 transition-colors ${i % 2 === 0 ? "" : "bg-white/1"}`}>
-            <div className="px-4 py-2.5 text-xs text-white/50 font-sans">{row.label}</div>
-            <div className={`px-4 py-2.5 text-xs font-mono font-semibold text-right border-l border-white/4 ${pos ? "text-emerald-400" : neg ? "text-red-400" : "text-white/80"}`}>{v24}</div>
-            <div className="px-4 py-2.5 text-xs font-mono text-white/45 text-right border-l border-white/4">{v23}</div>
+          <div key={row.key} className={`grid grid-cols-3 border-b border-border/50 hover:bg-muted/30 transition-colors ${i % 2 === 0 ? "" : "bg-card"}`}>
+            <div className="px-4 py-2.5 text-xs text-muted-foreground font-sans">{row.label}</div>
+            <div className={`px-4 py-2.5 text-xs font-mono font-semibold text-right border-l border-border/50 ${pos ? "text-emerald-500 font-bold" : neg ? "text-red-500 font-bold" : "text-foreground"}`}>{v24}</div>
+            <div className="px-4 py-2.5 text-xs font-mono text-muted-foreground text-right border-l border-border/50">{v23}</div>
           </div>
         );
       })}
       {/* Key themes */}
       {(fy2024.keyThemes?.length > 0) && (
-        <div className="px-4 py-4 bg-white/1 border-t border-white/5">
-          <div className="text-[10px] font-mono text-white/35 uppercase tracking-widest mb-2">FY24 Key Themes</div>
+        <div className="px-4 py-4 bg-muted/20 border-t border-border/50">
+          <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-2">FY24 Key Themes</div>
           <div className="flex flex-wrap gap-2">
             {fy2024.keyThemes.map((t, i) => (
               <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary/80 font-sans">{t}</span>
@@ -414,13 +414,13 @@ function ValuationSection({ report, currentPrice }: { report: ValuationReport; c
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 glass-card rounded-xl border border-white/6 w-fit">
+      <div className="flex gap-1 p-1 glass-card rounded-xl border border-border w-fit">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key as any)}
             className={`relative flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-200
-              ${tab === t.key ? "text-white" : "text-white/40 hover:text-white/70"}`}
+              ${tab === t.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             {tab === t.key && (
               <motion.span
@@ -444,17 +444,17 @@ function ValuationSection({ report, currentPrice }: { report: ValuationReport; c
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2 }}
-          className="glass-card rounded-2xl border border-white/6 p-5 space-y-5"
+          className="glass-card rounded-2xl border border-border p-5 space-y-5"
         >
           {/* Fair value vs current */}
           <div className="flex items-end gap-6">
             <div>
-              <div className="text-[10px] font-mono text-white/35 mb-1">Current Price</div>
-              <div className="text-2xl font-mono font-bold text-white">₹{(currentPrice || report.currentPrice)?.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+              <div className="text-[10px] font-mono text-muted-foreground mb-1">Current Price</div>
+              <div className="text-2xl font-mono font-bold text-foreground">₹{(currentPrice || report.currentPrice)?.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
             </div>
             <div className="flex-1" />
             <div className="text-right">
-              <div className="text-[10px] font-mono text-white/35 mb-1">Fair Value ({tabs.find(t => t.key === tab)?.label})</div>
+              <div className="text-[10px] font-mono text-muted-foreground mb-1">Fair Value ({tabs.find(t => t.key === tab)?.label})</div>
               <div className="text-2xl font-mono font-bold" style={{ color: isUp ? "hsl(142,71%,50%)" : "hsl(0,84%,62%)" }}>
                 ₹{fairVal?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
               </div>
@@ -464,12 +464,12 @@ function ValuationSection({ report, currentPrice }: { report: ValuationReport; c
           {/* Upside bar */}
           <div>
             <div className="flex justify-between text-[11px] font-mono mb-1.5">
-              <span className="text-white/35">Margin of Safety</span>
+              <span className="text-muted-foreground">Margin of Safety</span>
               <span className={`font-bold ${isUp ? "text-emerald-400" : "text-red-400"}`}>
                 {isUp ? "▲" : "▼"} {Math.abs(upsidePct).toFixed(1)}% {isUp ? "Upside" : "Downside"}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-white/6 overflow-hidden">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
               <motion.div
                 className="h-full rounded-full"
                 style={{ background: isUp ? "hsl(142,71%,50%)" : "hsl(0,84%,62%)" }}
@@ -481,51 +481,51 @@ function ValuationSection({ report, currentPrice }: { report: ValuationReport; c
           </div>
 
           {/* Commentary */}
-          <p className="text-xs text-white/55 font-sans leading-relaxed border-l-2 border-primary/30 pl-3 italic">
+          <p className="text-xs text-foreground/80 font-sans leading-relaxed border-l-2 border-primary/40 pl-3 italic">
             {data.method?.commentary}
           </p>
 
           {/* Method-specific metrics */}
           {tab === "pe" && (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">Stock P/E</div>
-                <div className="text-lg font-mono font-bold text-white">{report.peMethod?.stockPE ?? "—"}x</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">Stock P/E</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.peMethod?.stockPE ?? "—"}x</div>
               </div>
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">Sector P/E</div>
-                <div className="text-lg font-mono font-bold text-white">{report.peMethod?.sectorPE ?? "—"}x</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">Sector P/E</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.peMethod?.sectorPE ?? "—"}x</div>
               </div>
             </div>
           )}
           {tab === "ev" && (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">Stock EV/EBITDA</div>
-                <div className="text-lg font-mono font-bold text-white">{report.evEbitdaMethod?.stockEVEBITDA ?? "—"}x</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">Stock EV/EBITDA</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.evEbitdaMethod?.stockEVEBITDA ?? "—"}x</div>
               </div>
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">Sector EV/EBITDA</div>
-                <div className="text-lg font-mono font-bold text-white">{report.evEbitdaMethod?.sectorEVEBITDA ?? "—"}x</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">Sector EV/EBITDA</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.evEbitdaMethod?.sectorEVEBITDA ?? "—"}x</div>
               </div>
             </div>
           )}
           {tab === "dcf" && (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">WACC</div>
-                <div className="text-lg font-mono font-bold text-white">{report.dcfMethod?.wacc ?? "—"}%</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">WACC</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.dcfMethod?.wacc ?? "—"}%</div>
               </div>
-              <div className="rounded-xl bg-white/2 border border-white/5 p-3 text-center">
-                <div className="text-[10px] text-white/35 font-mono mb-1">Terminal Growth</div>
-                <div className="text-lg font-mono font-bold text-white">{report.dcfMethod?.terminalGrowthRate ?? "—"}%</div>
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                <div className="text-[10px] text-muted-foreground font-mono mb-1">Terminal Growth</div>
+                <div className="text-lg font-mono font-bold text-foreground">{report.dcfMethod?.terminalGrowthRate ?? "—"}%</div>
               </div>
             </div>
           )}
 
           {/* Average across methods */}
-          <div className="flex items-center justify-between pt-2 border-t border-white/5">
-            <span className="text-[11px] text-white/40 font-mono">Blended Fair Value</span>
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <span className="text-[11px] text-muted-foreground font-mono">Blended Fair Value</span>
             <span className="text-sm font-mono font-bold text-primary">
               ₹{report.averageFairValue?.toLocaleString("en-IN", { maximumFractionDigits: 0 }) ?? "—"}
             </span>
@@ -550,10 +550,10 @@ function MOATRadar({ scores, rating, reason }: { scores: Record<string, number>;
   const moatColor = rating === "Wide" ? "hsl(142,71%,50%)" : rating === "Narrow" ? "hsl(38,96%,58%)" : "hsl(0,84%,62%)";
 
   return (
-    <div className="glass-card rounded-2xl border border-white/6 p-5">
+    <div className="glass-card rounded-2xl border border-border p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[11px] font-mono text-white/35 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+          <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" /> MOAT Analysis
           </div>
           <div className="flex items-center gap-2">
@@ -561,16 +561,16 @@ function MOATRadar({ scores, rating, reason }: { scores: Record<string, number>;
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] text-white/30 font-sans max-w-[160px] text-right leading-relaxed">{reason}</div>
+          <div className="text-[10px] text-muted-foreground font-sans max-w-[160px] text-right leading-relaxed">{reason}</div>
         </div>
       </div>
 
       <ResponsiveContainer width="100%" height={220}>
         <RadarChart data={radarData}>
-          <PolarGrid stroke="rgba(255,255,255,0.06)" />
+          <PolarGrid stroke="hsl(var(--border) / 0.5)" />
           <PolarAngleAxis
             dataKey="subject"
-            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "monospace" }}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10, fontFamily: "monospace" }}
           />
           <Radar
             name="MOAT"
@@ -586,8 +586,8 @@ function MOATRadar({ scores, rating, reason }: { scores: Record<string, number>;
       {/* Score pills */}
       <div className="grid grid-cols-3 gap-2 mt-2">
         {radarData.map(d => (
-          <div key={d.subject} className="text-center rounded-lg bg-white/2 border border-white/5 py-1.5">
-            <div className="text-[9px] text-white/35 font-mono mb-0.5">{d.subject}</div>
+          <div key={d.subject} className="text-center rounded-lg bg-muted/40 border border-border py-1.5">
+            <div className="text-[9px] text-muted-foreground font-mono mb-0.5">{d.subject}</div>
             <div className="text-xs font-mono font-bold" style={{ color: moatColor }}>{d.value}/10</div>
           </div>
         ))}
@@ -598,13 +598,11 @@ function MOATRadar({ scores, rating, reason }: { scores: Record<string, number>;
 
 /** Risk / Opportunity 2×2 Matrix */
 function RiskMatrix({ risks, opportunities }: { risks: RiskOpp[]; opportunities: RiskOpp[] }) {
-  const [hovered, setHovered] = useState<{ item: RiskOpp; type: "risk" | "opp" } | null>(null);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Risk list */}
-      <div className="glass-card rounded-2xl border border-red-500/15 overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/5 bg-red-500/5">
+      <div className="glass-card rounded-2xl border border-red-500/20 overflow-hidden">
+        <div className="px-5 py-4 border-b border-border bg-red-500/5">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
@@ -617,14 +615,14 @@ function RiskMatrix({ risks, opportunities }: { risks: RiskOpp[]; opportunities:
             const probColor = r.probability === "High" ? "red" : r.probability === "Medium" ? "yellow" : "green";
             const impColor  = r.impact     === "High" ? "red" : r.impact     === "Medium" ? "yellow" : "green";
             return (
-              <div key={i} className="rounded-xl bg-white/2 border border-white/5 p-3 hover:border-red-500/20 transition-colors">
+              <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-red-500/20 transition-colors">
                 <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <span className="text-xs font-semibold text-white/80 font-sans">{r.title}</span>
+                  <span className="text-xs font-semibold text-foreground font-sans">{r.title}</span>
                   {r.category && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono flex-shrink-0">{r.category}</span>
                   )}
                 </div>
-                <p className="text-[11px] text-white/45 font-sans leading-relaxed mb-2">{r.description}</p>
+                <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{r.description}</p>
                 <div className="flex gap-2">
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
                     style={{
@@ -648,8 +646,8 @@ function RiskMatrix({ risks, opportunities }: { risks: RiskOpp[]; opportunities:
       </div>
 
       {/* Opportunity list */}
-      <div className="glass-card rounded-2xl border border-emerald-500/15 overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/5 bg-emerald-500/5">
+      <div className="glass-card rounded-2xl border border-emerald-500/20 overflow-hidden">
+        <div className="px-5 py-4 border-b border-border bg-emerald-500/5">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -659,21 +657,21 @@ function RiskMatrix({ risks, opportunities }: { risks: RiskOpp[]; opportunities:
         </div>
         <div className="p-4 space-y-3">
           {opportunities.map((o, i) => (
-            <div key={i} className="rounded-xl bg-white/2 border border-white/5 p-3 hover:border-emerald-500/20 transition-colors">
+            <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-emerald-500/20 transition-colors">
               <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="text-xs font-semibold text-white/80 font-sans">{o.title}</span>
+                <span className="text-xs font-semibold text-foreground font-sans">{o.title}</span>
                 {o.timeline && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono flex-shrink-0 flex items-center gap-1">
                     <Clock className="w-2.5 h-2.5" />{o.timeline}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-white/45 font-sans leading-relaxed mb-2">{o.description}</p>
+              <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{o.description}</p>
               <div className="flex gap-2">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 text-emerald-400">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                   P: {o.probability}
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 text-emerald-400">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                   I: {o.impact}
                 </span>
               </div>
@@ -693,7 +691,7 @@ function SectionHeader({ icon: Icon, label, accent }: { icon: any; label: string
         <Icon className="w-3.5 h-3.5" style={{ color: accent }} />
       </div>
       <h3 className="text-sm font-display font-bold tracking-wide" style={{ color: accent }}>{label}</h3>
-      <div className="flex-1 h-px bg-white/5" />
+      <div className="flex-1 h-px bg-border" />
     </div>
   );
 }
@@ -703,14 +701,14 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6 mt-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-4 h-4 rounded bg-white/10 animate-pulse" />
-        <div className="h-5 w-64 rounded bg-white/10 animate-pulse" />
+        <div className="w-4 h-4 rounded bg-muted animate-pulse" />
+        <div className="h-5 w-64 rounded bg-muted animate-pulse" />
       </div>
-      <p className="text-xs text-white/40 font-sans">
+      <p className="text-xs text-muted-foreground font-sans">
         Generating AI fundamental analysis (concalls, valuation, MOAT)… This can take 30–90 seconds.
       </p>
       {[240, 180, 320, 200].map((h, i) => (
-        <div key={i} className="rounded-2xl border border-white/6 bg-white/2 animate-pulse" style={{ height: h }} />
+        <div key={i} className="rounded-2xl border border-border bg-card animate-pulse" style={{ height: h }} />
       ))}
     </div>
   );
@@ -774,17 +772,17 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
         <div className="w-6 h-6 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
           <Sparkles className="w-3.5 h-3.5 text-primary" />
         </div>
-        <h2 className="text-base font-display font-bold text-white/80 tracking-wide">
+        <h2 className="text-base font-display font-bold text-foreground tracking-wide">
           Fundamental Analysis Dashboard
         </h2>
-        <div className="flex-1 h-px bg-white/5" />
-        <span className="text-[10px] font-mono text-white/25 px-2 py-1 rounded-full border border-white/8">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-[10px] font-mono text-muted-foreground px-2 py-1 rounded-full border border-border">
           {data.sector ?? "—"} · {data.industry ?? "—"}
         </span>
       </div>
 
       {/* ── 1. Hero Row — Score + Verdict + Targets ── */}
-      <div className="glass-card rounded-2xl border border-white/6 overflow-hidden">
+      <div className="glass-card rounded-2xl border border-border overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-primary/60 via-primary/20 to-transparent" />
         <div className="p-6 flex flex-col md:flex-row items-start md:items-center gap-6">
 
@@ -801,10 +799,10 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
                 {data.verdict}
               </span>
               {data.targetPriceLow && data.targetPriceHigh && (
-                <div className="flex items-center gap-1.5 text-sm font-mono text-white/60">
+                <div className="flex items-center gap-1.5 text-sm font-mono text-muted-foreground">
                   <Target className="w-4 h-4 text-primary/70" />
                   12M Target:
-                  <span className="text-white font-bold">
+                  <span className="text-foreground font-bold">
                     ₹{data.targetPriceLow.toLocaleString("en-IN")} – ₹{data.targetPriceHigh.toLocaleString("en-IN")}
                   </span>
                 </div>
@@ -819,16 +817,16 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
 
             {/* Analyst summary */}
             {data.analystConsensusSummary && (
-              <p className="text-xs text-white/55 font-sans leading-relaxed max-w-2xl">{data.analystConsensusSummary}</p>
+              <p className="text-xs text-foreground/85 font-sans leading-relaxed max-w-2xl">{data.analystConsensusSummary}</p>
             )}
 
             {/* Key monitorable */}
             {data.keyMonitorable && (
-              <div className="flex items-start gap-2 bg-primary/5 border border-primary/15 rounded-xl px-3 py-2">
+              <div className="flex items-start gap-2 bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
                 <Info className="w-3.5 h-3.5 text-primary/70 mt-0.5 flex-shrink-0" />
                 <div>
                   <span className="text-[10px] font-mono text-primary/60 uppercase tracking-wider">Key Monitorable</span>
-                  <p className="text-xs text-white/65 font-sans mt-0.5">{data.keyMonitorable}</p>
+                  <p className="text-xs text-muted-foreground font-sans mt-0.5">{data.keyMonitorable}</p>
                 </div>
               </div>
             )}
@@ -836,8 +834,8 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
 
           {/* Score breakdown */}
           {score && (
-            <div className="w-full md:w-64 space-y-2.5 border-t md:border-t-0 md:border-l border-white/6 pt-4 md:pt-0 md:pl-5">
-              <div className="text-[10px] font-mono text-white/35 uppercase tracking-widest mb-3">Score Breakdown</div>
+            <div className="w-full md:w-64 space-y-2.5 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-5">
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-3">Score Breakdown</div>
               {Object.entries(score.components).map(([key, c]) => (
                 <ScoreBar key={key} label={c.label} score={c.score} max={c.max} />
               ))}
@@ -878,7 +876,7 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
         </div>
       )}
 
-      {/* ── 6. Risk / Opportunity Matrix ── */}
+      {/* ── 6. Risk / Opportunity Assessment ── */}
       {(data.risks?.length > 0 || data.opportunities?.length > 0) && (
         <div>
           <SectionHeader icon={AlertTriangle} label="Risk / Opportunity Assessment" accent="hsl(22,95%,58%)" />
