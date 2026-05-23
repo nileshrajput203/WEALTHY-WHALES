@@ -51,8 +51,8 @@
   --chart-4:             217 91% 55%;
   --chart-5:             280 65% 50%;
 
-  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-serif:   Georgia, serif;
   --font-mono:    'JetBrains Mono', 'Courier New', monospace;
   --radius:       .75rem;
@@ -404,4 +404,130 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+}
+
+/* ═══════════════════════════════════════════
+   DYNAMIC THEME MAPPINGS FOR LIGHT/DARK MODES
+   Fixes hardcoded text-white/dark bg classes
+═══════════════════════════════════════════ */
+
+:root {
+  --text-white-dynamic: 220 26% 14%; /* Slate foreground in light mode */
+  --bg-black-dynamic-opacity: 220 8% 96%; /* Light grey base in light mode */
+  --bg-white-dynamic-opacity: 0 0% 100%; /* Pure white base in light mode */
+  --border-white-dynamic-opacity: 220 26% 14%; /* Slate base in light mode */
+}
+
+.dark {
+  --text-white-dynamic: 0 0% 95%; /* Off-white in dark mode */
+  --bg-black-dynamic-opacity: 0 0% 0%; /* Black base in dark mode */
+  --bg-white-dynamic-opacity: 0 0% 100%; /* White base in dark mode */
+  --border-white-dynamic-opacity: 255 255 255; /* White base in dark mode */
+}
+
+/* Dynamic text color overrides */
+.text-white {
+  color: hsl(var(--text-white-dynamic)) !important;
+}
+.text-white\/90 {
+  color: hsla(var(--text-white-dynamic) / 0.9) !important;
+}
+.text-white\/80 {
+  color: hsla(var(--text-white-dynamic) / 0.8) !important;
+}
+.text-white\/70 {
+  color: hsla(var(--text-white-dynamic) / 0.7) !important;
+}
+.text-white\/60 {
+  color: hsla(var(--text-white-dynamic) / 0.6) !important;
+}
+.text-white\/50 {
+  color: hsla(var(--text-white-dynamic) / 0.5) !important;
+}
+.text-white\/45 {
+  color: hsla(var(--text-white-dynamic) / 0.45) !important;
+}
+.text-white\/40 {
+  color: hsla(var(--text-white-dynamic) / 0.4) !important;
+}
+.text-white\/35 {
+  color: hsla(var(--text-white-dynamic) / 0.35) !important;
+}
+.text-white\/30 {
+  color: hsla(var(--text-white-dynamic) / 0.3) !important;
+}
+.text-white\/25 {
+  color: hsla(var(--text-white-dynamic) / 0.25) !important;
+}
+.text-white\/20 {
+  color: hsla(var(--text-white-dynamic) / 0.2) !important;
+}
+.text-white\/15 {
+  color: hsla(var(--text-white-dynamic) / 0.15) !important;
+}
+.text-white\/10 {
+  color: hsla(var(--text-white-dynamic) / 0.1) !important;
+}
+
+/* Translucent dark backgrounds mapped dynamically */
+.bg-black\/50 {
+  background-color: hsla(var(--bg-black-dynamic-opacity) / 0.5) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.bg-black\/40 {
+  background-color: hsla(var(--bg-black-dynamic-opacity) / 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.bg-black\/30 {
+  background-color: hsla(var(--bg-black-dynamic-opacity) / 0.3) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.bg-black\/20 {
+  background-color: hsla(var(--bg-black-dynamic-opacity) / 0.2) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.bg-black\/10 {
+  background-color: hsla(var(--bg-black-dynamic-opacity) / 0.1) !important;
+}
+
+/* Translucent light backgrounds mapped dynamically */
+.bg-white\/10 {
+  background-color: hsla(var(--bg-white-dynamic-opacity) / 0.1) !important;
+}
+.bg-white\/5 {
+  background-color: hsla(var(--bg-white-dynamic-opacity) / 0.05) !important;
+}
+.bg-white\/3 {
+  background-color: hsla(var(--bg-white-dynamic-opacity) / 0.03) !important;
+}
+
+/* Borders mapped dynamically */
+.border-white\/5 {
+  border-color: hsla(var(--border-white-dynamic-opacity) / 0.05) !important;
+}
+.border-white\/6 {
+  border-color: hsla(var(--border-white-dynamic-opacity) / 0.06) !important;
+}
+.border-white\/10 {
+  border-color: hsla(var(--border-white-dynamic-opacity) / 0.10) !important;
+}
+
+/* Refined minimal visual improvements */
+a, button, [role="button"] {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.glass-card {
+  background: hsla(var(--bg-black-dynamic-opacity) / 0.4) !important;
+  border-color: hsla(var(--border-white-dynamic-opacity) / 0.06) !important;
+}
+
+/* Hairline typography and spacing refinement */
+.font-display {
+  font-family: var(--font-display) !important;
+  letter-spacing: -0.02em !important;
+}
+.font-sans {
+  font-family: var(--font-sans) !important;
+  letter-spacing: -0.01em !important;
 }
