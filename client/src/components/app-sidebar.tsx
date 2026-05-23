@@ -1,7 +1,7 @@
 import {
   BarChart3, Eye, Scan, Activity, Clock, Triangle, ArrowUpDown,
   Users, BookOpen, Star, Search, Newspaper, MessageSquare, CalendarDays,
-  Rocket, TrendingUp, ChevronDown, ChevronRight,
+  Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -60,6 +60,7 @@ const standaloneItems: MenuItem[] = [
   { title: "FII / DII",        url: "/fii-dii",          icon: Users,        testId: "nav-fii-dii"          },
   { title: "Watchlist",         url: "/watchlist",        icon: Star,         testId: "nav-watchlist",       locked: false },
   { title: "Check Your Stock",  url: "/check-stock",      icon: Search,       testId: "nav-check-stock",     locked: false },
+  { title: "Smart Screener ✨", url: "/smart-screener",     icon: Sparkles,     testId: "nav-smart-screener",   locked: false },
   { title: "Events Calendar",   url: "/events-calendar",  icon: CalendarDays, testId: "nav-events-calendar", locked: false },
   { title: "IPO Base",          url: "/ipo-base",         icon: Rocket,       testId: "nav-ipo-base",        locked: false },
   { title: "News",              url: "/news",             icon: Newspaper,    testId: "nav-news",            locked: false },

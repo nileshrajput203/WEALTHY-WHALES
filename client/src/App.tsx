@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
+import { ViewModeProvider } from "@/hooks/useViewMode";
+import ViewModeToggle from "@/components/ViewModeToggle";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
@@ -33,6 +35,9 @@ import OptionClock from "@/pages/OptionClock";
 import OptionApex from "@/pages/OptionApex";
 import IndexMover from "@/pages/IndexMover";
 import FiiDii from "@/pages/FiiDii";
+import SmartScreener from "@/pages/SmartScreener";
+import ResearchReport from "@/pages/ResearchReport";
+
 
 
 function ThemeToggle() {
@@ -88,6 +93,11 @@ function Router() {
       <Route path="/option-apex" component={OptionApex} />
       <Route path="/index-mover" component={IndexMover} />
       <Route path="/fii-dii" component={FiiDii} />
+      
+      {/* Smart Screener + AI Research Reports */}
+      <Route path="/smart-screener" component={SmartScreener} />
+      <Route path="/stock/:symbol/report" component={ResearchReport} />
+
       {/* 404 fallback */}
       <Route component={NotFound} />
     </Switch>
@@ -155,6 +165,7 @@ function AppContent() {
               <StockSearchBar />
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <ViewModeToggle />
               <ThemeToggle />
               {isAuthenticated ? (
                 <Button
@@ -196,7 +207,9 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AppContent />
+          <ViewModeProvider>
+            <AppContent />
+          </ViewModeProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

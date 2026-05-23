@@ -91,6 +91,10 @@ export default function Home() {
     refetchInterval: 30000,
   });
 
+  const { data: rankings } = useQuery<{ top: any[]; bottom: any[] }>({
+    queryKey: ["/api/stockiq-rankings"],
+  });
+
   const adminRecs    = data?.adminRecommendations ?? [];
   const liveStocks   = data?.realTimeStocks       ?? [];
   const dataSource   = data?.dataSource           ?? "—";
@@ -204,8 +208,73 @@ export default function Home() {
           </div>
         )}
 
+        {/* ── StockIQ Rankings ──────────────────── */}
+        {rankings && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-6">
+            {/* Top Scores */}
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  Top StockIQ Leaders
+                </h2>
+                <p className="text-xs text-white/35 font-mono mt-0.5">Highest rated Indian market leaders</p>
+              </div>
+              
+              <div className="space-y-2">
+                {rankings.top.slice(0, 5).map((stock) => (
+                  <Link href={`/stock/${stock.symbol}`} key={stock.symbol}>
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/3 border border-white/5 hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer transition-all duration-200">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-mono font-bold text-white/90 truncate">{stock.symbol}</span>
+                        <span className="text-[11px] text-white/35 font-sans truncate max-w-[160px]">{stock.companyName}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{stock.grade}</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono">
+                          {stock.totalScore}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom Scores */}
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-rose-500" />
+                  Avoid Zone (Lowest Scores)
+                </h2>
+                <p className="text-xs text-white/35 font-mono mt-0.5">Stocks facing structural or tech weaknesses</p>
+              </div>
+              
+              <div className="space-y-2">
+                {rankings.bottom.slice(0, 5).map((stock) => (
+                  <Link href={`/stock/${stock.symbol}`} key={stock.symbol}>
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/3 border border-white/5 hover:border-rose-500/30 hover:bg-rose-500/5 cursor-pointer transition-all duration-200">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-mono font-bold text-white/90 truncate">{stock.symbol}</span>
+                        <span className="text-[11px] text-white/35 font-sans truncate max-w-[160px]">{stock.companyName}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{stock.grade}</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-500/10 border border-rose-500/20 text-rose-400 font-mono">
+                          {stock.totalScore}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Admin Recommendations ──────────────── */}
-        <div>
+        <div className="border-t border-white/5 pt-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">

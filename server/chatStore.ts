@@ -31,9 +31,9 @@ export function clearChatSession(sessionId: string): void {
 import { INDIAN_STOCKS } from "./stockApi";
 import { NSE_UNIVERSE } from "./nseUniverse";
 
-const KNOWN_SYMBOLS = [
-  ...new Set([...Object.keys(INDIAN_STOCKS), ...NSE_UNIVERSE]),
-].sort((a, b) => b.length - a.length);
+const KNOWN_SYMBOLS = Array.from(
+  new Set([...Object.keys(INDIAN_STOCKS), ...NSE_UNIVERSE])
+).sort((a, b) => b.length - a.length);
 
 /** Detect NSE symbol from natural-language query (longest ticker match) */
 export function detectStockSymbol(query: string, stockContext?: string | null): string | null {

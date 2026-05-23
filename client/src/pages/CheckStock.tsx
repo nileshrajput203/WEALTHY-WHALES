@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useViewMode } from "@/hooks/useViewMode";
+import { type StockIQResult } from "../../../server/stockiq";
+import StockIQScore from "@/components/StockIQScore";
+import StockIQBreakdown from "@/components/StockIQBreakdown";
 import { StockSearchBar } from "@/components/StockSearchBar";
 import { Search, BarChart2, ExternalLink } from "lucide-react";
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
@@ -17,8 +22,15 @@ const INTERVALS = [
 
 export default function CheckStock() {
   const [match, params] = useRoute("/stock/:symbol");
+  const [, setLocation] = useLocation();
+  const { isPro } = useViewMode();
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [interval, setInterval] = useState("D");
+
+  const { data: stockIq } = useQuery<StockIQResult>({
+    queryKey: [`/api/stockiq/${selectedStock}`],
+    enabled: !!selectedStock,
+  });
 
   useEffect(() => {
     if (match && params?.symbol) {
@@ -69,6 +81,17 @@ export default function CheckStock() {
             transition={{ duration: 0.4 }}
             className="space-y-6"
           >
+            {/* ── StockIQ Score & Breakdown ────────── */}
+            {stockIq && (
+              <div className="grid grid-cols-1 gap-6">
+                <StockIQScore
+                  data={stockIq}
+                  onGenerateReport={() => setLocation(`/stock/${selectedStock}/report`)}
+                />
+                {isPro && <StockIQBreakdown data={stockIq} />}
+              </div>
+            )}
+
             {/* ── TradingView full chart ────────── */}
             <div className="rounded-2xl border border-white/6 overflow-hidden glass-card">
               {/* Interval selector */}

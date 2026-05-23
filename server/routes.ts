@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import axios from "axios";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import session from "express-session";
@@ -6,6 +7,8 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { setupGoogleAuth } from "./googleAuth";
 import { getFinancialAdvice, getStructuredStockInsight, getMarkdownFundamentals, getMarkdownTechnicals, getSwingScannerData, getConcallAndAnnualReportSummary, getDeepFundamentalDashboard } from "./gemini";
+import { calculateStockIQ, getTopBottomStockIQ } from "./stockiq";
+import { parseScreenerQuery, executeScreener, getSuggestedQueries } from "./smartScreener";
 import { appendChatMessage, detectStockSymbol, getChatHistory } from "./chatStore";
 import { 
   getIndianStockRecommendations, 
@@ -239,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           symbol,
           companyName: quote?.name,
           currentPrice: quote?.price,
-          fundamentals: fundLive.status === "fulfilled" ? fundLive.value : undefined,
+          fundamentals: fundLive.status === "fulfilled" ? (fundLive.value || undefined) : undefined,
           newsSample: newsItems.status === "fulfilled"
             ? newsItems.value.map((n: StockNews) => n.title)
             : [],
@@ -1141,6 +1144,213 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Deep fundamentals error:', err);
       res.status(500).json({ message: 'Failed to generate fundamental dashboard' });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════
+  //  STOCKIQ SCORE API
+  // ══════════════════════════════════════════════════════════
+
+  // Get StockIQ score for a single stock
+  app.get('/api/stockiq/:symbol', async (req, res) => {
+    try {
+      const symbol = req.params.symbol;
+      console.log(`[StockIQ] Computing score for ${symbol}...`);
+      const result = await calculateStockIQ(symbol);
+      res.json(result);
+    } catch (error) {
+      console.error('StockIQ error:', error);
+      res.status(500).json({ message: 'Failed to compute StockIQ score' });
+    }
+  });
+
+  // Get top & bottom StockIQ scores
+  app.get('/api/stockiq-rankings', async (_req, res) => {
+    try {
+      console.log('[StockIQ] Computing rankings for top 30 stocks...');
+      const rankings = await getTopBottomStockIQ();
+      res.json(rankings);
+    } catch (error) {
+      console.error('StockIQ rankings error:', error);
+      res.status(500).json({ message: 'Failed to compute StockIQ rankings' });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════
+  //  SMART NLP SCREENER API
+  // ══════════════════════════════════════════════════════════
+
+  // Smart screener — accepts natural language query
+  app.post('/api/screener/smart', async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: 'Query string required' });
+      }
+      console.log(`[Smart Screener] Processing: "${query}"`);
+
+      // Step 1: Parse NLP → structured filters
+      const filters = await parseScreenerQuery(query);
+      console.log('[Smart Screener] Parsed filters:', JSON.stringify(filters));
+
+      // Step 2: Execute screener
+      const results = await executeScreener(filters);
+      console.log(`[Smart Screener] Found ${results.length} results`);
+
+      res.json({ filters, results, query });
+    } catch (error) {
+      console.error('Smart screener error:', error);
+      res.status(500).json({ message: 'Failed to run smart screener' });
+    }
+  });
+
+  // Suggested queries
+  app.get('/api/screener/suggestions', (_req, res) => {
+    res.json({ suggestions: getSuggestedQueries() });
+  });
+
+  // ══════════════════════════════════════════════════════════
+  //  AI RESEARCH REPORT API (SSE streaming)
+  // ══════════════════════════════════════════════════════════
+  app.get('/api/research-report/:symbol', async (req, res) => {
+    try {
+      const symbol = req.params.symbol.replace(/\.(NS|BO|NSE|BSE)$/i, '').toUpperCase();
+      const yahooSym = `${symbol}.NS`;
+
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      const sendEvent = (type: string, data: any) => {
+        res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+      };
+
+      sendEvent('status', { message: 'Fetching stock data...' });
+
+      // Gather data
+      const [quoteRes, fundRes, candlesRes, newsRes, stockiqRes] = await Promise.allSettled([
+        getStockQuotes([yahooSym]),
+        getFmpFundamentals(symbol),
+        getYahooHistory(yahooSym, '1y', '1d'),
+        getYahooStockNews(yahooSym, 8, { region: 'IN', lang: 'en-IN' }),
+        calculateStockIQ(symbol),
+      ]);
+
+      const quote = quoteRes.status === 'fulfilled' ? quoteRes.value[0] : null;
+      const fund = fundRes.status === 'fulfilled' ? fundRes.value : null;
+      const candles = candlesRes.status === 'fulfilled' ? candlesRes.value : [];
+      const news = newsRes.status === 'fulfilled' ? newsRes.value : [];
+      const stockiq = stockiqRes.status === 'fulfilled' ? stockiqRes.value : null;
+      const closes = candles.map((c: any) => Number(c.close)).filter((v: number) => Number.isFinite(v));
+
+      sendEvent('status', { message: 'Generating AI research report...' });
+
+      // Build comprehensive prompt
+      const reportPrompt = `You are a SEBI-registered senior equity research analyst. Generate a comprehensive research report for:
+
+Stock: ${symbol} (${quote?.name || symbol})
+Current Price: ₹${quote?.price || 'N/A'}
+Day Change: ${quote?.changePercent?.toFixed(2) || 0}%
+Market Cap: ₹${quote?.marketCap ? (quote.marketCap / 1e7).toFixed(0) + ' Cr' : 'N/A'}
+
+Fundamental Data:
+${JSON.stringify(fund || {}, null, 2)}
+
+StockIQ Score: ${stockiq?.totalScore || 'N/A'}/100 (${stockiq?.grade || 'N/A'})
+- Fundamentals: ${stockiq?.fundamentals?.score || 'N/A'}/100
+- Technicals: ${stockiq?.technicals?.score || 'N/A'}/100
+- Momentum: ${stockiq?.momentum?.score || 'N/A'}/100
+- Insider Activity: ${stockiq?.insider?.score || 'N/A'}/100
+
+Recent News: ${news.map((n: any) => n.title).join(' | ')}
+
+Generate the report in this EXACT markdown structure:
+
+## 📋 Executive Summary
+3 sentences: what the company does, current state, and your verdict.
+
+## 🏢 Company Overview
+Business model, competitive position, key products/services. 4-5 sentences.
+
+## 💰 Financial Health
+| Parameter | Value | Assessment |
+|---|---|---|
+Include: Revenue, Net Profit, P/E, ROE, ROCE, Debt/Equity, OPM, EPS, Book Value.
+Use real data where available, estimate where not.
+
+## 🔍 SWOT Analysis
+### Strengths
+- bullet points (3-4)
+### Weaknesses  
+- bullet points (2-3)
+### Opportunities
+- bullet points (3-4)
+### Threats
+- bullet points (2-3)
+
+## 📊 Technical Outlook
+Current trend, key support/resistance levels, RSI assessment, SMA analysis. 3-4 sentences.
+
+## 🏆 Peer Comparison
+| Company | Price | P/E | ROE | Market Cap |
+|---|---|---|---|---|
+Compare with 3-4 sector peers.
+
+## ⚠️ Risk Factors
+- 3-4 specific risks with severity (High/Medium/Low)
+
+## 🎯 Verdict
+**Rating: [Strong Buy | Buy | Hold | Sell | Strong Sell]**
+**StockIQ Score: ${stockiq?.totalScore || 'N/A'}/100 (${stockiq?.grade || '—'})**
+**Target Price: ₹X - ₹Y (12 months)**
+Key reasoning in 2-3 sentences.
+
+Use ** for bold. No disclaimers. Be specific with numbers.`;
+
+      // Call Gemini
+      const apiKey = process.env.GEMINI_API_KEY?.trim();
+      const { data } = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+        {
+          contents: [{ role: 'user', parts: [{ text: reportPrompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'text/plain' },
+        },
+        { params: { key: apiKey }, headers: { 'Content-Type': 'application/json' }, timeout: 120000 }
+      );
+
+      const reportText = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+
+      if (!reportText) {
+        sendEvent('error', { message: 'AI failed to generate report' });
+        res.end();
+        return;
+      }
+
+      // Stream sections
+      const sections = reportText.split(/(?=## )/g).filter(Boolean);
+      for (const section of sections) {
+        sendEvent('section', { content: section.trim() });
+        await new Promise(r => setTimeout(r, 100)); // small delay for visual effect
+      }
+
+      sendEvent('complete', {
+        symbol,
+        companyName: quote?.name || symbol,
+        price: quote?.price,
+        stockiqScore: stockiq?.totalScore,
+        stockiqGrade: stockiq?.grade,
+        fullReport: reportText,
+      });
+
+      res.end();
+    } catch (error) {
+      console.error('Research report error:', error);
+      try {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to generate report' })}\n\n`);
+      } catch {}
+      res.end();
     }
   });
 
