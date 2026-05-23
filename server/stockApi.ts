@@ -1,5 +1,6 @@
 // Free Stock Data APIs - Multiple providers for redundancy
 import axios from 'axios';
+import { NSE_UNIQUE, NIFTY_50, ETFS } from './nseUniverse';
 
 // Configuration for different free APIs
 const API_CONFIGS = {
@@ -103,7 +104,7 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
     const response = await axios.get(`${API_CONFIGS.yahoo.baseUrl}/${symbol}`, {
       params: {
         interval: '1d',
-        range: '1d',
+        range: '5d',
         includePrePost: false,
         useYfid: true,
         corsDomain: 'finance.yahoo.com'
@@ -120,12 +121,38 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
     }
 
     const meta = data.chart.result[0].meta;
-    const quote = data.chart.result[0].indicators.quote[0];
+    const quoteData = data.chart.result[0].indicators?.quote?.[0];
+    const timestamps = data.chart.result[0].timestamp;
     
     const currentPrice = meta.regularMarketPrice || meta.previousClose;
-    const previousClose = meta.previousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
+    const previousClose = meta.previousClose || 0;
+
+    // Try multiple ways to get accurate change values
+    let change = 0;
+    let changePercent = 0;
+
+    // Method 1: Use meta fields if available and non-zero
+    if (meta.regularMarketChange && meta.regularMarketChange !== 0) {
+      change = meta.regularMarketChange;
+      changePercent = meta.regularMarketChangePercent || (previousClose ? (change / previousClose) * 100 : 0);
+    }
+    // Method 2: Compute from currentPrice vs previousClose
+    else if (currentPrice && previousClose && currentPrice !== previousClose) {
+      change = currentPrice - previousClose;
+      changePercent = (change / previousClose) * 100;
+    }
+    // Method 3: Use last two candle closes (works when market is closed)
+    else if (quoteData?.close && timestamps && timestamps.length >= 2) {
+      const closes = quoteData.close.filter((c: any) => c != null && Number.isFinite(c));
+      if (closes.length >= 2) {
+        const lastClose = closes[closes.length - 1];
+        const prevDayClose = closes[closes.length - 2];
+        if (prevDayClose && prevDayClose !== 0) {
+          change = lastClose - prevDayClose;
+          changePercent = (change / prevDayClose) * 100;
+        }
+      }
+    }
 
     return {
       symbol: meta.symbol,
@@ -139,7 +166,7 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
       low: meta.regularMarketDayLow,
       open: meta.regularMarketOpen,
       previousClose: previousClose,
-      timestamp: new Date(meta.regularMarketTime * 1000),
+      timestamp: new Date((meta.regularMarketTime ?? Math.floor(Date.now() / 1000)) * 1000),
       source: 'Yahoo Finance'
     };
   } catch (error) {
@@ -203,6 +230,212 @@ export function computeRSI(values: number[], period = 14): (number | null)[] {
   }
   return rsis;
 }
+
+export function computeEMA(values: number[], period: number): (number | null)[] {
+  const out: (number | null)[] = [];
+  const k = 2 / (period + 1);
+  let ema: number | null = null;
+  for (let i = 0; i < values.length; i++) {
+    if (i + 1 < period) { out.push(null); continue; }
+    if (ema === null) {
+      // Seed with SMA
+      const slice = values.slice(i + 1 - period, i + 1);
+      ema = slice.reduce((a, b) => a + b, 0) / period;
+    } else {
+      ema = values[i] * k + ema * (1 - k);
+    }
+    out.push(ema);
+  }
+  return out;
+}
+
+function computeATR(highs: number[], lows: number[], closes: number[], period = 14): (number | null)[] {
+  const out: (number | null)[] = [null];
+  for (let i = 1; i < closes.length; i++) {
+    const tr = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    );
+    out.push(tr);
+  }
+  // ATR = EMA of TRs
+  const trs = out.map(v => v ?? 0);
+  const atr: (number | null)[] = [];
+  let avg: number | null = null;
+  for (let i = 0; i < trs.length; i++) {
+    if (i + 1 < period) { atr.push(null); continue; }
+    if (avg === null) {
+      avg = trs.slice(i + 1 - period, i + 1).reduce((a, b) => a + b, 0) / period;
+    } else {
+      avg = (avg * (period - 1) + trs[i]) / period;
+    }
+    atr.push(avg);
+  }
+  return atr;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SWING SCANNER — Real technical analysis on small/mid-cap
+   NSE stocks (excluding Nifty 50/100/500 and ETFs).
+   
+   Filters (from user's Chartink-style screener):
+   1. ATR(14) < ATR(14) 10 days ago        — ATR contracting
+   2. ATR(14)/Close < 0.08                 — Low volatility vs price
+   3. Close > 52-week high * 0.75          — Near highs
+   4. EMA(50) > EMA(150)                   — Bullish structure
+   5. EMA(150) > EMA(200)                  — Long-term uptrend
+   6. Close > EMA(50)                      — Above intermediate MA
+   7. Close > 10                           — No penny stocks
+   8. Close * Volume > 1,000,000           — Minimum turnover
+   9. Daily change > 0%                    — Positive day
+   10. Daily change < 3%                   — Not too volatile
+   11. Close > EMA(9)                      — Short-term bullish
+   12. Close > EMA(20)                     — Above near-term MA
+═══════════════════════════════════════════════════════════ */
+export interface SwingScanResult {
+  sr: number;
+  stockName: string;
+  symbol: string;
+  links: string;
+  changePercent: number;
+  price: number;
+  volume: string;
+  sector: string;
+  setup: string;
+  atr: number;
+  ema9: number;
+  ema20: number;
+  ema50: number;
+  ema150: number;
+  ema200: number;
+  weekHigh52: number;
+  turnover: number;
+}
+
+// Analyze a single stock: returns SwingScanResult or null if it fails any filter
+async function analyzeStock(sym: string): Promise<SwingScanResult | null> {
+  try {
+    const yahooSym = sym.includes('.') ? sym : `${sym}.NS`;
+    const candles = await getYahooHistory(yahooSym, '1y', '1d');
+    if (!candles || candles.length < 210) return null;
+
+    const closes = candles.map((c: any) => c.close as number);
+    const highs  = candles.map((c: any) => c.high as number);
+    const lows   = candles.map((c: any) => c.low as number);
+    const vols   = candles.map((c: any) => c.volume as number);
+    const n      = closes.length;
+    const last   = closes[n - 1];
+    const prev   = closes[n - 2];
+
+    // Quick reject filters (cheapest first)
+    if (last <= 10) return null;                          // F7
+    const dailyChange = ((last - prev) / prev) * 100;
+    if (dailyChange <= 0) return null;                    // F9
+    if (dailyChange >= 3) return null;                    // F10
+    const turnover = last * (vols[n - 1] || 0);
+    if (turnover < 1_000_000) return null;                // F8
+
+    // EMAs
+    const e9   = computeEMA(closes, 9)[n - 1];
+    const e20  = computeEMA(closes, 20)[n - 1];
+    const e50  = computeEMA(closes, 50)[n - 1];
+    const e150 = computeEMA(closes, 150)[n - 1];
+    const e200 = computeEMA(closes, 200)[n - 1];
+    if (e9 == null || e20 == null || e50 == null || e150 == null || e200 == null) return null;
+
+    if (last <= e9)   return null;                        // F11
+    if (last <= e20)  return null;                        // F12
+    if (last <= e50)  return null;                        // F6
+    if (e50 <= e150)  return null;                        // F4
+    if (e150 <= e200) return null;                        // F5
+
+    // ATR
+    const atrArr = computeATR(highs, lows, closes, 14);
+    const currentATR = atrArr[n - 1];
+    const atr10ago   = atrArr[n - 11];
+    if (currentATR == null || atr10ago == null) return null;
+    if (currentATR >= atr10ago) return null;              // F1
+    if ((currentATR / last) >= 0.08) return null;         // F2
+
+    // 52-week high
+    const lookback = Math.min(n, 260);
+    const weekHigh52 = Math.max(...closes.slice(n - lookback));
+    if (last < weekHigh52 * 0.75) return null;            // F3
+
+    // ── PASSED ALL 12 FILTERS ──
+    const cleanSym = sym.replace('.NS', '').replace('.BO', '');
+    return {
+      sr: 0,
+      stockName: cleanSym,
+      symbol: sym,
+      links: 'P&F | F.A',
+      changePercent: Number(dailyChange.toFixed(2)),
+      price: Number(last.toFixed(2)),
+      volume: (vols[n - 1] || 0).toLocaleString('en-IN'),
+      sector: '',
+      setup: `ATR↓ EMA stack ✓ ${((last / weekHigh52) * 100).toFixed(0)}% of 52WH`,
+      atr: Number(currentATR.toFixed(2)),
+      ema9: Number(e9.toFixed(2)),
+      ema20: Number(e20.toFixed(2)),
+      ema50: Number(e50.toFixed(2)),
+      ema150: Number(e150.toFixed(2)),
+      ema200: Number(e200.toFixed(2)),
+      weekHigh52: Number(weekHigh52.toFixed(2)),
+      turnover: Number(turnover.toFixed(0)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function runSwingScanner(): Promise<SwingScanResult[]> {
+  const baseList = NSE_UNIQUE.filter(sym => {
+    const clean = sym.replace('.NS', '').replace('.BO', '');
+    if (NIFTY_50.has(clean)) return false;
+    if (ETFS.has(clean)) return false;
+    return true;
+  });
+
+  const scanList: string[] = [];
+  for (const sym of baseList) {
+    scanList.push(`${sym}.NS`);
+    scanList.push(`${sym}.BO`);
+  }
+
+  console.log(`Swing scanner: scanning ${scanList.length} stocks (excluded ${NSE_UNIQUE.length - scanList.length} Nifty50/ETFs)`);
+
+  const results: SwingScanResult[] = [];
+  const batchSize = 15;       // 15 parallel requests per batch
+  let scanned = 0;
+
+  for (let b = 0; b < scanList.length; b += batchSize) {
+    const batch = scanList.slice(b, b + batchSize);
+    const batchResults = await Promise.all(batch.map(analyzeStock));
+
+    for (const r of batchResults) {
+      if (r) results.push(r);
+    }
+
+    scanned += batch.length;
+    if (scanned % 100 === 0 || b + batchSize >= scanList.length) {
+      console.log(`  Scanned ${scanned}/${scanList.length} → ${results.length} matches so far`);
+    }
+
+    // Small delay to avoid Yahoo rate limits
+    if (b + batchSize < scanList.length) {
+      await new Promise(res => setTimeout(res, 100));
+    }
+  }
+
+  // Sort by change% descending
+  results.sort((a, b) => b.changePercent - a.changePercent);
+  results.forEach((r, i) => { r.sr = i + 1; });
+
+  console.log(`Swing scanner complete: ${results.length} stocks passed all 12 filters`);
+  return results;
+}
+
 
 // --- Fundamentals via FMP ---
 export async function getFmpFundamentals(symbol: string) {
@@ -349,7 +582,7 @@ export async function getMarketIndices(): Promise<MarketIndex[]> {
             timeout: 10000,
           });
           const q = r.data;
-          if (q && typeof q.c === 'number') {
+          if (q && typeof q.c === 'number' && q.c > 0) {
             const prevClose = typeof q.pc === 'number' ? q.pc : undefined;
             const computedChange = prevClose !== undefined ? q.c - prevClose : (typeof q.d === 'number' ? q.d : 0);
             const computedDp = prevClose && prevClose !== 0 ? (computedChange / prevClose) * 100 : (typeof q.dp === 'number' ? q.dp : 0);

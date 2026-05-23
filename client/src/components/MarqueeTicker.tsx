@@ -38,7 +38,7 @@ export function MarqueeTicker() {
             data-testid={`ticker-item-${index.symbol}-${i}`}
           >
             <span className="text-slate-300 font-semibold tracking-wide uppercase text-xs">
-              {index.symbol}
+              {index.name || index.symbol}
             </span>
             <span className="text-white font-bold text-sm">
               {index.value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}

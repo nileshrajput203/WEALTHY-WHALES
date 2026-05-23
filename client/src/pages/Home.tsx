@@ -86,9 +86,18 @@ export default function Home() {
     queryKey: ["/api/recommendations"],
   });
 
+  const { data: indicesResponse } = useQuery<any>({
+    queryKey: ["/api/indices"],
+    refetchInterval: 30000,
+  });
+
   const adminRecs    = data?.adminRecommendations ?? [];
   const liveStocks   = data?.realTimeStocks       ?? [];
   const dataSource   = data?.dataSource           ?? "—";
+
+  const indicesData = Array.isArray(indicesResponse) ? indicesResponse : (indicesResponse?.indices ?? []);
+  const niftyData = indicesData.find((idx: any) => idx.symbol === '^NSEI');
+  const niftyChange = niftyData?.changePercent != null ? `${niftyData.changePercent > 0 ? '+' : ''}${niftyData.changePercent.toFixed(2)}%` : "Loading...";
 
   return (
     <>
@@ -155,7 +164,7 @@ export default function Home() {
 
         {/* ── Quick stats ─────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard value="+2.4%"  label="NIFTY Today"     sub="^NSEI" />
+          <StatCard value={niftyChange}  label="NIFTY Today"     sub="^NSEI" />
           <StatCard value="1,247"  label="Active Stocks"   sub="NSE+BSE" />
           <StatCard value="89%"    label="AI Accuracy"     sub="backtested" />
           <StatCard value="Real"   label="Data Source"     sub={dataSource} />

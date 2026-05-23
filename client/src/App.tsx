@@ -24,6 +24,16 @@ import Community from "@/pages/Community";
 import TechnicalDetail from "@/pages/TechnicalDetail";
 import FundamentalDetail from "@/pages/FundamentalDetail";
 import AdminPanel from "@/pages/AdminPanel";
+import Watchlist from "@/pages/Watchlist";
+import EventsCalendar from "@/pages/EventsCalendar";
+import TradingJournal from "@/pages/TradingJournal";
+import InsiderStrategy from "@/pages/InsiderStrategy";
+import SectorScope from "@/pages/SectorScope";
+import OptionClock from "@/pages/OptionClock";
+import OptionApex from "@/pages/OptionApex";
+import IndexMover from "@/pages/IndexMover";
+import FiiDii from "@/pages/FiiDii";
+
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -57,6 +67,7 @@ function Router() {
         <Route path="/" component={Home} />
       )}
       {/* Public routes - accessible even when not authenticated */}
+      <Route path="/watchlist" component={Watchlist} />
       <Route path="/community" component={Community} />
       <Route path="/swing-scanner" component={SwingScanner} />
       <Route path="/ipo-base" component={IpoBase} />
@@ -66,7 +77,17 @@ function Router() {
       <Route path="/stock/:symbol/fundamentals" component={FundamentalDetail} />
       <Route path="/news" component={News} />
       <Route path="/ask-ai" component={AskAI} />
+      <Route path="/events-calendar" component={EventsCalendar} />
+      <Route path="/trading-journal" component={TradingJournal} />
       <Route path="/admin" component={AdminPanel} />
+      
+      {/* 6 New Features */}
+      <Route path="/insider-strategy" component={InsiderStrategy} />
+      <Route path="/sector-scope" component={SectorScope} />
+      <Route path="/option-clock" component={OptionClock} />
+      <Route path="/option-apex" component={OptionApex} />
+      <Route path="/index-mover" component={IndexMover} />
+      <Route path="/fii-dii" component={FiiDii} />
       {/* 404 fallback */}
       <Route component={NotFound} />
     </Switch>

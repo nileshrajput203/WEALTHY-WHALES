@@ -11,9 +11,10 @@
  */
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useCallback } from "react";
-import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2 } from "lucide-react";
+import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2, Star } from "lucide-react";
 import { TradingViewChart, toTVSymbol } from "./TradingViewChart";
 import { Link } from "wouter";
+import { useWatchlist } from "@/hooks/useWatchlist";
 
 /* ── Types ───────────────────────────────────────────────── */
 export interface StockDrawerPayload {
@@ -106,13 +107,16 @@ export function StockChartDrawer({ stock, onClose }: Props) {
 
   // Build clean symbol for API queries (Yahoo-style)
   const apiSymbol = stock
-    ? (stock.symbol.includes(":") ? `${stock.symbol.split(":")[1]}.NS` : stock.symbol)
+    ? (stock.symbol.includes(":") ? `${stock.symbol.split(":")[1]}.NS` : stock.symbol.includes(".NS") || stock.symbol.includes(".BO") ? stock.symbol : `${stock.symbol}.NS`)
     : null;
 
+  const { isWatched, toggleStock } = useWatchlist();
+  const inWatchlist = apiSymbol ? isWatched(apiSymbol) : false;
+
   const { quote, loading: quoteLoading } = useLiveQuote(
-    stock ? stock.symbol : null
+    apiSymbol
   );
-  const insight = useInsight(stock ? stock.symbol : null);
+  const insight = useInsight(apiSymbol);
 
   // Prefer live quote data, fall back to passed-in props
   const price         = quote?.price         ?? stock?.price;
@@ -233,6 +237,18 @@ export function StockChartDrawer({ stock, onClose }: Props) {
 
               {/* Right actions */}
               <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                <button
+                  onClick={() => apiSymbol && toggleStock(apiSymbol)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-mono transition-all duration-200
+                    ${inWatchlist 
+                      ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40 hover:bg-yellow-500/10" 
+                      : "glass-card border-white/8 text-white/60 hover:text-white hover:border-primary/40"
+                    }`}
+                  title={inWatchlist ? "Remove from Watchlist" : "Add to Watchlist"}
+                >
+                  <Star className={`w-3.5 h-3.5 ${inWatchlist ? "fill-yellow-400" : ""}`} />
+                  <span className="hidden sm:inline">{inWatchlist ? "Watched" : "Watchlist"}</span>
+                </button>
                 <Link href={fullAnalysisUrl}>
                   <a
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass-card border border-white/8

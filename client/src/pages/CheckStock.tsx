@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { StockSearchBar } from "@/components/StockSearchBar";
-import { Search, BarChart2 } from "lucide-react";
-import { StockAnalysisPanel } from "@/components/StockAnalysisPanel";
-import { TradingViewChart } from "@/components/TradingViewChart";
+import { Search, BarChart2, ExternalLink } from "lucide-react";
+import { FundamentalDashboard } from "@/components/FundamentalDashboard";
+import { PredictaPanel } from "@/components/PredictaPanel";
+import { TradingViewChart, toTVSymbol } from "@/components/TradingViewChart";
 import { motion, AnimatePresence } from "framer-motion";
 
 const INTERVALS = [
@@ -87,27 +88,35 @@ export default function CheckStock() {
                     {iv.label}
                   </button>
                 ))}
-                <span className="ml-auto text-[10px] text-white/15 font-mono">Powered by TradingView · Free</span>
+                {/* Open in TradingView — for applying Pine Script */}
+                <a
+                  href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(toTVSymbol(selectedStock))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-mono font-semibold text-primary/70 hover:text-primary hover:bg-primary/10 transition-all duration-150 border border-primary/20 hover:border-primary/40"
+                  title="Open on TradingView.com to apply your Pine Script"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Open in TradingView
+                </a>
               </div>
 
-              {/* Chart */}
+              {/* Chart — clean, no default indicators */}
               <TradingViewChart
                 symbol={selectedStock}
                 interval={interval}
                 height={520}
                 showToolbar={true}
                 allowSymbolChange={false}
-                studies={[
-                  "RSI@tv-basicstudies",
-                  "MAExp@tv-basicstudies",
-                  "MACD@tv-basicstudies",
-                  "BB@tv-basicstudies",
-                ]}
+                studies={[]}
               />
             </div>
 
-            {/* ── AI Analysis Panel ─────────────── */}
-            <StockAnalysisPanel symbol={selectedStock} />
+            {/* ── PREDICTA V4 Dashboard ───────────────────────── */}
+            <PredictaPanel symbol={selectedStock} />
+
+            {/* ── Deep Fundamental Dashboard ─────────────────── */}
+            <FundamentalDashboard symbol={selectedStock} />
           </motion.div>
         )}
       </AnimatePresence>

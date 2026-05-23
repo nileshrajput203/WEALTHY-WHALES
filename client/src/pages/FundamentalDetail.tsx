@@ -1,38 +1,25 @@
-import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { FundamentalDashboard } from "@/components/FundamentalDashboard";
+import { BookOpen } from "lucide-react";
 
 export default function FundamentalDetail() {
-  const [match, params] = useRoute("/stock/:symbol/fundamentals");
+  const [, params] = useRoute("/stock/:symbol/fundamentals");
   const symbol = params?.symbol || "";
-  const [ai, setAi] = useState<string>("");
-
-  useEffect(() => {
-    let live = true;
-    async function loadAi() {
-      const res = await fetch(`/api/stock/${encodeURIComponent(symbol)}/fundamentals/ai`);
-      const json = await res.json();
-      if (live) setAi(json.markdown || "");
-    }
-    if (symbol) loadAi();
-    return () => { live = false; };
-  }, [symbol]);
 
   if (!symbol) return null;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">{symbol} · Fundamentals</h1>
-      {ai ? (
-        <div className="prose prose-invert max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{ai}</ReactMarkdown>
-        </div>
-      ) : (
-        <div className="h-40 rounded-xl border border-card-border bg-secondary animate-pulse" />
-      )}
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white mb-1 flex items-center gap-2">
+          <BookOpen className="w-6 h-6 text-primary" />
+          {symbol} · Fundamental Analysis
+        </h1>
+        <p className="text-sm text-white/40 font-sans">
+          AI-powered deep fundamental analysis · Concall intel · Annual reports · Valuation
+        </p>
+      </div>
+      <FundamentalDashboard symbol={symbol} />
     </div>
   );
 }
-
-

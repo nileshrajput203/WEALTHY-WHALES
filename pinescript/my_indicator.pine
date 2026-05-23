@@ -1,0 +1,404 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0
+// © PREDICTA_V4 - Full Replication
+
+//@version=6
+indicator("PREDICTA V4", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=200)
+
+// ═══════════════════════════════════════════════════════════════════
+//  INPUTS
+// ═══════════════════════════════════════════════════════════════════
+showEMAs        = input.bool(true,  "Show EMAs",            group="EMAs")
+ema8_len        = input.int(8,      "EMA 8",                group="EMAs")
+ema21_len       = input.int(21,     "EMA 21",               group="EMAs")
+ema55_len       = input.int(55,     "EMA 55",               group="EMAs")
+ema144_len      = input.int(144,    "EMA 144",              group="EMAs")
+
+showSFP         = input.bool(true,  "Show SFP Labels",      group="SFP")
+sfpLookback     = input.int(20,     "SFP Lookback Bars",    group="SFP", minval=5)
+
+showDoji        = input.bool(true,  "Show Doji Star Labels",group="Doji")
+
+showPredPanel   = input.bool(true,  "Show PREDICTA Panel",  group="Panel")
+panelX          = input.int(40,     "Panel Offset (bars right)", group="Panel", minval=1)
+
+showMetrics     = input.bool(true,  "Show Metrics Panel",   group="Panel")
+showPriceLabels = input.bool(true,  "Show Price Labels",    group="Panel")
+
+// ═══════════════════════════════════════════════════════════════════
+//  EMAs
+// ═══════════════════════════════════════════════════════════════════
+ema8   = ta.ema(close, ema8_len)
+ema21  = ta.ema(close, ema21_len)
+ema55  = ta.ema(close, ema55_len)
+ema144 = ta.ema(close, ema144_len)
+
+plot(showEMAs ? ema8   : na, "EMA 8",   color=color.new(color.yellow,  0), linewidth=1)
+plot(showEMAs ? ema21  : na, "EMA 21",  color=color.new(color.orange,  0), linewidth=1)
+plot(showEMAs ? ema55  : na, "EMA 55",  color=color.new(color.blue,    0), linewidth=2)
+plot(showEMAs ? ema144 : na, "EMA 144", color=color.new(color.red,     0), linewidth=2)
+
+// ═══════════════════════════════════════════════════════════════════
+//  EMA % FROM PRICE  (left metrics panel)
+// ═══════════════════════════════════════════════════════════════════
+ema8pct   = (close - ema8)   / ema8   * 100
+ema21pct  = (close - ema21)  / ema21  * 100
+ema55pct  = (close - ema55)  / ema55  * 100
+ema144pct = (close - ema144) / ema144 * 100
+
+// ═══════════════════════════════════════════════════════════════════
+//  VOLUME METRICS
+// ═══════════════════════════════════════════════════════════════════
+avgVol20    = ta.sma(volume, 20)
+rVol        = volume / avgVol20 * 100           // Relative Volume %
+vol50dav    = ta.sma(volume, 50)
+adr_val     = ta.sma(high - low, 14) / close * 100
+
+// ═══════════════════════════════════════════════════════════════════
+//  SIGNAL CALCULATIONS  (for PREDICTA panel)
+// ═══════════════════════════════════════════════════════════════════
+
+// --- MACD ---
+[macdLine, signalLine, macdHist] = ta.macd(close, 12, 26, 9)
+macdBull   = macdLine > signalLine
+macdBear   = macdLine < signalLine
+
+// --- RSI ---
+rsiVal     = ta.rsi(close, 14)
+rsiBull    = rsiVal > 50
+rsiBear    = rsiVal < 50
+
+// --- Stochastic ---
+kVal       = ta.stoch(close, high, low, 14)
+dVal       = ta.sma(kVal, 3)
+stochBull  = kVal > dVal and kVal < 80
+stochBear  = kVal < dVal and kVal > 20
+
+// --- Volume Signal ---
+volBull    = volume > avgVol20
+volBear    = volume < avgVol20
+volRatio   = volume / avgVol20
+
+// --- DELTA (approximate via close vs open) ---
+deltaVal   = close - open
+deltaBull  = deltaVal > 0
+deltaBear  = deltaVal < 0
+
+// --- TREND (EMA alignment) ---
+trendUp    = ema8 > ema21 and ema21 > ema55
+trendDown  = ema8 < ema21 and ema21 < ema55
+trendFlat  = not trendUp and not trendDown
+
+// --- ADX ---
+[diPlus, diMinus, adxVal] = ta.dmi(14, 14)
+adxStrong  = adxVal > 25
+adxWeak    = adxVal <= 25
+
+// ═══════════════════════════════════════════════════════════════════
+//  LONG / SHORT SCORE  →  prediction %
+// ═══════════════════════════════════════════════════════════════════
+// Each signal = 1 point for long; total 8 signals
+longScore = 0
+longScore := longScore + (macdBull  ? 1 : 0)
+longScore := longScore + (rsiBull   ? 1 : 0)
+longScore := longScore + (stochBull ? 1 : 0)
+longScore := longScore + (volBull   ? 1 : 0)
+longScore := longScore + (deltaBull ? 1 : 0)
+longScore := longScore + (trendUp   ? 1 : 0)
+longScore := longScore + (adxStrong ? 1 : 0)
+longScore := longScore + (close > ema55 ? 1 : 0)
+
+shortScore = 8 - longScore
+
+longPct  = math.round(longScore  / 8 * 100)
+shortPct = math.round(shortScore / 8 * 100)
+
+// Confluence (signals in same direction)
+longConf  = longScore  >= 6 ? longScore  - 5 : 0
+shortConf = shortScore >= 6 ? shortScore - 5 : 0
+
+// ═══════════════════════════════════════════════════════════════════
+//  SFP — Swing Failure Pattern
+// ═══════════════════════════════════════════════════════════════════
+// Bearish SFP: spike above recent high but close below it
+recentHigh = ta.highest(high[1], sfpLookback)
+recentLow  = ta.lowest(low[1],   sfpLookback)
+
+sfpBear = high > recentHigh and close < recentHigh and close < open
+sfpBull = low  < recentLow  and close > recentLow  and close > open
+
+if showSFP and sfpBear
+    label.new(bar_index, high, "SFP",
+      style      = label.style_label_down,
+      color      = color.new(color.red, 10),
+      textcolor  = color.white,
+      size       = size.small)
+
+if showSFP and sfpBull
+    label.new(bar_index, low, "SFP",
+      style      = label.style_label_up,
+      color      = color.new(color.teal, 10),
+      textcolor  = color.white,
+      size       = size.small)
+
+// ═══════════════════════════════════════════════════════════════════
+//  DOJI STAR  detection
+// ═══════════════════════════════════════════════════════════════════
+bodySize  = math.abs(close - open)
+rangeSize = high - low
+isDoji    = rangeSize > 0 and bodySize / rangeSize < 0.1
+
+// Doji at bottom of down-move  →  bullish doji star
+dojiStarBull = isDoji and close[1] < open[1] and low < low[1]
+// Doji at top of up-move       →  bearish doji star
+dojiStarBear = isDoji and close[1] > open[1] and high > high[1]
+
+if showDoji and dojiStarBull
+    label.new(bar_index, low - rangeSize * 0.3, "Doji Star",
+      style    = label.style_label_up,
+      color    = color.new(color.teal, 20),
+      textcolor= color.white,
+      size     = size.tiny)
+
+if showDoji and dojiStarBear
+    label.new(bar_index, high + rangeSize * 0.3, "Doji Star",
+      style    = label.style_label_down,
+      color    = color.new(color.orange, 20),
+      textcolor= color.white,
+      size     = size.tiny)
+
+// ═══════════════════════════════════════════════════════════════════
+//  HELPER — colour for signal rows
+// ═══════════════════════════════════════════════════════════════════
+_sigColor(isBull) =>
+    isBull ? color.new(color.teal, 0) : color.new(color.red, 0)
+
+_sigText(isBull, bullTxt, bearTxt) =>
+    isBull ? bullTxt : bearTxt
+
+// ═══════════════════════════════════════════════════════════════════
+//  PREDICTA V4 — DASHBOARD TABLE  (top-right)
+// ═══════════════════════════════════════════════════════════════════
+var table predPanel = table.new(position.top_right, 3, 22,
+    bgcolor         = color.new(color.black, 5),
+    border_width    = 1,
+    border_color    = color.new(color.gray, 60),
+    frame_width     = 2,
+    frame_color     = color.new(color.gray, 40))
+
+_hdr(col, row, txt, bg) =>
+    table.cell(predPanel, col, row, txt,
+        text_color  = color.white,
+        text_size   = size.small,
+        bgcolor     = bg,
+        text_halign = text.align_center)
+
+_row(col, row, txt, bg, tc) =>
+    table.cell(predPanel, col, row, txt,
+        text_color  = tc,
+        text_size   = size.tiny,
+        bgcolor     = bg,
+        text_halign = text.align_center)
+
+if showPredPanel and barstate.islast
+    // ── HEADER ──────────────────────────────────────────────────────
+    table.cell(predPanel, 0, 0, "PREDICTA V4",
+        text_color  = color.new(color.white, 0),
+        text_size   = size.small,
+        bgcolor     = color.new(#1a1a2e, 0),
+        text_halign = text.align_center)
+    table.cell(predPanel, 1, 0, "ATR: " + (adxWeak ? "↓ LOW" : "→ MID"),
+        text_color  = color.new(color.gray, 20),
+        text_size   = size.tiny,
+        bgcolor     = color.new(#1a1a2e, 0),
+        text_halign = text.align_center)
+    table.merge_cells(predPanel, 0, 0, 1, 0)
+
+    // ── LONG HEADER ──────────────────────────────────────────────────
+    _hdr(0, 1, "LONG ANALYSIS", color.new(#0d3b2e, 0))
+    _hdr(1, 1, "PREDICTION " + str.tostring(longPct) + "%",
+        longPct >= 60 ? color.new(color.teal, 10) : color.new(color.gray, 30))
+
+    // ── LONG SIGNAL ROWS ─────────────────────────────────────────────
+    string[] lLabels = array.from("MACD","RSI","STOCH","VOLUME","DELTA ▶","TREND","ADX","CONFLUENCE")
+    bool[]   lBulls  = array.from(macdBull, rsiBull, stochBull, volBull, deltaBull, trendUp, adxStrong, longConf > 0)
+    string[] lTexts  = array.from(
+      macdBull  ? "Bullish ↑" : "Bearish ↓",
+      "(" + str.tostring(math.round(rsiVal)) + ")",
+      stochBull ? "Bullish ↑" : "Bearish ↓",
+      str.tostring(math.round(volRatio, 1)) + "x",
+      deltaBull ? "Strong Buy ▶" : "Strong Sell ▶",
+      trendUp   ? "Strong Up ↑"  : (trendDown ? "Down ↓" : "Flat →"),
+      str.tostring(math.round(adxVal)) + " " + (adxWeak ? "Weak" : "Week"),
+      str.tostring(longConf) + " / 8")
+
+    for i = 0 to 7
+        bool   b  = array.get(lBulls,  i)
+        string lb = array.get(lLabels, i)
+        string lt = array.get(lTexts,  i)
+        table.cell(predPanel, 0, 2 + i, lb,
+            text_color  = color.new(color.silver, 0),
+            text_size   = size.tiny,
+            bgcolor     = color.new(#111122, 0),
+            text_halign = text.align_left)
+        table.cell(predPanel, 1, 2 + i, lt,
+            text_color  = b ? color.new(color.teal, 0) : color.new(color.red, 0),
+            text_size   = size.tiny,
+            bgcolor     = color.new(#111122, 0),
+            text_halign = text.align_right)
+
+    // ── LONG/WAIT FOOTER ─────────────────────────────────────────────
+    _hdr(0, 10, "LONG",
+        longPct >= 60 ? color.new(color.teal, 10) : color.new(color.gray, 50))
+    _hdr(1, 10, "WAIT",
+        longPct < 60  ? color.new(color.orange, 10) : color.new(color.gray, 50))
+
+    // ── SHORT HEADER ─────────────────────────────────────────────────
+    _hdr(0, 11, "SHORT ANALYSIS", color.new(#3b0d0d, 0))
+    _hdr(1, 11, "PREDICTION " + str.tostring(shortPct) + "%",
+        shortPct >= 60 ? color.new(color.red, 10) : color.new(color.gray, 30))
+
+    // ── SHORT SIGNAL ROWS ────────────────────────────────────────────
+    bool[]   sBulls = array.from(macdBull, rsiBull, stochBull, volBull, deltaBull, trendDown, adxStrong, shortConf > 0)
+    string[] sTexts = array.from(
+      macdBull  ? "Bullish ↑" : "Bearish ↓",
+      "(" + str.tostring(math.round(rsiVal)) + ")",
+      stochBull ? "Bullish ↑" : "Bearish ↓",
+      str.tostring(math.round(volRatio, 1)) + "x",
+      deltaBull ? "Buy ↑" : "Sell ↓",
+      trendDown ? "Down ↓"    : "Up ↑",
+      str.tostring(math.round(adxVal)) + " " + (adxWeak ? "Weak" : "Week"),
+      str.tostring(shortConf) + " / 8")
+
+    for i = 0 to 7
+        bool   b  = array.get(sBulls,  i)
+        string lb = array.get(lLabels, i)
+        string st = array.get(sTexts,  i)
+        table.cell(predPanel, 0, 12 + i, lb,
+            text_color  = color.new(color.silver, 0),
+            text_size   = size.tiny,
+            bgcolor     = color.new(#1a110e, 0),
+            text_halign = text.align_left)
+        table.cell(predPanel, 1, 12 + i, st,
+            text_color  = b ? color.new(color.teal, 0) : color.new(color.red, 0),
+            text_size   = size.tiny,
+            bgcolor     = color.new(#1a110e, 0),
+            text_halign = text.align_right)
+
+    // ── SHORT/WAIT FOOTER ────────────────────────────────────────────
+    _hdr(0, 20, "SHORT",
+        shortPct >= 60 ? color.new(color.red, 10) : color.new(color.gray, 50))
+    _hdr(1, 20, "WAIT",
+        shortPct < 60  ? color.new(color.orange, 10) : color.new(color.gray, 50))
+
+// ═══════════════════════════════════════════════════════════════════
+//  METRICS PANEL  (top-left, like EMA% / RVol / ADR panel in image)
+// ═══════════════════════════════════════════════════════════════════
+var table metricsPanel = table.new(position.top_left, 2, 12,
+    bgcolor      = color.new(#0a0a14, 10),
+    border_width = 1,
+    border_color = color.new(color.gray, 70),
+    frame_width  = 1,
+    frame_color  = color.new(color.gray, 50))
+
+_mRow(row, lbl, val, vc) =>
+    table.cell(metricsPanel, 0, row, lbl,
+        text_color  = color.new(color.silver, 0),
+        text_size   = size.tiny,
+        bgcolor     = color.new(#0d0d1a, 0),
+        text_halign = text.align_left)
+    table.cell(metricsPanel, 1, row, val,
+        text_color  = vc,
+        text_size   = size.tiny,
+        bgcolor     = color.new(#0d0d1a, 0),
+        text_halign = text.align_right)
+
+if showMetrics and barstate.islast
+    _mRow(0,  "Price",    str.tostring(math.round(close, 2)), color.white)
+    _mRow(1,  "EMA-8",    str.tostring(math.round(ema8pct,  2)) + " %",
+        ema8pct  >= 0 ? color.new(color.teal, 0) : color.new(color.red, 0))
+    _mRow(2,  "EMA-21",   str.tostring(math.round(ema21pct, 2)) + " %",
+        ema21pct >= 0 ? color.new(color.teal, 0) : color.new(color.red, 0))
+    _mRow(3,  "EMA-55",   str.tostring(math.round(ema55pct, 2)) + " %",
+        ema55pct >= 0 ? color.new(color.teal, 0) : color.new(color.red, 0))
+    _mRow(4,  "EMA-144",  str.tostring(math.round(ema144pct,2)) + " %",
+        ema144pct>= 0 ? color.new(color.teal, 0) : color.new(color.red, 0))
+    _mRow(5,  "RVol",     str.tostring(math.round(rVol,   1)) + " %",
+        rVol > 100 ? color.new(color.teal, 0) : color.new(color.gray, 20))
+    _mRow(6,  "ADR",      str.tostring(math.round(adr_val,2)) + " %", color.new(color.silver, 0))
+    _mRow(7,  "50 DAV",   str.tostring(math.round(vol50dav/1e5, 1)) + " M", color.new(color.silver, 0))
+    _mRow(8,  "Vol Tod",  str.tostring(math.round(volume/1e5,   1)) + " M",
+        volume > avgVol20 ? color.new(color.teal, 0) : color.new(color.gray, 20))
+    _mRow(9,  "RSI",      str.tostring(math.round(rsiVal, 1)),
+        rsiVal > 60 ? color.new(color.teal,0) : rsiVal < 40 ? color.new(color.red,0) : color.new(color.orange,0))
+    _mRow(10, "ADX",      str.tostring(math.round(adxVal, 1)),
+        adxVal > 25 ? color.new(color.teal, 0) : color.new(color.gray, 20))
+    _mRow(11, "U/D Ratio",str.tostring(math.round(diPlus / math.max(diMinus, 0.001), 2)),
+        diPlus > diMinus ? color.new(color.teal, 0) : color.new(color.red, 0))
+
+// ═══════════════════════════════════════════════════════════════════
+//  PRICE LABELS  (right side — current price boxes)
+// ═══════════════════════════════════════════════════════════════════
+var label priceLabel1 = na
+var label priceLabel2 = na
+var label priceLabel3 = na
+
+if showPriceLabels and barstate.islast
+    label.delete(priceLabel1)
+    label.delete(priceLabel2)
+    label.delete(priceLabel3)
+
+    priceLabel1 := label.new(bar_index + 2, close,
+        str.tostring(math.round(close, 2)),
+        style     = label.style_label_left,
+        color     = color.new(color.teal, 0),
+        textcolor = color.white,
+        size      = size.small)
+
+    priceLabel2 := label.new(bar_index + 2, close * 0.9992,
+        str.tostring(math.round(close * 0.9992, 2)),
+        style     = label.style_label_left,
+        color     = color.new(#1a3a1a, 0),
+        textcolor = color.white,
+        size      = size.tiny)
+
+    priceLabel3 := label.new(bar_index + 2, close * 0.9980,
+        str.tostring(math.round(close * 0.9980, 2)),
+        style     = label.style_label_left,
+        color     = color.new(#3a1a1a, 0),
+        textcolor = color.white,
+        size      = size.tiny)
+
+// ═══════════════════════════════════════════════════════════════════
+//  PREDICTION CALLOUT BOXES  (76% / 24% floating near current bar)
+// ═══════════════════════════════════════════════════════════════════
+var label longCallout  = na
+var label shortCallout = na
+
+if barstate.islast
+    label.delete(longCallout)
+    label.delete(shortCallout)
+
+    longCallout := label.new(bar_index, high * 1.002,
+        str.tostring(longPct) + "%",
+        style     = label.style_label_down,
+        color     = longPct >= 50 ? color.new(color.teal, 0) : color.new(color.gray, 30),
+        textcolor = color.white,
+        size      = size.normal)
+
+    shortCallout := label.new(bar_index, low * 0.998,
+        str.tostring(shortPct) + "%",
+        style     = label.style_label_up,
+        color     = shortPct > longPct ? color.new(color.red, 0) : color.new(color.gray, 30),
+        textcolor = color.white,
+        size      = size.normal)
+
+// ═══════════════════════════════════════════════════════════════════
+//  BACKGROUND ZONES  (demand / supply shading like in image)
+// ═══════════════════════════════════════════════════════════════════
+// Highlight bars where price is near EMA55 support (demand zone — blue tint)
+demandZone = close > ema55 * 0.98 and close < ema55 * 1.02
+bgcolor(demandZone ? color.new(color.blue, 94) : na, title="Near EMA55 Zone")
+
+// Strong bullish momentum — teal tint
+strongBull = longPct >= 75
+bgcolor(strongBull ? color.new(color.teal, 95) : na, title="Strong Bull Zone")
