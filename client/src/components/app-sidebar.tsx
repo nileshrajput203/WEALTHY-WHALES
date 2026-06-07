@@ -1,7 +1,7 @@
 import {
   BarChart3, Eye, Scan, Activity, Clock, Triangle, ArrowUpDown,
   Users, BookOpen, Star, Search, Newspaper, MessageSquare, CalendarDays,
-  Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles,
+  Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles, Bell, Brain,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +42,7 @@ const menuGroups: MenuGroup[] = [
       { title: "Insider Strategy",   url: "/insider-strategy",  icon: Eye,        testId: "nav-insider-strategy" },
       { title: "Sector Scope",      url: "/sector-scope",      icon: Scan,       testId: "nav-sector-scope"     },
       { title: "Swing Spectrum",    url: "/swing-scanner",     icon: TrendingUp, testId: "nav-swing-spectrum"    },
+      { title: "Chart Patterns",    url: "/chart-patterns",    icon: Sparkles,   testId: "nav-chart-patterns"   },
     ],
   },
   {
@@ -57,6 +58,8 @@ const menuGroups: MenuGroup[] = [
 ];
 
 const standaloneItems: MenuItem[] = [
+  { title: "HERMES AI 🧠",     url: "/hermes",           icon: Brain,        testId: "nav-hermes-ai"        },
+  { title: "FUGU SCORE 🐡",    url: "/fugu",             icon: Activity,     testId: "nav-fugu-score"       },
   { title: "FII / DII",        url: "/fii-dii",          icon: Users,        testId: "nav-fii-dii"          },
   { title: "Watchlist",         url: "/watchlist",        icon: Star,         testId: "nav-watchlist",       locked: false },
   { title: "Check Your Stock",  url: "/check-stock",      icon: Search,       testId: "nav-check-stock",     locked: false },
@@ -67,6 +70,7 @@ const standaloneItems: MenuItem[] = [
   { title: "Ask AI",            url: "/ask-ai",           icon: MessageSquare,testId: "nav-ask-ai",          locked: false },
   { title: "Trading Journal",   url: "/trading-journal",  icon: BookOpen,     testId: "nav-trading-journal", locked: false },
   { title: "Community",          url: "/community",        icon: Users,        testId: "nav-community",       locked: false },
+  { title: "Notification Settings", url: "/settings/notifications", icon: Bell, testId: "nav-notification-settings", locked: false },
 ];
 
 /* ═══ NavItem renderer ═══ */

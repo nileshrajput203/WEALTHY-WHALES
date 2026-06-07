@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Rocket, TrendingUp, TrendingDown } from "lucide-react";
+import { Rocket, TrendingUp, TrendingDown, LineChart } from "lucide-react";
 import type { ScannerData } from "@shared/schema";
+import { StockChartDrawer, type StockDrawerPayload } from "@/components/StockChartDrawer";
 
 export default function IpoBase() {
+  const [selectedStock, setSelectedStock] = useState<StockDrawerPayload | null>(null);
+
   const { data: ipoData = [], isLoading } = useQuery<ScannerData[]>({
     queryKey: ["/api/scanner/ipo"],
   });
@@ -15,7 +19,7 @@ export default function IpoBase() {
           <Rocket className="w-8 h-8 text-primary" />
           IPO Base Scanner
         </h1>
-        <p className="text-muted-foreground">Track recent IPOs and their performance in the market</p>
+        <p className="text-muted-foreground">Track recent IPOs and their performance in the market. Click any row to view the full chart.</p>
       </div>
 
       {isLoading ? (
@@ -42,7 +46,12 @@ export default function IpoBase() {
                 {ipoData.map((stock) => {
                   const isPositive = parseFloat(stock.change) >= 0;
                   return (
-                    <tr key={stock.id} className="hover:bg-secondary/70" data-testid={`row-ipo-${stock.stockSymbol}`}>
+                    <tr 
+                      key={stock.id} 
+                      className="hover:bg-secondary/70 cursor-pointer transition-colors" 
+                      data-testid={`row-ipo-${stock.stockSymbol}`}
+                      onClick={() => setSelectedStock({ symbol: stock.stockSymbol, name: stock.stockName })}
+                    >
                       <td className="px-4 py-3 font-mono font-semibold text-foreground">{stock.stockSymbol}</td>
                       <td className="px-4 py-3 text-sm text-foreground">{stock.stockName}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{stock.exchange}</td>
@@ -70,6 +79,12 @@ export default function IpoBase() {
           </CardContent>
         </Card>
       )}
+
+      {/* Slide-out Chart Drawer */}
+      <StockChartDrawer
+        stock={selectedStock}
+        onClose={() => setSelectedStock(null)}
+      />
     </div>
   );
 }

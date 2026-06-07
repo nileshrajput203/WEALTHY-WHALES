@@ -21,7 +21,7 @@ export default function InsiderStrategy() {
   const [sortKey, setSortKey] = useState<"date" | "value">("date");
 
   const { data, isLoading } = useQuery<{ trades: InsiderTrade[] }>({
-    queryKey: ["/api/insider-trades"],
+    queryKey: ["/api/nse/insider-trades"],
     staleTime: 5 * 60 * 1000,
   });
 

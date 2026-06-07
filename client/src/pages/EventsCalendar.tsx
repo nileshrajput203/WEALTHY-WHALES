@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import {
   CalendarDays, ChevronLeft, ChevronRight, Bell, TrendingUp,
@@ -29,42 +30,8 @@ const TYPE_META: Record<string, { label: string; color: string; bg: string; icon
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-/* ═══ Helper: Generate sample events from watchlist ═══ */
-function generateWatchlistEvents(watchlist: string[]): StockEvent[] {
-  const events: StockEvent[] = [];
-  const today = new Date();
-  const types: StockEvent["type"][] = ["earnings","dividend","agm","board","result","split","bonus"];
-  const descriptions: Record<string, string> = {
-    earnings: "Quarterly earnings announcement",
-    dividend: "Ex-dividend date",
-    agm: "Annual General Meeting",
-    board: "Board meeting scheduled",
-    result: "Financial results declaration",
-    split: "Stock split record date",
-    bonus: "Bonus share record date",
-  };
 
-  watchlist.forEach((sym, sIdx) => {
-    const clean = sym.replace(".NS","").replace(".BO","");
-    // Generate 2-4 events per stock spread across the next 3 months
-    const count = 2 + (sIdx % 3);
-    for (let i = 0; i < count; i++) {
-      const daysAhead = Math.floor(Math.random() * 90) - 15; // some in past, most in future
-      const d = new Date(today);
-      d.setDate(d.getDate() + daysAhead);
-      const type = types[(sIdx + i) % types.length];
-      events.push({
-        id: `${clean}-${i}`,
-        symbol: clean,
-        title: `${clean} — ${descriptions[type] || "Corporate event"}`,
-        date: d.toISOString().split("T")[0],
-        type,
-        description: descriptions[type],
-      });
-    }
-  });
-  return events.sort((a, b) => a.date.localeCompare(b.date));
-}
+
 
 /* ═══ Calendar Component ═══ */
 export default function EventsCalendar() {
@@ -73,8 +40,21 @@ export default function EventsCalendar() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string | null>(null);
 
-  // Generate events from watchlist (in a real app, this would come from an API)
-  const allEvents = useMemo(() => generateWatchlistEvents(watchlist), [watchlist]);
+  const { data: eventsData, isLoading: isEventsLoading } = useQuery<{ events: StockEvent[] }>({
+    queryKey: ["/api/nse/events", watchlist.length > 0 ? watchlist.join(",") : ""],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allEvents = useMemo(() => {
+    const list = eventsData?.events ?? [];
+    if (watchlist.length === 0) return list;
+    
+    const watchlistSymbols = watchlist.map(sym => 
+      sym.replace(".NS", "").replace(".BO", "").toUpperCase()
+    );
+    
+    return list.filter(e => watchlistSymbols.includes(e.symbol.toUpperCase()));
+  }, [eventsData, watchlist]);
 
   const events = useMemo(() => {
     if (!filterType) return allEvents;

@@ -5,6 +5,7 @@ import {
   chatMessages,
   scannerData,
   newsItems,
+  marketDataCache,
   type User,
   type UpsertUser,
   type StockRecommendation,
@@ -15,6 +16,7 @@ import {
   type InsertScannerData,
   type NewsItem,
   type InsertNewsItem,
+  type MarketDataCache,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -44,6 +46,10 @@ export interface IStorage {
   
   // Delete operations
   deleteRecommendation(id: string): Promise<void>;
+
+  // Market Data Caching
+  getMarketDataCache(key: string): Promise<MarketDataCache | undefined>;
+  setMarketDataCache(key: string, data: any): Promise<MarketDataCache>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -126,6 +132,31 @@ export class DatabaseStorage implements IStorage {
     console.log(`Attempting to delete recommendation with id: ${id}`);
     const result = await db.delete(stockRecommendations).where(eq(stockRecommendations.id, id));
     console.log(`Delete result:`, result);
+  }
+
+  // Market Data Caching
+  async getMarketDataCache(key: string): Promise<MarketDataCache | undefined> {
+    const [cached] = await db.select().from(marketDataCache).where(eq(marketDataCache.key, key));
+    return cached;
+  }
+
+  async setMarketDataCache(key: string, data: any): Promise<MarketDataCache> {
+    const [updated] = await db
+      .insert(marketDataCache)
+      .values({
+        key,
+        data,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: marketDataCache.key,
+        set: {
+          data,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return updated;
   }
 }
 

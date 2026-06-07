@@ -436,6 +436,105 @@ export async function runSwingScanner(): Promise<SwingScanResult[]> {
   return results;
 }
 
+// --- IPO Base Scanner ---
+export async function runIpoScanner(): Promise<any[]> {
+  // We scan the first 400 stocks of NSE_UNIQUE as that usually covers most liquid mid/small caps and new listings.
+  // Alternatively, scanning the entire list is fine. To ensure it runs within limits, we'll scan all but with slightly larger batches.
+  const scanList = NSE_UNIQUE.map(sym => sym.includes('.') ? sym : `${sym}.NS`);
+  console.log(`IPO scanner: scanning ${scanList.length} stocks for recent listings...`);
+
+  const results: any[] = [];
+  const batchSize = 25; // 25 parallel requests to yahoo is usually safe
+  let scanned = 0;
+
+  for (let b = 0; b < scanList.length; b += batchSize) {
+    const batch = scanList.slice(b, b + batchSize);
+    const batchResults = await Promise.all(batch.map(async (sym) => {
+      try {
+        const candles = await getYahooHistory(sym, '1y', '1d');
+        // If it's a recent IPO, the 1y history will be short. 
+        // 90 calendar days is ~65 trading days. We allow 10 to 75 trading days (approx 2-3.5 months).
+        if (!candles || candles.length < 10 || candles.length > 75) return null;
+        
+        const firstCandle = candles[0];
+        const listingDate = new Date(firstCandle.time);
+        const ageInDays = (Date.now() - listingDate.getTime()) / (1000 * 60 * 60 * 24);
+        
+        // Ensure it's between 10 and 110 calendar days old
+        if (ageInDays < 10 || ageInDays > 110) return null;
+        
+        const closes = candles.map((c: any) => c.close as number);
+        const highs = candles.map((c: any) => c.high as number);
+        const lows = candles.map((c: any) => c.low as number);
+        const vols = candles.map((c: any) => c.volume as number);
+        
+        const n = closes.length;
+        const lastClose = closes[n - 1];
+        const prevClose = closes[n - 2];
+        const dailyChange = lastClose - prevClose;
+        const dailyChangePercent = (dailyChange / prevClose) * 100;
+        
+        // 1. Total Base Depth: Should not exceed 35% from the listing peak
+        const maxHighAll = Math.max(...highs);
+        const minLowAll = Math.min(...lows);
+        const totalDepth = (maxHighAll - minLowAll) / maxHighAll;
+        if (totalDepth > 0.35) return null;
+        
+        // 2. Recent Consolidation: Last 10 trading days should be in a tight range (<= 15%)
+        const lookback = Math.min(n, 10);
+        const recentHighs = highs.slice(n - lookback);
+        const recentLows = lows.slice(n - lookback);
+        const maxRecent = Math.max(...recentHighs);
+        const minRecent = Math.min(...recentLows);
+        const recentDepth = (maxRecent - minRecent) / maxRecent;
+        
+        if (recentDepth > 0.15) return null;
+        
+        // 3. Liquidity Check: Average volume of the last 5 days
+        const recentVols = vols.slice(n - Math.min(n, 5));
+        const avgVol = recentVols.reduce((sum: number, v: number) => sum + (v || 0), 0) / recentVols.length;
+        if (avgVol < 5000) return null; // Avoid totally illiquid penny stocks
+        
+        const cleanSym = sym.replace('.NS', '').replace('.BO', '');
+        
+        // Format to match ScannerData schema expected by frontend
+        return {
+          id: `ipo_${cleanSym}`,
+          scannerType: 'ipo',
+          stockSymbol: cleanSym,
+          stockName: cleanSym, // Using symbol as name
+          exchange: 'NSE',
+          price: lastClose.toFixed(2),
+          change: dailyChange.toFixed(2),
+          changePercent: dailyChangePercent.toFixed(2),
+          volume: vols[n - 1] ? vols[n - 1].toLocaleString('en-IN') : '0',
+          marketCap: 'N/A', // Simple placeholder since we don't fetch full profile here
+          createdAt: new Date().toISOString()
+        };
+      } catch (e) {
+        return null; // Silent skip on error
+      }
+    }));
+
+    for (const r of batchResults) {
+      if (r) results.push(r);
+    }
+    
+    scanned += batch.length;
+    // Small delay between batches to avoid rate limits
+    if (b + batchSize < scanList.length) {
+      await new Promise(res => setTimeout(res, 80));
+    }
+  }
+
+  // Sort by highest change percentage first
+  results.sort((a, b) => parseFloat(b.changePercent) - parseFloat(a.changePercent));
+  console.log(`IPO scanner complete: found ${results.length} stocks forming a base`);
+  return results;
+}
+
+
+
 
 // --- Fundamentals via FMP ---
 export async function getFmpFundamentals(symbol: string) {

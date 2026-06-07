@@ -4,6 +4,7 @@
  * Computes the same 8 signals (MACD, RSI, Stochastic, Volume, Delta, Trend, ADX, Price>EMA55)
  * from Yahoo candle data and renders the prediction dashboard natively in the app.
  */
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Zap, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
@@ -144,6 +145,10 @@ interface PredictaResult {
   emas: { ema8: number; ema21: number; ema55: number; ema144: number };
   rsiVal: number;
   adxVal: number;
+  macdHistVal: number;
+  rVol: number;
+  emaAlignment: number;
+  currentPrice: number;
 }
 
 function computePredicta(candles: any[]): PredictaResult | null {
@@ -171,6 +176,14 @@ function computePredicta(candles: any[]): PredictaResult | null {
   // MACD
   const macd = computeMACD(closes);
   const macdBull = macd.macdLine[last] > macd.signalLine[last];
+  const macdHistVal = macd.macdLine[last] - macd.signalLine[last];
+
+  // EMA Alignment (-4 to +4 score)
+  let emaAlignment = 0;
+  if (closes[last] > ema8[last]) emaAlignment++; else emaAlignment--;
+  if (ema8[last] > ema21[last]) emaAlignment++; else emaAlignment--;
+  if (ema21[last] > ema55[last]) emaAlignment++; else emaAlignment--;
+  if (ema55[last] > ema144[last]) emaAlignment++; else emaAlignment--;
 
   // RSI
   const rsi = computeRSI(closes, 14);
@@ -260,6 +273,8 @@ function computePredicta(candles: any[]): PredictaResult | null {
     longPct, shortPct, longConf, shortConf, signals, metrics,
     emas: { ema8: ema8[last], ema21: ema21[last], ema55: ema55[last], ema144: ema144[last] },
     rsiVal, adxVal,
+    macdHistVal, rVol, emaAlignment,
+    currentPrice: closes[last]
   };
 }
 
@@ -285,6 +300,40 @@ export function PredictaPanel({ symbol }: { symbol: string }) {
   });
 
   const predicta = data?.candles ? computePredicta(data.candles) : null;
+
+  useEffect(() => {
+    if (!predicta) return;
+
+    const direction = predicta.longPct >= predicta.shortPct ? "BUY" : "SELL";
+    const confidence = predicta.longPct >= predicta.shortPct ? predicta.longPct : predicta.shortPct;
+
+    fetch("/api/signals/log", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbol,
+        signalType: "PREDICTA_V4_SCAN",
+        direction,
+        confidence,
+        priceAtSignal: predicta.currentPrice || 100,
+        rsi: predicta.rsiVal,
+        macdHistogram: predicta.macdHistVal,
+        adx: predicta.adxVal,
+        rvol: predicta.rVol,
+        emaAlignment: predicta.emaAlignment,
+        marketCondition: predicta.adxVal <= 25 ? "RANGING" : "TRENDING"
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      console.log("[PredictaPanel] Signal logged:", data);
+    })
+    .catch(err => {
+      console.warn("[PredictaPanel] Silent signal log failed:", err);
+    });
+  }, [symbol, predicta?.longPct, predicta?.shortPct]);
 
   if (isLoading) {
     return (

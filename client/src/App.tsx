@@ -37,6 +37,11 @@ import IndexMover from "@/pages/IndexMover";
 import FiiDii from "@/pages/FiiDii";
 import SmartScreener from "@/pages/SmartScreener";
 import ResearchReport from "@/pages/ResearchReport";
+import ChartPatterns from "@/pages/ChartPatterns";
+import NotificationSettings from "@/pages/NotificationSettings";
+import HermesAI from "@/pages/HermesAI";
+import FuguAI from "@/pages/FuguAI";
+import AIConfluence from "@/pages/AIConfluence";
 
 
 
@@ -97,6 +102,11 @@ function Router() {
       {/* Smart Screener + AI Research Reports */}
       <Route path="/smart-screener" component={SmartScreener} />
       <Route path="/stock/:symbol/report" component={ResearchReport} />
+      <Route path="/chart-patterns" component={ChartPatterns} />
+      <Route path="/settings/notifications" component={NotificationSettings} />
+      <Route path="/hermes" component={HermesAI} />
+      <Route path="/fugu" component={FuguAI} />
+      <Route path="/ai-confluence" component={AIConfluence} />
 
       {/* 404 fallback */}
       <Route component={NotFound} />

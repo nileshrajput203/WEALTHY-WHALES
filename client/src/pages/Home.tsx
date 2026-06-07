@@ -95,6 +95,11 @@ export default function Home() {
     queryKey: ["/api/stockiq-rankings"],
   });
 
+  const { data: correlationData } = useQuery<{ usdinr: number; btcChange24h: number; goldChange24h: number }>({
+    queryKey: ["/api/currency/correlation"],
+    refetchInterval: 60000,
+  });
+
   const adminRecs    = data?.adminRecommendations ?? [];
   const liveStocks   = data?.realTimeStocks       ?? [];
   const dataSource   = data?.dataSource           ?? "—";
@@ -173,6 +178,35 @@ export default function Home() {
           <StatCard value="89%"    label="AI Accuracy"     sub="backtested" />
           <StatCard value="Real"   label="Data Source"     sub={dataSource} />
         </div>
+
+        {/* ── Macro Correlations ─────────────────── */}
+        {correlationData && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-white/5 pt-4">
+            <div className="glass-card rounded-2xl p-4 border border-white/6 hover:border-blue-500/30 transition-all duration-300">
+              <div className="text-lg font-mono font-bold text-blue-400 mb-0.5">
+                {correlationData.usdinr ? `₹${correlationData.usdinr.toFixed(2)}` : "₹83.50"}
+              </div>
+              <div className="text-xs text-white/40 font-sans">USD / INR Live</div>
+              <div className="text-[10px] text-white/25 font-mono mt-0.5">Exchange Rate</div>
+            </div>
+            
+            <div className="glass-card rounded-2xl p-4 border border-white/6 hover:border-violet-500/30 transition-all duration-300">
+              <div className={`text-lg font-mono font-bold mb-0.5 ${correlationData.btcChange24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {correlationData.btcChange24h >= 0 ? "+" : ""}{correlationData.btcChange24h}%
+              </div>
+              <div className="text-xs text-white/40 font-sans">Bitcoin 24h</div>
+              <div className="text-[10px] text-white/25 font-mono mt-0.5">Crypto Sentiment</div>
+            </div>
+
+            <div className="glass-card rounded-2xl p-4 border border-white/6 hover:border-yellow-500/30 transition-all duration-300">
+              <div className={`text-lg font-mono font-bold mb-0.5 ${correlationData.goldChange24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {correlationData.goldChange24h >= 0 ? "+" : ""}{correlationData.goldChange24h}%
+              </div>
+              <div className="text-xs text-white/40 font-sans">Gold (PAXG) 24h</div>
+              <div className="text-[10px] text-white/25 font-mono mt-0.5">Safe Haven Asset</div>
+            </div>
+          </div>
+        )}
 
         {/* ── Live Market Stocks ──────────────────── */}
         {(isLoading || liveStocks.length > 0) && (

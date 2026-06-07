@@ -64,8 +64,50 @@ async function testGroq() {
   }
 }
 
+async function testOpenRouter() {
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (!orKey) {
+    console.log("\nTesting OpenRouter: Key is missing");
+    return;
+  }
+  console.log("\nTesting OpenRouter...");
+  let apiKey = orKey.trim().replace(/^["']|["']$/g, "");
+  if (apiKey.startsWith("ssk-or-v1-")) {
+    apiKey = apiKey.replace("ssk-or-v1-", "sk-or-v1-");
+  }
+  
+  const model = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-super-120b-a12b:free";
+  console.log("Model:", model);
+  console.log("Cleaned Key:", apiKey.substring(0, 10) + "...");
+  try {
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model,
+        messages: [{ role: "user", content: "Hello, what is 2+2?" }],
+        temperature: 0.2,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://github.com/nileshrajput203/WEALTHY-WHALES",
+          "X-Title": "GenAI-Stock",
+        },
+        timeout: 15000,
+      }
+    );
+    console.log("OpenRouter Success! Response:", response.data?.choices?.[0]?.message?.content);
+  } catch (err) {
+    const status = err?.response?.status || err?.status;
+    const msg = err?.response?.data?.error?.message || err.message;
+    console.error(`OpenRouter Failed (status: ${status}):`, msg);
+  }
+}
+
 (async () => {
   await testGemini();
   await testGeminiWithThinking();
   await testGroq();
+  await testOpenRouter();
 })();

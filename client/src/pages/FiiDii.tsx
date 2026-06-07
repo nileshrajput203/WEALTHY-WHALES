@@ -20,6 +20,7 @@ interface FiiDiiData {
   fiiStockFuturesLatest: number;
   sentiment: "Bullish" | "Bearish" | "Neutral" | "Mixed";
   sentimentReason: string;
+  usdinr?: number;
   history: FiiDiiDailyItem[];
 }
 
@@ -65,8 +66,16 @@ export default function FiiDii() {
             <Users className="w-6 h-6 text-primary" />
             FII / DII Flows
           </h1>
-          <p className="text-sm text-white/40 font-sans">
-            Institutional money flows, cash market activity, and derivative positioning
+          <p className="text-sm text-white/40 font-sans flex items-center gap-2 flex-wrap">
+            <span>Institutional money flows, cash market activity, and derivative positioning</span>
+            {fd?.usdinr && (
+              <>
+                <span className="text-white/20">•</span>
+                <span className="inline-flex items-center gap-1 text-xs font-mono bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2 py-0.5 rounded-lg">
+                  USD/INR: ₹{fd.usdinr.toFixed(2)}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <button

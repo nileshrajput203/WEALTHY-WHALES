@@ -304,18 +304,7 @@ function scoreInsider(fund: any, quote: any): SubScore {
     count++;
   }
 
-  // Volume — higher volume = more institutional interest
-  const volume = quote?.volume;
-  if (volume != null && volume > 0) {
-    const volScore = clamp(volume >= 5000000 ? 85 : volume >= 1000000 ? 70 : volume >= 500000 ? 55 : volume >= 100000 ? 40 : 20);
-    metrics.push({
-      name: "Volume", value: volume.toLocaleString("en-IN"),
-      interpretation: volScore >= 60 ? "Strong" : volScore >= 40 ? "Average" : "Weak",
-      contribution: volScore,
-    });
-    total += volScore;
-    count++;
-  }
+
 
   // Dividend yield (proxy for institutional quality)
   const divYield = fund?.dividendYield;

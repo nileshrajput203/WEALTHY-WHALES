@@ -11,10 +11,9 @@ import {
   type StockQuote,
 } from "./stockApi";
 import { calculateStockIQ, type StockIQResult } from "./stockiq";
+import { generateWithRetry } from "./gemini";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const MODEL = "gemini-2.5-flash";
-const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const MODEL = "gemini-flash-latest";
 
 /* ═══ Types ═══ */
 export interface ScreenerFilters {
@@ -93,10 +92,6 @@ const SCREENER_UNIVERSE: { symbol: string; sector: string }[] = [
 
 /* ═══ NLP → Structured Filters via Gemini ═══ */
 export async function parseScreenerQuery(query: string): Promise<ScreenerFilters> {
-  if (!GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY required for smart screener");
-  }
-
   const systemPrompt = `You are a stock screener query parser for Indian NSE/BSE markets.
 Convert the user's natural language query into a structured JSON filter.
 
@@ -130,17 +125,17 @@ Interpret common phrases:
 - "near highs" / "52 week high" → near52WeekHigh: true`;
 
   try {
-    const { data } = await axios.post(
-      `${API_BASE}/models/${MODEL}:generateContent`,
-      {
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: query }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1024, responseMimeType: "text/plain" },
+    const response = await generateWithRetry({
+      model: MODEL,
+      contents: query,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.1,
+        maxOutputTokens: 1024,
       },
-      { params: { key: GEMINI_API_KEY }, headers: { "Content-Type": "application/json" }, timeout: 15000 }
-    );
+    });
 
-    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "{}";
+    const text = response?.text || "{}";
     const cleaned = text.replace(/```json|```/g, "").trim();
     const match = cleaned.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in Gemini response");
