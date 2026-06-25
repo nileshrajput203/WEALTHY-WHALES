@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type StockIQResult, type SubScore } from "../../../server/stockiq";
+import { type StockIQResult, type SubScore } from "@shared/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";

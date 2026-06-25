@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useViewMode } from "@/hooks/useViewMode";
 import { useQuery } from "@tanstack/react-query";
-import { type StockIQResult } from "../../../server/stockiq";
+import { type StockIQResult } from "@shared/types";
 import AIResearchReport from "@/components/AIResearchReport";
 import StockIQScore from "@/components/StockIQScore";
 import { Button } from "@/components/ui/button";

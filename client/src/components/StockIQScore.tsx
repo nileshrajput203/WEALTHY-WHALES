@@ -1,5 +1,5 @@
 import { useViewMode } from "@/hooks/useViewMode";
-import { type StockIQResult } from "../../../server/stockiq";
+import { type StockIQResult } from "@shared/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";

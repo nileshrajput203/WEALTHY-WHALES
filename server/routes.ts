@@ -1,4 +1,5 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
+import { rateLimit } from "express-rate-limit";
 import axios from "axios";
 import { createServer, type Server } from "http";
 import passport from "passport";
@@ -219,17 +220,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication middleware
-  const isAuthenticated = (req: any, res: any, next: any) => {
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (req.isAuthenticated()) {
       return next();
     }
     return res.status(401).json({ message: "Unauthorized" });
   };
 
+  // Rate limiters for expensive AI endpoints
+  const aiRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many requests. Please wait a few minutes before trying again." },
+  });
+
+  const chatRateLimit = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Chat rate limit reached. Please slow down." },
+  });
+
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.id;
+      const userId = (req.user as any).id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -324,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chat', async (req: any, res) => {
+  app.post('/api/chat', chatRateLimit, async (req: any, res) => {
     try {
       const validated = insertChatMessageSchema.parse({
         ...req.body,
@@ -1879,7 +1897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ══════════════════════════════════════════════════════════
   //  AI RESEARCH REPORT API (SSE streaming)
   // ══════════════════════════════════════════════════════════
-  app.get('/api/research-report/:symbol', async (req, res) => {
+  app.get('/api/research-report/:symbol', aiRateLimit, async (req, res) => {
     try {
       const symbol = req.params.symbol.replace(/\.(NS|BO|NSE|BSE)$/i, '').toUpperCase();
       const yahooSym = `${symbol}.NS`;
@@ -1895,6 +1913,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       sendEvent('status', { message: 'Fetching stock data...' });
+
+      // SSE keep-alive heartbeat — prevents proxy/load-balancer from closing idle connections
+      const heartbeat = setInterval(() => {
+        try { res.write(':\n\n'); } catch { clearInterval(heartbeat); }
+      }, 15_000);
 
       // Gather data
       const [quoteRes, fundRes, candlesRes, newsRes, stockiqRes] = await Promise.allSettled([
@@ -2004,6 +2027,8 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
         sendEvent('section', { content: section.trim() });
         await new Promise(r => setTimeout(r, 100)); // small delay for visual effect
       }
+
+      clearInterval(heartbeat);
 
       sendEvent('complete', {
         symbol,

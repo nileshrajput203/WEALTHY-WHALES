@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useViewMode } from "@/hooks/useViewMode";
-import { type StockIQResult } from "../../../server/stockiq";
+import { type StockIQResult } from "@shared/types";
 import StockIQScore from "@/components/StockIQScore";
 import { StockSearchBar } from "@/components/StockSearchBar";
 import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info } from "lucide-react";
