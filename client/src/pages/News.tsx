@@ -3,24 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, ExternalLink } from "lucide-react";
 
 export default function News() {
-  // The API now returns { realTimeNews: [], adminNews: [] }
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ["/api/news"],
-  });
-
-  const newsItems: Array<{
-    id?: string;
+  type NewsItem = {
+    id?: string | number;
     title: string;
     description?: string | null;
     url?: string | null;
     source?: string | null;
     publishedAt?: string | Date | null;
-  }> = [
-    ...((data?.realTimeNews as any[]) ?? []),
-    ...((data?.adminNews as any[]) ?? []),
+  };
+
+  type NewsResponse = {
+    realTimeNews: NewsItem[];
+    adminNews: NewsItem[];
+  };
+
+  // The API now returns { realTimeNews: [], adminNews: [] }
+  const { data, isLoading } = useQuery<NewsResponse>({
+    queryKey: ["/api/news"],
+  });
+
+  const newsItems: NewsItem[] = [
+    ...(data?.realTimeNews ?? []),
+    ...(data?.adminNews ?? []),
   ];
 
-  const formatDate = (date: string | null) => {
+  const formatDate = (date: string | null | undefined) => {
     if (!date) return "Recently";
     return new Date(date).toLocaleDateString("en-IN", {
       day: "numeric",
@@ -48,7 +55,7 @@ export default function News() {
       ) : newsItems.length > 0 ? (
         <div className="space-y-4" data-testid="news-list">
           {newsItems.map((item, idx) => (
-            <Card key={(item as any).id ?? idx} className="hover-elevate" data-testid={`card-news-${(item as any).id ?? idx}`}>
+            <Card key={item.id ?? idx} className="hover-elevate" data-testid={`card-news-${item.id ?? idx}`}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <CardTitle className="text-lg font-semibold text-foreground leading-snug">
@@ -73,7 +80,7 @@ export default function News() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     {item.source && <span>Source: {item.source}</span>}
                     <span>•</span>
-                    <span>{formatDate((item.publishedAt as any) ?? null)}</span>
+                    <span>{formatDate(item.publishedAt ? String(item.publishedAt) : null)}</span>
                   </div>
                 </CardContent>
               )}

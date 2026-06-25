@@ -55,7 +55,10 @@ export function StockRecommendationCard({ recommendation, onViewChart }: StockRe
           </div>
           <p className="text-xs text-muted-foreground font-sans truncate">{recommendation.stockName}</p>
         </div>
-        <RecommendationBadge type={recommendation.recommendationType as any} size="md" />
+        <RecommendationBadge
+          type={(["BUY","SELL","HOLD"].includes(recommendation.recommendationType?.toUpperCase() ?? "") ? recommendation.recommendationType!.toUpperCase() : "BUY") as "BUY" | "SELL" | "HOLD"}
+          size="md"
+        />
       </div>
 
       {/* Reason */}

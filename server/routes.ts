@@ -287,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/recommendations', async (req: any, res) => {
+  app.post('/api/recommendations', async (req: Request, res: Response) => {
     try {
       // Allow admin panel to create recommendations without authentication
       const { createdBy, ...rest } = req.body || {};
@@ -342,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chat', chatRateLimit, async (req: any, res) => {
+  app.post('/api/chat', chatRateLimit, async (req: Request, res: Response) => {
     try {
       const validated = insertChatMessageSchema.parse({
         ...req.body,
@@ -998,7 +998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/scanner', isAuthenticated, async (req: any, res) => {
+  app.post('/api/scanner', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -1084,7 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/news', isAuthenticated, async (req: any, res) => {
+  app.post('/api/news', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
@@ -2228,9 +2228,14 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // ── Telegram Settings (Phase 1E) ─────────────────────────────────
-  app.post('/api/user/telegram', async (req: any, res) => {
+  app.post('/api/user/telegram', async (req: Request, res: Response) => {
     try {
-      const { telegramChatId } = req.body;
+      const bodySchema = z.object({ telegramChatId: z.string().max(64) });
+      const parseResult = bodySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid telegramChatId" });
+      }
+      const { telegramChatId } = parseResult.data;
       let userId = req.user?.id;
       if (!userId) {
         const allUsers = await db.select().from(users).limit(1);
@@ -2250,12 +2255,26 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // ── Signal Outcome Log (Phase 3A) ─────────────────────────────────
-  app.post('/api/signals/log', async (req: any, res) => {
+  app.post('/api/signals/log', async (req: Request, res: Response) => {
     try {
-      const payload = req.body;
-      if (!payload.symbol || !payload.signalType || !payload.direction || !payload.priceAtSignal) {
-        return res.status(400).json({ message: "Missing required signal log parameters" });
+      const signalLogSchema = z.object({
+        symbol:        z.string().max(20),
+        signalType:    z.string().max(50),
+        direction:     z.enum(["BULLISH", "BEARISH", "NEUTRAL"]),
+        priceAtSignal: z.union([z.string(), z.number()]),
+        confidence:    z.number().int().min(0).max(100).optional(),
+        rsi:           z.union([z.string(), z.number()]).optional(),
+        macdHistogram: z.union([z.string(), z.number()]).optional(),
+        atr:           z.union([z.string(), z.number()]).optional(),
+        smaSlope:      z.union([z.string(), z.number()]).optional(),
+        volumeRatio:   z.union([z.string(), z.number()]).optional(),
+        notes:         z.string().max(1000).optional(),
+      });
+      const parseResult = signalLogSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid signal log payload", errors: parseResult.error.flatten() });
       }
+      const payload = parseResult.data;
 
       const [newLog] = await db.insert(signalLog).values({
         symbol: payload.symbol,
@@ -2311,7 +2330,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   startHermesScheduler();
 
   // Full dashboard data
-  app.get('/api/hermes/dashboard', async (_req: any, res) => {
+  app.get('/api/hermes/dashboard', async (_req: Request, res: Response) => {
     try {
       const data = await getHermesDashboard();
       const status = getHermesStatus();
@@ -2323,7 +2342,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Top stocks by HERMES score
-  app.get('/api/hermes/leaderboard', async (req: any, res) => {
+  app.get('/api/hermes/leaderboard', async (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit || '30', 10);
       const data = await getHermesLeaderboard(limit);
@@ -2335,7 +2354,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // HERMES snapshot for a specific stock
-  app.get('/api/hermes/stock/:symbol', async (req: any, res) => {
+  app.get('/api/hermes/stock/:symbol', async (req: Request, res: Response) => {
     try {
       const { symbol } = req.params;
       const data = await getHermesStockSnapshot(symbol);
@@ -2348,7 +2367,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Accuracy stats by sector, regime, verdict
-  app.get('/api/hermes/accuracy', async (_req: any, res) => {
+  app.get('/api/hermes/accuracy', async (_req: Request, res: Response) => {
     try {
       const data = await getHermesAccuracy();
       res.json(data);
@@ -2359,7 +2378,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Weight version history
-  app.get('/api/hermes/weights', async (_req: any, res) => {
+  app.get('/api/hermes/weights', async (_req: Request, res: Response) => {
     try {
       const data = await getHermesWeightHistory();
       res.json(data);
@@ -2370,7 +2389,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Market regime history
-  app.get('/api/hermes/regime', async (req: any, res) => {
+  app.get('/api/hermes/regime', async (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit || '30', 10);
       const data = await getHermesRegimeHistory(limit);
@@ -2382,7 +2401,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Recent outcomes with win/loss analysis
-  app.get('/api/hermes/outcomes', async (req: any, res) => {
+  app.get('/api/hermes/outcomes', async (req: Request, res: Response) => {
     try {
       const limit = parseInt(req.query.limit || '50', 10);
       const data = await getHermesRecentOutcomes(limit);
@@ -2394,7 +2413,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger manual scan (admin only)
-  app.post('/api/hermes/scan', async (req: any, res) => {
+  app.post('/api/hermes/scan', async (req: Request, res: Response) => {
     try {
       const universeSize = parseInt(req.body?.universeSize || '200', 10);
       // Fire-and-forget — respond immediately, scan runs in background
@@ -2407,7 +2426,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger outcome tracker manually
-  app.post('/api/hermes/track-outcomes', async (_req: any, res) => {
+  app.post('/api/hermes/track-outcomes', async (_req: Request, res: Response) => {
     try {
       res.json({ message: 'Outcome tracker triggered' });
       triggerOutcomeTracker();
@@ -2418,7 +2437,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger learning cycle manually
-  app.post('/api/hermes/learn', async (_req: any, res) => {
+  app.post('/api/hermes/learn', async (_req: Request, res: Response) => {
     try {
       res.json({ message: 'Learning cycle triggered' });
       triggerLearningCycle();
@@ -2429,7 +2448,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // FUGU scheduler status
-  app.get('/api/hermes/status', async (_req: any, res) => {
+  app.get('/api/hermes/status', async (_req: Request, res: Response) => {
     try {
       const status = getHermesStatus();
       res.json(status);
@@ -2447,7 +2466,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   startFuguScheduler();
 
   // Full dashboard data
-  app.get('/api/fugu/dashboard', async (_req: any, res) => {
+  app.get('/api/fugu/dashboard', async (_req: Request, res: Response) => {
     try {
       const data = await getFuguDashboard();
       const status = getFuguStatus();
@@ -2459,7 +2478,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger manual candidate scan (admin only)
-  app.post('/api/fugu/scan', async (req: any, res) => {
+  app.post('/api/fugu/scan', async (req: Request, res: Response) => {
     try {
       const limitSize = parseInt(req.body?.limitSize || '1000', 10);
       res.json({ message: 'FUGU scan triggered', limitSize });
@@ -2471,7 +2490,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger outcome tracker manually
-  app.post('/api/fugu/track-outcomes', async (_req: any, res) => {
+  app.post('/api/fugu/track-outcomes', async (_req: Request, res: Response) => {
     try {
       res.json({ message: 'FUGU outcome tracker triggered' });
       triggerManualFuguOutcome();
@@ -2482,7 +2501,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Trigger learning cycle manually
-  app.post('/api/fugu/learn', async (_req: any, res) => {
+  app.post('/api/fugu/learn', async (_req: Request, res: Response) => {
     try {
       res.json({ message: 'FUGU learning cycle triggered' });
       triggerManualFuguLearning();
@@ -2493,7 +2512,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Confluence Signals API
-  app.get('/api/confluence-signals', async (_req: any, res) => {
+  app.get('/api/confluence-signals', async (_req: Request, res: Response) => {
     try {
       const results = await db
         .select({
@@ -2546,7 +2565,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   startApexScheduler();
 
   // Dashboard endpoint
-  app.get('/api/apex/dashboard', async (_req: any, res) => {
+  app.get('/api/apex/dashboard', async (_req: Request, res: Response) => {
     try {
       const data = await getApexDashboard();
       res.json(data);
@@ -2557,7 +2576,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Predictions endpoint
-  app.get('/api/apex/predictions/:date', async (req: any, res) => {
+  app.get('/api/apex/predictions/:date', async (req: Request, res: Response) => {
     try {
       const date = new Date(req.params.date);
       const data = await getPredictionsForDate(date);
@@ -2568,7 +2587,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Accuracy endpoint
-  app.get('/api/apex/accuracy', async (_req: any, res) => {
+  app.get('/api/apex/accuracy', async (_req: Request, res: Response) => {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -2587,7 +2606,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // News endpoint
-  app.get('/api/apex/news/:date', async (req: any, res) => {
+  app.get('/api/apex/news/:date', async (req: Request, res: Response) => {
     try {
       const start = new Date(req.params.date);
       start.setHours(0, 0, 0, 0);
@@ -2604,7 +2623,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // F&O endpoint
-  app.get('/api/apex/fo/:date', async (req: any, res) => {
+  app.get('/api/apex/fo/:date', async (req: Request, res: Response) => {
     try {
       const start = new Date(req.params.date);
       start.setHours(0, 0, 0, 0);
@@ -2621,7 +2640,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Weights endpoint
-  app.get('/api/apex/weights', async (_req: any, res) => {
+  app.get('/api/apex/weights', async (_req: Request, res: Response) => {
     try {
       const weights = await db.select().from(apexWeights).orderBy(desc(apexWeights.version));
       res.json(weights);
@@ -2631,7 +2650,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Jobs endpoint
-  app.get('/api/apex/jobs', async (_req: any, res) => {
+  app.get('/api/apex/jobs', async (_req: Request, res: Response) => {
     try {
       const jobs = await db.select().from(jobLedger);
       const errors = await db.select().from(jobErrorLog).orderBy(desc(jobErrorLog.createdAt)).limit(50);
@@ -2642,7 +2661,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // Manual trigger endpoint
-  app.post('/api/apex/trigger/:job', async (req: any, res) => {
+  app.post('/api/apex/trigger/:job', async (req: Request, res: Response) => {
     const { job } = req.params;
     try {
       if (job === "news") {

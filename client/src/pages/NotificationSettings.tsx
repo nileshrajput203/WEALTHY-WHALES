@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
 
 export default function NotificationSettings() {
-  const { user, refetch } = useAuth() as any;
+  const { user, refetch } = useAuth();
   const { toast } = useToast();
   const [chatId, setChatId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
