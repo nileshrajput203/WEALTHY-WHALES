@@ -496,9 +496,24 @@ Be decisive. Confidence > 70 for clear signals. Only use Hold if evidence is gen
 
   try {
     const text = (response.text || "{}").replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(text) as StockInsight;
-    setCached(cacheKey, parsed);
-    return parsed;
+    const parsed = JSON.parse(text);
+
+    // Runtime validation — never trust raw AI JSON
+    const VALID_VERDICTS = ["Buy", "Hold", "Sell"] as const;
+    const verdict: StockInsight["verdict"] = VALID_VERDICTS.includes(parsed?.verdict)
+      ? parsed.verdict
+      : "Hold";
+    const confidence: number =
+      typeof parsed?.confidence === "number"
+        ? Math.min(100, Math.max(0, Math.round(parsed.confidence)))
+        : 50;
+    const reasons: string[] = Array.isArray(parsed?.reasons)
+      ? parsed.reasons.map((r: unknown) => String(r)).slice(0, 6)
+      : ["Insufficient data for decisive signal"];
+
+    const result: StockInsight = { verdict, confidence, timeframe, reasons };
+    setCached(cacheKey, result);
+    return result;
   } catch {
     return { verdict: "Hold", confidence: 50, timeframe, reasons: ["Insufficient data for decisive signal"] };
   }

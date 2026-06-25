@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Search, BarChart2, Activity, Zap, Shield, Target } from "lucide-react";
 import { StockChartDrawer, type StockDrawerPayload } from "@/components/StockChartDrawer";
@@ -168,9 +168,8 @@ export default function SwingScanner() {
                     const isPos = stock.changePercent >= 0;
                     const isExpanded = expandedRow === idx;
                     return (
-                      <>
+                      <Fragment key={stock.sr}>
                         <tr
-                          key={stock.sr}
                           className="group border-b border-white/4 last:border-0 hover:bg-white/3 cursor-pointer transition-colors duration-150"
                         >
                           {/* Sr */}
@@ -309,7 +308,7 @@ export default function SwingScanner() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>

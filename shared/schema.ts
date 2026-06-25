@@ -47,7 +47,7 @@ export const stockRecommendations = pgTable("stock_recommendations", {
   stockSymbol: varchar("stock_symbol").notNull(),
   stockName: varchar("stock_name").notNull(),
   exchange: varchar("exchange").notNull(), // NSE or BSE
-  recommendationType: varchar("recommendation_type").notNull(), // BUY, SELL, HOLD
+  recommendationType: varchar("recommendation_type").notNull().$type<"BUY" | "SELL" | "HOLD">(),
   reasonToBuy: text("reason_to_buy").notNull(),
   targetPrice: varchar("target_price").notNull(),
   stopLoss: varchar("stop_loss").notNull(),
@@ -71,7 +71,7 @@ export const chatMessages = pgTable("chat_messages", {
   userId: varchar("user_id").references(() => users.id),
   sessionId: varchar("session_id").notNull(),
   message: text("message").notNull(),
-  role: varchar("role").notNull(), // user or assistant
+  role: varchar("role").notNull().$type<"user" | "assistant">(),
   stockContext: varchar("stock_context"), // optional stock symbol for context
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -87,7 +87,7 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 // Scanner Data - For swing scanner and IPO base
 export const scannerData = pgTable("scanner_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  scannerType: varchar("scanner_type").notNull(), // swing or ipo
+  scannerType: varchar("scanner_type").notNull().$type<"swing" | "ipo">(),
   stockSymbol: varchar("stock_symbol").notNull(),
   stockName: varchar("stock_name").notNull(),
   exchange: varchar("exchange").notNull(),
