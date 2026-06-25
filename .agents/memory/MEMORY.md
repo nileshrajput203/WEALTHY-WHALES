@@ -1,0 +1,4 @@
+- [Shared types location](shared-types.md) — StockIQResult and SubScore live in shared/types.ts; client imports @shared/types, NOT server/stockiq
+- [Rate limiting setup](rate-limiting.md) — express-rate-limit applied to /api/research-report (10/15min) and /api/chat (20/min); aiRateLimit and chatRateLimit defined inside registerRoutes
+- [SSE heartbeat pattern](sse-heartbeat.md) — research-report SSE sends ":\n\n" every 15s to prevent proxy timeouts; heartbeat cleared before res.end()
+- [Memory leak fix](memory-leak-fix.md) — res.json body interceptor removed from server/index.ts; now logs only method/path/status/duration
