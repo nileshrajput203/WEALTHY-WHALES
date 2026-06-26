@@ -124,17 +124,7 @@ function setupSession() {
   });
 }
 
-// Helper functions for seeded randomness and caching
-function createSeededRandom(seedString: string) {
-  let h = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    h = (Math.imul(31, h) + seedString.charCodeAt(i)) | 0;
-  }
-  return function() {
-    h = (Math.imul(1103515245, h) + 12345) | 0;
-    return (h >>> 0) / 0xffffffff;
-  };
-}
+// Helper functions for seeded randomness and caching (fake data logic removed)
 
 function getHourlySeedKey(prefix: string): string {
   const now = new Date();
@@ -469,31 +459,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.warn('[Insider Trades] NSE API failed, using seeded fallback:', nseErr);
         }
 
-        // Fallback: deterministic seeded data so values don't change on every refresh
-        const companyPool = [
-          { symbol: "RELIANCE", name: "Reliance Industries Ltd", insider: "Reliance Industries Promoter Group", relation: "Promoter Group" },
-          { symbol: "TCS", name: "Tata Consultancy Services Ltd", insider: "Tata Sons Private Limited", relation: "Promoter" },
-          { symbol: "INFY", name: "Infosys Ltd", insider: "Salil Parekh (CEO)", relation: "KMP" },
-          { symbol: "HDFCBANK", name: "HDFC Bank Ltd", insider: "HDFC Mutual Fund", relation: "Promoter Group" },
-          { symbol: "ICICIBANK", name: "ICICI Bank Ltd", insider: "ICICI Prudential Life Insurance", relation: "Director" },
-        ];
-        const seedKey = getDailySeedKey("insider_trades_fallback");
-        const rng = createSeededRandom(seedKey);
-        const trades = companyPool.map((c, i) => ({
-          symbol: c.symbol, company: c.name, insider: c.insider, relation: c.relation,
-          txnType: rng() > 0.3 ? "Buy" : "Sell",
-          quantity: Math.floor(rng() * 80000) + 5000,
-          price: Math.round(1000 + rng() * 2000),
-          value: Math.round((Math.floor(rng() * 80000) + 5000) * (1000 + rng() * 2000)),
-          date: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-          holdingChange: Number((rng() * 0.4 + 0.01).toFixed(3)),
-        }));
-        return { trades, lastUpdated: new Date().toISOString(), dataSource: 'Estimated' };
+        // Fallback removed
+        throw new Error("NSE API failed to fetch insider trades");
       });
       res.json(data);
     } catch (error) {
       console.error("Error fetching insider trades:", error);
-      res.status(500).json({ message: "Failed to fetch insider trades" });
+      res.status(503).json({ message: "Service Unavailable: Failed to fetch insider trades" });
     }
   });
 
@@ -565,37 +537,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.warn(`[Option Chain] NSE API failed for ${indexSym}, using model:`, nseErr);
         }
 
-        // Fallback: seeded deterministic model
-        const seedKey = getHourlySeedKey(`option_chain_${indexSym}`);
-        const rng = createSeededRandom(seedKey);
-        const spot = isNifty ? 24850.50 + (rng() * 80 - 40) : 52340.20 + (rng() * 200 - 100);
-        const strikeInterval = isNifty ? 50 : 100;
-        const baseStrike = Math.round(spot / strikeInterval) * strikeInterval;
-        const pcr = 0.85 + (rng() * 0.5);
-        const maxPain = baseStrike + (rng() > 0.5 ? strikeInterval : -strikeInterval);
-        const ivPercentile = Math.floor(rng() * 40) + 30;
-        const topCallStrikes: any[] = [];
-        const topPutStrikes: any[] = [];
-        for (let i = -5; i <= 5; i++) {
-          const strike = baseStrike + (i * strikeInterval);
-          const callDF = Math.exp(-Math.pow(i - 1, 2) / 6);
-          const putDF = Math.exp(-Math.pow(i + 1, 2) / 6);
-          if (i >= -2 && i <= 3) topCallStrikes.push({ strike, oi: Math.round((5000000 + rng() * 3000000) * callDF), change: Math.round((rng() * 400000 - 100000) * callDF) });
-          if (i >= -3 && i <= 2) topPutStrikes.push({ strike, oi: Math.round((5000000 + rng() * 3000000) * putDF), change: Math.round((rng() * 400000 - 100000) * putDF) });
-        }
-        topCallStrikes.sort((a, b) => b.oi - a.oi);
-        topPutStrikes.sort((a, b) => b.oi - a.oi);
-        return {
-          data: {
-            index: indexSym, spot: Math.round(spot * 100) / 100, maxPain,
-            pcr: Math.round(pcr * 100) / 100,
-            totalCallOI: topCallStrikes.reduce((acc, curr) => acc + curr.oi, 0),
-            totalPutOI: topPutStrikes.reduce((acc, curr) => acc + curr.oi, 0),
-            topCallStrikes, topPutStrikes, ivPercentile,
-            expiryDate: getUpcomingThursday(),
-            dataSource: 'Estimated'
-          }
-        };
+        // Fallback removed
+        throw new Error("Failed to build option chain summary");
       });
       res.json(data);
     } catch (error) {
@@ -664,14 +607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Fallback if no quotes fetched
         if (mappedMovers.length === 0) {
-          dataSource = 'Estimated';
-          const seedKey = getHourlySeedKey(`index_movers_${indexSym}`);
-          const rng = createSeededRandom(seedKey);
-          mappedMovers = activePool.map(c => {
-            const changePercent = rng() * 4 - 1.8;
-            const pointsContribution = c.weight * changePercent * (isNifty ? 1.2 : 4.5);
-            return { symbol: c.symbol, name: c.name, price: 0, changePercent, pointsContribution, weight: c.weight };
-          });
+          throw new Error("Failed to fetch index movers");
         }
 
         // Fetch index level from Yahoo
@@ -715,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       console.error("Error index movers:", error);
-      res.status(500).json({ message: "Failed to fetch index movers" });
+      res.status(503).json({ message: "Service Unavailable: Failed to fetch index movers" });
     }
   });
 
@@ -894,11 +830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If no live data, switch to seeded fallback
         if (quoteMap.size === 0) {
-          dataSource = 'Estimated';
+          throw new Error("Failed to fetch sector performance");
         }
-
-        const seedKey = getHourlySeedKey("sector_performance");
-        const rng = createSeededRandom(seedKey);
 
         const sectors = sectorsList.map(s => {
           let change1d: number, change1w: number, change1m: number;
@@ -1025,17 +958,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           indices = await getMarketIndices();
         } catch (apiError) {
-          console.error("Indices API error, using deterministic mock data:", apiError);
-          const seedKey = getHourlySeedKey("market_indices");
-          const rng = createSeededRandom(seedKey);
-
-          indices = [
-            { name: "NIFTY 50", symbol: "^NSEI", value: 24850.50 + (rng() * 100 - 50), change: 125.30 + (rng() * 20 - 10), changePercent: 0.51 + (rng() * 0.2 - 0.1), timestamp: new Date() },
-            { name: "SENSEX", symbol: "^BSESN", value: 82456.75 + (rng() * 100 - 50), change: -89.45 + (rng() * 20 - 10), changePercent: -0.11 + (rng() * 0.2 - 0.1), timestamp: new Date() },
-            { name: "BANK NIFTY", symbol: "^NSEBANK", value: 52340.20 + (rng() * 100 - 50), change: 234.80 + (rng() * 20 - 10), changePercent: 0.45 + (rng() * 0.2 - 0.1), timestamp: new Date() },
-            { name: "NIFTY IT", symbol: "^CNXIT", value: 41234.60 + (rng() * 100 - 50), change: -156.20 + (rng() * 20 - 10), changePercent: -0.38 + (rng() * 0.2 - 0.1), timestamp: new Date() },
-            { name: "NIFTY PHARMA", symbol: "^CNXPHARMA", value: 18976.45 + (rng() * 100 - 50), change: 98.30 + (rng() * 20 - 10), changePercent: 0.52 + (rng() * 0.2 - 0.1), timestamp: new Date() },
-          ];
+          console.error("Indices API error:", apiError);
+          throw new Error("Failed to fetch market indices");
         }
 
         return {
@@ -1473,7 +1397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Markdown Fundamentals — uses direct calls, includes news
-  app.get('/api/stock/:symbol/fundamentals/ai', async (req, res) => {
+  app.get('/api/stock/:symbol/fundamentals/ai', aiRateLimit, async (req, res) => {
     try {
       const symbol = req.params.symbol;
       const yahooSym = toYahooSymbol(symbol);
@@ -1512,7 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Markdown Technicals — uses direct calls
-  app.get('/api/stock/:symbol/technicals/ai', async (req, res) => {
+  app.get('/api/stock/:symbol/technicals/ai', aiRateLimit, async (req, res) => {
     try {
       const symbol   = req.params.symbol;
       const yahooSym = toYahooSymbol(symbol);
@@ -2112,50 +2036,8 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     }
   });
 
-  function generateEventsForSymbol(symbol: string): any[] {
-    const cleanSym = symbol.trim().toUpperCase();
-    const rng = createSeededRandom(`events_${cleanSym}_2026`);
-    const now = new Date();
-    const events: any[] = [];
-    
-    // Board Meeting (e.g. 5-15 days in future)
-    const boardDate = new Date(now);
-    boardDate.setDate(now.getDate() + Math.floor(rng() * 10) + 5);
-    events.push({
-      id: `gen-meet-${cleanSym}`,
-      symbol: cleanSym,
-      title: "Board Meeting",
-      date: boardDate.toISOString().split('T')[0],
-      type: "board",
-      description: "Financial results approval & business updates"
-    });
-
-    // AGM (e.g. 20-30 days in future)
-    const agmDate = new Date(now);
-    agmDate.setDate(now.getDate() + Math.floor(rng() * 10) + 20);
-    events.push({
-      id: `gen-agm-${cleanSym}`,
-      symbol: cleanSym,
-      title: "Annual General Meeting",
-      date: agmDate.toISOString().split('T')[0],
-      type: "agm",
-      description: "Annual Shareholder Meeting & Dividend declaration"
-    });
-
-    // Dividend (e.g. 40-50 days in future)
-    const divDate = new Date(now);
-    divDate.setDate(now.getDate() + Math.floor(rng() * 10) + 40);
-    const divAmt = (rng() * 15 + 2).toFixed(2);
-    events.push({
-      id: `gen-div-${cleanSym}`,
-      symbol: cleanSym,
-      title: "Dividend Record Date",
-      date: divDate.toISOString().split('T')[0],
-      type: "dividend",
-      description: `Final dividend of ₹${divAmt} per share`
-    });
-
-    return events;
+  function generateEventsForSymbol(_symbol?: string): any[] {
+    return [];
   }
 
   // ── SEBI / BSE / NSE Corporate Events (Phase 1B) ────────────────────
@@ -2193,8 +2075,8 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
       // Generate seeded fallback events for watchlist symbols that don't have active events in the feed
       if (requestedSymbols.length > 0) {
-        requestedSymbols.forEach(sym => {
-          const hasEvents = allEvents.some(e => e.symbol === sym);
+        requestedSymbols.forEach((sym: string) => {
+          const hasEvents = allEvents.some((e: any) => e.symbol === sym);
           if (!hasEvents) {
             const seeded = generateEventsForSymbol(sym);
             allEvents = [...allEvents, ...seeded];

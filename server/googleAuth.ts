@@ -9,6 +9,19 @@ export function setupGoogleAuth() {
     return;
   }
 
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
+
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,

@@ -42,3 +42,10 @@ export interface AuthUser {
   isAdmin?: boolean | null;
   telegramChatId?: string | null;
 }
+
+declare global {
+  namespace Express {
+    interface User extends AuthUser {}
+  }
+}
+

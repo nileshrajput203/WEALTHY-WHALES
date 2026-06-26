@@ -276,22 +276,23 @@ function computeATR(highs: number[], lows: number[], closes: number[], period = 
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SWING SCANNER — Real technical analysis on small/mid-cap
-   NSE stocks (excluding Nifty 50/100/500 and ETFs).
-   
-   Filters (from user's Chartink-style screener):
-   1. ATR(14) < ATR(14) 10 days ago        — ATR contracting
-   2. ATR(14)/Close < 0.08                 — Low volatility vs price
-   3. Close > 52-week high * 0.75          — Near highs
-   4. EMA(50) > EMA(150)                   — Bullish structure
-   5. EMA(150) > EMA(200)                  — Long-term uptrend
-   6. Close > EMA(50)                      — Above intermediate MA
-   7. Close > 10                           — No penny stocks
-   8. Close * Volume > 1,000,000           — Minimum turnover
-   9. Daily change > 0%                    — Positive day
-   10. Daily change < 3%                   — Not too volatile
-   11. Close > EMA(9)                      — Short-term bullish
-   12. Close > EMA(20)                     — Above near-term MA
+   SWING SCANNER — Minervini-style VCP (Volatility Contraction
+   Pattern) screen on NSE/BSE small & mid-cap universe.
+   Excludes Nifty 50 constituents and ETFs.
+
+   VCP FILTER STACK (12 conditions):
+   1.  ATR(14) < ATR(14) 10 days ago        — ATR is contracting
+   2.  ATR(14) 5d ago < ATR(14) 10d ago     — Progressive (not random) compression
+   3.  ATR(14) / Close < 0.06               — Tight coil: vol small vs price
+   4.  Close > EMA(50) > EMA(150) > EMA(200)— Stage-2 trend template
+   5.  EMA(9) > EMA(20) > EMA(50)           — Short-term momentum aligned
+   6.  Close within 15% of 52-week high     — Near pivot, not deep correction
+   7.  Current volume < 85% of 20D avg vol  — Supply dry-up in base
+   8.  Daily Turnover > ₹20 Lakh            — Institutional-grade liquidity
+   9.  Share Price > ₹20                    — No micro-cap / penny risk
+   10. Daily change between -1% and +4%     — Controlled consolidation
+   11. EMA(50) slope positive (rising)      — Healthy stage-2 slope
+   12. 52W High > 52W Low * 1.20            — Stock has a meaningful range
 ═══════════════════════════════════════════════════════════ */
 export interface SwingScanResult {
   sr: number;
@@ -311,6 +312,20 @@ export interface SwingScanResult {
   ema200: number;
   weekHigh52: number;
   turnover: number;
+  // VCP-specific scores
+  vcpScore: number;        // 0-100 composite VCP quality
+  fundamentalScore: number;// 0-100 proxy: RS + turnover + stability + trend
+  atrCompression: number;  // % ATR has fallen from 10d ago (0-1)
+  volumeRatio: number;     // current vol / 20d avg vol (lower = better dry-up)
+  nearHighPct: number;     // close / 52wHigh * 100
+  rsScore: number;         // 6-month price performance %
+}
+
+// Helper: compute 20-day average volume
+function avg20Volume(vols: number[], n: number): number {
+  const slice = vols.slice(Math.max(0, n - 21), n - 1); // exclude today's vol
+  if (slice.length === 0) return 0;
+  return slice.reduce((a, b) => a + (b || 0), 0) / slice.length;
 }
 
 // Analyze a single stock: returns SwingScanResult or null if it fails any filter
@@ -318,6 +333,7 @@ async function analyzeStock(sym: string): Promise<SwingScanResult | null> {
   try {
     const yahooSym = sym.includes('.') ? sym : `${sym}.NS`;
     const candles = await getYahooHistory(yahooSym, '1y', '1d');
+    // Need at least 210 candles for EMA-200 + 10-day ATR lookback
     if (!candles || candles.length < 210) return null;
 
     const closes = candles.map((c: any) => c.close as number);
@@ -328,43 +344,109 @@ async function analyzeStock(sym: string): Promise<SwingScanResult | null> {
     const last   = closes[n - 1];
     const prev   = closes[n - 2];
 
-    // Quick reject filters (cheapest first)
-    if (last <= 10) return null;                          // F7
+    // ── FAST REJECT (cheapest checks first) ─────────────────
+    if (last <= 20) return null;                          // F9  no penny stocks
     const dailyChange = ((last - prev) / prev) * 100;
-    if (dailyChange <= 0) return null;                    // F9
-    if (dailyChange >= 3) return null;                    // F10
-    const turnover = last * (vols[n - 1] || 0);
-    if (turnover < 1_000_000) return null;                // F8
+    if (dailyChange < -1) return null;                    // F10 not a breakdown
+    if (dailyChange > 4)  return null;                    // F10 not a breakout yet
+    const todayVol = vols[n - 1] || 0;
+    const turnover = last * todayVol;
+    if (turnover < 2_000_000) return null;                // F8  ₹20 lakh min
 
-    // EMAs
-    const e9   = computeEMA(closes, 9)[n - 1];
-    const e20  = computeEMA(closes, 20)[n - 1];
-    const e50  = computeEMA(closes, 50)[n - 1];
-    const e150 = computeEMA(closes, 150)[n - 1];
-    const e200 = computeEMA(closes, 200)[n - 1];
+    // ── EMA STACK (Stage-2 trend template) ──────────────────
+    const ema9Arr  = computeEMA(closes, 9);
+    const ema20Arr = computeEMA(closes, 20);
+    const ema50Arr = computeEMA(closes, 50);
+    const ema150Arr= computeEMA(closes, 150);
+    const ema200Arr= computeEMA(closes, 200);
+
+    const e9   = ema9Arr[n - 1];
+    const e20  = ema20Arr[n - 1];
+    const e50  = ema50Arr[n - 1];
+    const e150 = ema150Arr[n - 1];
+    const e200 = ema200Arr[n - 1];
     if (e9 == null || e20 == null || e50 == null || e150 == null || e200 == null) return null;
 
-    if (last <= e9)   return null;                        // F11
-    if (last <= e20)  return null;                        // F12
-    if (last <= e50)  return null;                        // F6
-    if (e50 <= e150)  return null;                        // F4
-    if (e150 <= e200) return null;                        // F5
+    // F4: Full stage-2 trend template
+    if (last  <= e50)  return null;
+    if (e50   <= e150) return null;
+    if (e150  <= e200) return null;
 
-    // ATR
-    const atrArr = computeATR(highs, lows, closes, 14);
+    // F5: Short-term momentum aligned
+    if (last <= e9)  return null;
+    if (e9   <= e20) return null;
+    if (e20  <= e50) return null;
+
+    // F11: EMA-50 must be rising (slope positive over last 5 days)
+    const e50_5ago = ema50Arr[n - 6];
+    if (e50_5ago == null || e50 <= e50_5ago) return null;
+
+    // ── ATR (Volatility Contraction Pattern) ────────────────
+    const atrArr     = computeATR(highs, lows, closes, 14);
     const currentATR = atrArr[n - 1];
+    const atr5ago    = atrArr[n - 6];
     const atr10ago   = atrArr[n - 11];
-    if (currentATR == null || atr10ago == null) return null;
-    if (currentATR >= atr10ago) return null;              // F1
-    if ((currentATR / last) >= 0.08) return null;         // F2
+    if (currentATR == null || atr5ago == null || atr10ago == null) return null;
 
-    // 52-week high
-    const lookback = Math.min(n, 260);
-    const weekHigh52 = Math.max(...closes.slice(n - lookback));
-    if (last < weekHigh52 * 0.75) return null;            // F3
+    // F1: ATR must be contracting vs 10 days ago
+    if (currentATR >= atr10ago) return null;
+    // F2: Progressive contraction — 5d ago must also be < 10d ago
+    if (atr5ago >= atr10ago) return null;
+    // F3: Tight coil — ATR/Close ratio strict threshold
+    if ((currentATR / last) >= 0.06) return null;
 
-    // ── PASSED ALL 12 FILTERS ──
+    // ── 52-WEEK HIGH proximity ───────────────────────────────
+    const lookback52 = Math.min(n, 252);
+    const weekHigh52 = Math.max(...highs.slice(n - lookback52));
+    const weekLow52  = Math.min(...lows.slice(n - lookback52));
+    // F6: Within 15% of 52W high (true VCP coils near highs)
+    if (last < weekHigh52 * 0.85) return null;
+    // F12: Stock must have meaningful range (not in permanent sideways)
+    if (weekHigh52 < weekLow52 * 1.20) return null;
+
+    // ── VOLUME DRY-UP ────────────────────────────────────────
+    const avg20vol = avg20Volume(vols, n);
+    const volumeRatio = avg20vol > 0 ? todayVol / avg20vol : 1;
+    // F7: Volume drying up — current vol below 85% of 20D average
+    if (volumeRatio > 0.85) return null;
+
+    // ── PASSED ALL 12 VCP FILTERS ────────────────────────────
+
+    const nearHighPct   = (last / weekHigh52) * 100;
+    const atrCompression= Math.min(1, 1 - currentATR / atr10ago); // 0-1
+
+    // VCP Quality Score (0-100)
+    // Higher = tighter, cleaner pattern
+    const vcpScore = Math.min(100, Math.round(
+      Math.min(30, atrCompression * 60)                           + // ATR compression up to 30
+      Math.min(25, Math.max(0, 1 - volumeRatio) * 45)            + // Volume dry-up up to 25
+      Math.min(25, (nearHighPct - 85) * 1.67)                    + // Near highs 85-100% → 0-25
+      Math.min(20,                                                  // EMA alignment health
+        (e9 > e20 ? 5 : 0) + (e20 > e50 ? 5 : 0) +
+        (e50 > e150 ? 5 : 0) + (e150 > e200 ? 5 : 0)
+      )
+    ));
+
+    // 6-month relative strength (RS score)
+    const idx6m = Math.max(0, n - 127);
+    const rsScore = closes[idx6m] > 0
+      ? ((last / closes[idx6m]) - 1) * 100
+      : 0;
+
+    // Fundamental Proxy Score (0-100)
+    // Uses RS, turnover, ATR stability, and 52W position
+    // (real PE/ROE data not available from Yahoo OHLCV)
+    const fundamentalScore = Math.min(100, Math.round(
+      Math.min(40, Math.max(0, rsScore) * 0.5)                   + // RS contributes up to 40
+      Math.min(20, Math.log10(Math.max(1, turnover / 100_000)) * 6) + // Turnover quality up to 20
+      Math.min(20, (1 - Math.min(1, (currentATR / last) / 0.06)) * 20) + // Low vol/price → 20
+      Math.min(20, (nearHighPct - 85) * 1.33)                     // Near highs up to 20
+    ));
+
     const cleanSym = sym.replace('.NS', '').replace('.BO', '');
+    const atrPct   = ((1 - currentATR / atr10ago) * 100).toFixed(0);
+    const volDrop  = ((1 - volumeRatio) * 100).toFixed(0);
+
     return {
       sr: 0,
       stockName: cleanSym,
@@ -372,9 +454,9 @@ async function analyzeStock(sym: string): Promise<SwingScanResult | null> {
       links: 'P&F | F.A',
       changePercent: Number(dailyChange.toFixed(2)),
       price: Number(last.toFixed(2)),
-      volume: (vols[n - 1] || 0).toLocaleString('en-IN'),
+      volume: todayVol.toLocaleString('en-IN'),
       sector: '',
-      setup: `ATR↓ EMA stack ✓ ${((last / weekHigh52) * 100).toFixed(0)}% of 52WH`,
+      setup: `VCP: ATR↓${atrPct}% · Vol↓${volDrop}% · ${nearHighPct.toFixed(0)}% of 52WH`,
       atr: Number(currentATR.toFixed(2)),
       ema9: Number(e9.toFixed(2)),
       ema20: Number(e20.toFixed(2)),
@@ -383,6 +465,12 @@ async function analyzeStock(sym: string): Promise<SwingScanResult | null> {
       ema200: Number(e200.toFixed(2)),
       weekHigh52: Number(weekHigh52.toFixed(2)),
       turnover: Number(turnover.toFixed(0)),
+      vcpScore,
+      fundamentalScore,
+      atrCompression: Number(atrCompression.toFixed(3)),
+      volumeRatio: Number(volumeRatio.toFixed(3)),
+      nearHighPct: Number(nearHighPct.toFixed(1)),
+      rsScore: Number(rsScore.toFixed(1)),
     };
   } catch {
     return null;

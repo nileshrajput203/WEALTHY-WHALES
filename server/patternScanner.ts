@@ -17,6 +17,91 @@ interface PatternMatch {
 let patternCache: Record<string, { data: PatternMatch[]; ts: number }> = {};
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
+function calculateEMA(prices: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  const ema = [prices[0]];
+  for (let i = 1; i < prices.length; i++) {
+    ema.push(prices[i] * k + ema[i - 1] * (1 - k));
+  }
+  return ema;
+}
+
+function detectVCP(closes: number[], highs: number[], lows: number[], vols: number[]): { match: boolean; stage: PatternMatch["stage"]; details: string } | null {
+  const n = closes.length;
+  if (n < 200) return null; // Need 200 days for 200 EMA
+
+  const currentPrice = closes[n - 1];
+  
+  // Calculate EMAs
+  const ema50 = calculateEMA(closes, 50);
+  const ema150 = calculateEMA(closes, 150);
+  const ema200 = calculateEMA(closes, 200);
+
+  const currentEma50 = ema50[n - 1];
+  const currentEma150 = ema150[n - 1];
+  const currentEma200 = ema200[n - 1];
+  const pastEma200 = ema200[n - 21]; // 1 month ago
+
+  // Trend condition: Price > 50 > 150 > 200
+  if (!(currentPrice > currentEma50 && currentEma50 > currentEma150 && currentEma150 > currentEma200)) {
+    return null;
+  }
+
+  // Trend condition: 200 EMA trending up for 1 month
+  if (currentEma200 <= pastEma200) {
+    return null;
+  }
+
+  // 52-week High/Low (approx 250 trading days, if n < 250 use all)
+  const lookback52w = Math.min(n, 250);
+  const yearHighs = highs.slice(n - lookback52w);
+  const yearLows = lows.slice(n - lookback52w);
+  const high52 = Math.max(...yearHighs);
+  const low52 = Math.min(...yearLows);
+
+  // Price at least 30% above 52-week low
+  if (currentPrice < low52 * 1.30) {
+    return null;
+  }
+
+  // Price within 25% of 52-week high
+  if (currentPrice < high52 * 0.75) {
+    return null;
+  }
+
+  // Volatility contraction (last 10 days vs 50 days)
+  const recentCloses = closes.slice(n - 10);
+  const pastCloses = closes.slice(n - 50, n - 10);
+  const recentMax = Math.max(...recentCloses);
+  const recentMin = Math.min(...recentCloses);
+  const pastMax = Math.max(...pastCloses);
+  const pastMin = Math.min(...pastCloses);
+
+  const recentVolatility = (recentMax - recentMin) / recentMin;
+  const pastVolatility = (pastMax - pastMin) / pastMin;
+
+  if (recentVolatility >= pastVolatility) {
+    return null; // No contraction
+  }
+
+  // Volume dry up: recent 3-day volume average < 50-day volume average
+  const recentVolAvg = vols.slice(n - 3).reduce((a, b) => a + b, 0) / 3;
+  const pastVolAvg = vols.slice(n - 50).reduce((a, b) => a + b, 0) / 50;
+
+  if (recentVolAvg > pastVolAvg) {
+    return null; // Volume is not drying up
+  }
+
+  const isBreakingOut = currentPrice >= high52 * 0.985;
+  const stage = isBreakingOut ? "Breakout Confirmed" : "Near Breakout";
+
+  return {
+    match: true,
+    stage,
+    details: `VCP Confirmed: 50EMA > 150EMA > 200EMA, Volatility contracted from ${(pastVolatility*100).toFixed(1)}% to ${(recentVolatility*100).toFixed(1)}%, Volume dry up ${((pastVolAvg - recentVolAvg)/pastVolAvg*100).toFixed(1)}%`
+  };
+}
+
 /**
  * Technical heuristics to detect chart patterns
  */
@@ -406,6 +491,8 @@ export async function runPatternScanner(
 
           if (normPattern === "cupandhandle") {
             result = detectCupAndHandle(closes, highs, lows);
+          } else if (normPattern === "vcp") {
+            result = detectVCP(closes, highs, lows, vols);
           } else if (normPattern === "flagandpole") {
             result = detectFlagAndPole(closes, highs, lows, vols);
           } else if (normPattern === "doublebottom") {
