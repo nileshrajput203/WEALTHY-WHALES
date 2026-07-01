@@ -41,6 +41,7 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0", "javascript_gemini:1.0.0"]
 stack = "FULLSTACK_JS"
+expertMode = true
 
 [userenv]
 
