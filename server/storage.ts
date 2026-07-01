@@ -93,7 +93,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRecommendation(rec: InsertStockRecommendation): Promise<StockRecommendation> {
-    const [created] = await db.insert(stockRecommendations).values(rec).returning();
+    const [created] = await db.insert(stockRecommendations).values({
+      ...rec,
+      recommendationType: rec.recommendationType as "BUY" | "SELL" | "HOLD"
+    }).returning();
     return created;
   }
 
@@ -107,21 +110,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChatMessage(msg: InsertChatMessage): Promise<ChatMessage> {
-    const [created] = await db.insert(chatMessages).values(msg).returning();
+    const [created] = await db.insert(chatMessages).values({
+      ...msg,
+      role: msg.role as "user" | "assistant"
+    }).returning();
     return created;
   }
 
-  // Scanner Data
   async getScannerData(scannerType: string): Promise<ScannerData[]> {
     return await db
       .select()
       .from(scannerData)
-      .where(eq(scannerData.scannerType, scannerType))
+      .where(eq(scannerData.scannerType, scannerType as "swing" | "ipo"))
       .orderBy(desc(scannerData.createdAt));
   }
 
   async createScannerData(data: InsertScannerData): Promise<ScannerData> {
-    const [created] = await db.insert(scannerData).values(data).returning();
+    const [created] = await db.insert(scannerData).values({
+      ...data,
+      scannerType: data.scannerType as "swing" | "ipo"
+    }).returning();
     return created;
   }
 

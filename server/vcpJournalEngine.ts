@@ -119,7 +119,7 @@ export async function runVcpOutcomeCheck(): Promise<void> {
       const quote = await getYahooStockQuote(yahooSym).catch(() => null);
       if (!quote) continue;
 
-      const currentPrice = quote.regularMarketPrice ?? 0;
+      const currentPrice = quote.price ?? 0;
       if (currentPrice <= 0) continue;
 
       const sl         = parseFloat(entry.stopLoss);

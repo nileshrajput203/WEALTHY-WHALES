@@ -9,3 +9,4 @@ vite.config.ts.*
 node-v20.11.1-win-x64/
 
 .env
+.local/

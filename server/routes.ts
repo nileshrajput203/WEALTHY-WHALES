@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { rateLimit } from "express-rate-limit";
 import axios from "axios";
+import { z } from "zod";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import session from "express-session";
@@ -336,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = insertChatMessageSchema.parse({
         ...req.body,
-        userId: req.user?.claims?.sub || null,
+        userId: (req.user as any)?.id || null,
       });
 
       const sessionId = validated.sessionId;
@@ -933,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/scanner', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = (req.user as any)?.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -1010,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/news', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.id;
+      const userId = (req.user as any).id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -2118,7 +2119,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
         return res.status(400).json({ message: "Invalid telegramChatId" });
       }
       const { telegramChatId } = parseResult.data;
-      let userId = req.user?.id;
+      let userId = (req.user as any)?.id;
       if (!userId) {
         const allUsers = await db.select().from(users).limit(1);
         if (allUsers.length > 0) {
@@ -2151,6 +2152,12 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
         smaSlope:      z.union([z.string(), z.number()]).optional(),
         volumeRatio:   z.union([z.string(), z.number()]).optional(),
         notes:         z.string().max(1000).optional(),
+        adx:           z.union([z.string(), z.number()]).optional(),
+        rvol:          z.union([z.string(), z.number()]).optional(),
+        emaAlignment:  z.union([z.string(), z.number()]).optional(),
+        sector:        z.string().max(50).optional(),
+        marketCap:     z.string().max(10).optional(),
+        marketCondition: z.string().max(10).optional(),
       });
       const parseResult = signalLogSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -2161,14 +2168,14 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       const [newLog] = await db.insert(signalLog).values({
         symbol: payload.symbol,
         signalType: payload.signalType,
-        direction: payload.direction,
-        confidence: payload.confidence ? parseInt(payload.confidence, 10) : null,
+        direction: payload.direction === "BULLISH" ? "BUY" : payload.direction === "BEARISH" ? "SELL" : "HOLD",
+        confidence: payload.confidence ?? null,
         priceAtSignal: String(payload.priceAtSignal),
         rsi: payload.rsi ? String(payload.rsi) : null,
         macdHistogram: payload.macdHistogram ? String(payload.macdHistogram) : null,
         adx: payload.adx ? String(payload.adx) : null,
         rvol: payload.rvol ? String(payload.rvol) : null,
-        emaAlignment: payload.emaAlignment ? parseInt(payload.emaAlignment, 10) : null,
+        emaAlignment: payload.emaAlignment ? parseInt(String(payload.emaAlignment), 10) : null,
         sector: payload.sector || null,
         marketCap: payload.marketCap || null,
         marketCondition: payload.marketCondition || null,
@@ -2177,7 +2184,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       console.log(`[Signal Logged] ${payload.symbol} -> ${payload.signalType} (${payload.direction})`);
 
       // Trigger Telegram Alert if configured and high confidence (e.g. >= 70)
-      let userId = req.user?.id;
+      let userId = (req.user as any)?.id;
       if (!userId) {
         const allUsers = await db.select().from(users).limit(1);
         if (allUsers.length > 0) {
@@ -2270,7 +2277,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // Top stocks by HERMES score
   app.get('/api/hermes/leaderboard', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit || '30', 10);
+      const limit = parseInt(typeof req.query.limit === 'string' ? req.query.limit : '30', 10);
       const data = await getHermesLeaderboard(limit);
       res.json(data);
     } catch (err: any) {
@@ -2317,7 +2324,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // Market regime history
   app.get('/api/hermes/regime', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit || '30', 10);
+      const limit = parseInt(typeof req.query.limit === 'string' ? req.query.limit : '30', 10);
       const data = await getHermesRegimeHistory(limit);
       res.json(data);
     } catch (err: any) {
@@ -2329,7 +2336,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // Recent outcomes with win/loss analysis
   app.get('/api/hermes/outcomes', async (req: Request, res: Response) => {
     try {
-      const limit = parseInt(req.query.limit || '50', 10);
+      const limit = parseInt(typeof req.query.limit === 'string' ? req.query.limit : '50', 10);
       const data = await getHermesRecentOutcomes(limit);
       res.json(data);
     } catch (err: any) {
