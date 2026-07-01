@@ -654,3 +654,36 @@ export const jobErrorLog = pgTable("job_error_log", {
 export type JobErrorLog = typeof jobErrorLog.$inferSelect;
 export type InsertJobErrorLog = typeof jobErrorLog.$inferInsert;
 
+// ─── VCP AI Journal ────────────────────────────────────────────────────────
+// Auto-populated from swing scanner (score ≥ 65). Engine tracks outcome daily.
+export const vcpJournalEntries = pgTable("vcp_journal_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  stockName: varchar("stock_name", { length: 100 }).notNull(),
+  entryDate: timestamp("entry_date").defaultNow(),
+  entryPrice: numeric("entry_price", { precision: 12, scale: 2 }).notNull(),
+  stopLoss: numeric("stop_loss", { precision: 12, scale: 2 }).notNull(),
+  target: numeric("target", { precision: 12, scale: 2 }).notNull(),
+  riskReward: numeric("risk_reward", { precision: 4, scale: 2 }).default("2.50"),
+  vcpScore: integer("vcp_score").notNull(),
+  vcpGrade: varchar("vcp_grade", { length: 5 }).notNull().default("B"),
+  atrCompression: numeric("atr_compression", { precision: 8, scale: 4 }),
+  volumeRatio: numeric("volume_ratio", { precision: 8, scale: 4 }),
+  nearHighPct: numeric("near_high_pct", { precision: 8, scale: 2 }),
+  outcome: varchar("outcome", { length: 20 }).notNull().default("OPEN"),
+  exitPrice: numeric("exit_price", { precision: 12, scale: 2 }),
+  exitDate: timestamp("exit_date"),
+  returnPct: numeric("return_pct", { precision: 8, scale: 2 }),
+  daysHeld: integer("days_held"),
+  aiNotes: text("ai_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertVcpJournalEntrySchema = createInsertSchema(vcpJournalEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertVcpJournalEntry = z.infer<typeof insertVcpJournalEntrySchema>;
+export type VcpJournalEntry = typeof vcpJournalEntries.$inferSelect;
+
