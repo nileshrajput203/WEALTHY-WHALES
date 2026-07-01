@@ -240,6 +240,9 @@ export const hermesSnapshots = pgTable("hermes_snapshots", {
 
   // Metadata
   weightVersion: integer("weight_version"), // which weight set was used
+
+  // VCP core feature blob (from vcpCore.ts) — used by the VCP-only scoring rebuild
+  vcpFeatures: jsonb("vcp_features"),
 }, (table) => [
   index("idx_hermes_snapshots_symbol").on(table.symbol),
   index("idx_hermes_snapshots_scan_date").on(table.scanDate),
@@ -352,6 +355,7 @@ export const fuguSnapshots = pgTable("fugu_snapshots", {
   features: jsonb("features").notNull().default({}), // raw metrics like rsi, pe, etc.
   weightVersion: integer("weight_version").notNull().default(1),
   eliteReasoning: text("elite_reasoning"),
+  vcpFeatures: jsonb("vcp_features"),
 }, (table) => [
   index("idx_fugu_snapshots_symbol").on(table.symbol),
   index("idx_fugu_snapshots_scan_date").on(table.scanDate),
@@ -658,6 +662,7 @@ export type InsertJobErrorLog = typeof jobErrorLog.$inferInsert;
 // Auto-populated from swing scanner (score ≥ 65). Engine tracks outcome daily.
 export const vcpJournalEntries = pgTable("vcp_journal_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  engine: varchar("engine", { length: 10 }).notNull().default("SWING"), // SWING | HERMES | FUGU
   symbol: varchar("symbol", { length: 20 }).notNull(),
   stockName: varchar("stock_name", { length: 100 }).notNull(),
   entryDate: timestamp("entry_date").defaultNow(),

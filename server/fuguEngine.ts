@@ -43,6 +43,14 @@ import { runPatternScanner } from "./patternScanner";
 import { executeScreener } from "./smartScreener";
 import { generateWithRetry } from "./gemini";
 import { NSE_UNIQUE } from "./nseUniverse";
+import {
+  computeVcpFeatures,
+  computeVcpScore,
+  computeVcpEntrySLTarget,
+  describeVcpSetup,
+  type VcpFeatures,
+} from "./vcpCore";
+import { logJournalEntry } from "./vcpJournalEngine";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & BASELINE CONFIGS
@@ -51,16 +59,23 @@ import { NSE_UNIQUE } from "./nseUniverse";
 const WIN_THRESHOLD = 3.0; // +3% is a WIN
 const LOSS_THRESHOLD = -3.0; // -3% is a LOSS
 
+// VCP-ONLY WEIGHTS (FUGU v2) — technical/pattern/candlestick carry the whole
+// score; fundamental/sector/macro/sentiment/similarity are locked at 0 so the
+// legacy nodes keep running (informational only) but never move the needle.
 export const DEFAULT_FUGU_WEIGHTS: Record<string, number> = {
-  technical: 0.35,
-  pattern: 0.05,
-  candlestick: 0.05,
-  fundamental: 0.35,
-  sector: 0.05,
-  macro: 0.05,
-  similarity: 0.05,
-  sentiment: 0.05
+  technical: 0.45,
+  pattern: 0.30,
+  candlestick: 0.25,
+  fundamental: 0,
+  sector: 0,
+  macro: 0,
+  similarity: 0,
+  sentiment: 0
 };
+
+// Any agent whose weight must stay pinned at 0 in the VCP-only rebuild —
+// the weight optimizer clamps these so learning can't drift them back up.
+const ZERO_LOCKED_AGENTS = new Set(["fundamental", "sector", "macro", "sentiment", "similarity"]);
 
 const SECTORS = [
   "IT", "Banking", "Pharma", "FMCG", "Energy", "Metals", 
@@ -206,168 +221,114 @@ function detectMorningStar(
 export function buildFuguGraph(): FuguLangGraph {
   const graph = new FuguLangGraph();
 
-  // 1. Technical Agent Node
+  // 1. Technical Agent Node — rebuilt as the primary VCP contraction/coil score
   graph.addNode("technical", async (state) => {
-    const closes = state.candles.map(c => Number(c.close));
-    if (closes.length < 20) return { technicalScore: 50 };
+    const vcp = computeVcpFeatures(state.candles);
+    if (!vcp) return { technicalScore: 50 };
 
-    const price = state.price;
-    const rsiArr = computeRSI(closes, 14);
-    const rsiRaw = rsiArr.length > 0 ? rsiArr[rsiArr.length - 1] : 50;
-    const rsi = rsiRaw != null ? Number(rsiRaw) : 50;
+    const technicalScore = computeVcpScore(vcp);
 
-    const sma20Arr = computeSMA(closes, 20);
-    const sma50Arr = computeSMA(closes, 50);
-    const sma20Raw = sma20Arr.length > 0 ? sma20Arr[sma20Arr.length - 1] : price;
-    const sma20 = sma20Raw != null ? Number(sma20Raw) : price;
-
-    const sma50Raw = sma50Arr.length > 0 ? sma50Arr[sma50Arr.length - 1] : price;
-    const sma50 = sma50Raw != null ? Number(sma50Raw) : price;
-
-    let score = 50; // base
-
-    // RSI sweet spot (45 to 68 is bullish breakout momentum zone)
-    if (rsi >= 45 && rsi <= 68) score += 20;
-    else if (rsi > 68 && rsi < 80) score += 10; // slightly overbought
-    else if (rsi < 40) score -= 15; // weak momentum
-
-    // SMA alignments
-    if (price > sma20) score += 10;
-    if (price > sma50) score += 10;
-    if (sma20 > sma50) score += 10; // Golden cross align
-
-    // Volatility contraction proxy (BB bandwidth proxy using ATR / SMA20)
-    const atrValue = state.features.atr14 ?? 0;
-    const bbBandwidth = sma20 > 0 ? (atrValue * 2) / sma20 : 0.05;
-    if (bbBandwidth < 0.04) score += 10; // Volatility contraction (squeeze before breakout)
-
-    // RVOL breakout
-    const rvol = state.features.rvol ?? 1.0;
-    if (rvol > 1.8) score += 20;
-
-    // Clamp
-    const technicalScore = Math.max(10, Math.min(100, score));
     return {
       technicalScore,
-      features: { ...state.features, rsi14: rsi, sma20, sma50, bbBandwidth }
+      features: {
+        ...state.features,
+        vcp,
+        atr14: vcp.atr14,
+        atrCompression: vcp.atrCompression,
+        tightCoilRatio: vcp.tightCoilRatio,
+        emaStackScore: vcp.emaStackScore,
+        ema50Rising: vcp.ema50Rising,
+      }
     };
   });
 
-  // 2. Pattern Agent Node
+  // 2. Pattern Agent Node — VCP base structure quality (contraction stages, range)
   graph.addNode("pattern", async (state) => {
-    const symbol = state.symbol;
-    const closes = state.candles.map(c => Number(c.close));
-    const highs = state.candles.map(c => Number(c.high));
-    const lows = state.candles.map(c => Number(c.low));
-
+    const vcp: VcpFeatures | undefined = state.features.vcp;
     let detectedPattern = "None";
     let detectedStage: "Consolidation" | "Near Breakout" | "Breakout Confirmed" | "Pullback" = "Consolidation";
-    let score = 50;
+    let score = 40;
     let confidence = 50;
 
-    // Run local pattern heuristics similar to patternScanner
-    const isIpo = state.scannerSource === "IPO";
-    const isSwing = state.scannerSource === "SWING";
-
-    if (isIpo) {
-      detectedPattern = "IPO Base";
-      detectedStage = "Near Breakout";
-      score = 80;
-      confidence = 75;
-    } else if (isSwing) {
-      detectedPattern = "Swing Spectrum";
-      detectedStage = "Breakout Confirmed";
-      score = 80;
-      confidence = 75;
-    } else {
-      // Re-use simple heuristics
-      const n = closes.length;
-      if (n >= 40) {
-        // Double bottom heuristic (simplified)
-        const recentLows = lows.slice(-40);
-        const lowVal = Math.min(...recentLows);
-        const current = closes[n - 1];
-        if (Math.abs(current - lowVal) / lowVal < 0.15 && closes[n - 1] > closes[n - 5]) {
-          detectedPattern = "Double Bottom";
-          detectedStage = "Near Breakout";
-          score = 75;
-          confidence = 70;
-        }
+    if (vcp) {
+      if (vcp.passesAllFilters) {
+        detectedPattern = "VCP Breakout";
+        detectedStage = "Breakout Confirmed";
+      } else if (vcp.contractionCount >= 2 && vcp.nearHighPct >= 80) {
+        detectedPattern = "VCP Base";
+        detectedStage = "Near Breakout";
+      } else if (vcp.contractionCount >= 1) {
+        detectedPattern = "VCP Forming";
+        detectedStage = "Consolidation";
       }
+
+      // Score = quality of the contraction structure itself (not price momentum)
+      score =
+        Math.min(40, vcp.contractionCount * 13.3) +
+        Math.min(30, Math.max(0, (vcp.rangeQuality - 1) * 60)) +
+        (vcp.progressiveContraction ? 15 : 0) +
+        Math.min(15, Math.max(0, vcp.emaStackScore * 15));
+      confidence = vcp.passesAllFilters ? 90 : 55 + vcp.contractionCount * 10;
     }
 
-    // Look up historical win rate of this pattern to adjust score
+    // Blend in historical win-rate memory for the detected VCP stage, same as before
     if (detectedPattern !== "None") {
       const [stats] = await db
         .select()
         .from(fuguPatternStats)
         .where(eq(fuguPatternStats.patternName, detectedPattern));
-      
+
       if (stats && stats.totalOccurrences > 5) {
         const wr = Number(stats.winRate20d);
-        score = Math.round(wr * 1.2); // scale relative to actual win rate
+        score = Math.round(score * 0.6 + wr * 0.4);
         confidence = Math.min(95, 50 + stats.totalOccurrences * 2);
       }
     }
 
     return {
-      patternScore: Math.max(10, Math.min(100, score)),
-      patternConfidence: Math.max(10, Math.min(100, confidence)),
+      patternScore: Math.max(10, Math.min(100, Math.round(score))),
+      patternConfidence: Math.max(10, Math.min(100, Math.round(confidence))),
       features: { ...state.features, patternName: detectedPattern, patternStage: detectedStage }
     };
   });
 
-  // 3. Candlestick Agent Node
+  // 3. Candlestick Agent Node — rebuilt as breakout-day / volume dry-up quality check
   graph.addNode("candlestick", async (state) => {
+    const vcp: VcpFeatures | undefined = state.features.vcp;
     const candles = state.candles;
     const n = candles.length;
-    if (n < 4) return { candlestickScore: 50 };
+    if (n < 4 || !vcp) return { candlestickScore: 50 };
 
-    let score = 50;
+    let score = 40;
     let detectedCandle = "Normal";
-    let volumeConfirmed = false;
 
     const today = candles[n - 1];
-    const yesterday = candles[n - 2];
-    const dayBefore = candles[n - 3];
-
-    const toOpen = Number(today.open);
+    const toOpen = Number(today.open ?? today.close);
     const toHigh = Number(today.high);
     const toLow = Number(today.low);
     const toClose = Number(today.close);
-    const toVol = Number(today.volume);
+    const range = toHigh - toLow;
+    const closedNearHigh = range > 0 ? (toClose - toLow) / range >= 0.7 : true;
+    const isGreenDay = toClose > toOpen;
 
-    const yesOpen = Number(yesterday.open);
-    const yesClose = Number(yesterday.close);
+    const volumeConfirmed = vcp.volumeRatio > 1.3;
+    const volumeDryUp = vcp.volumeRatio <= 0.75;
 
-    const dbOpen = Number(dayBefore.open);
-    const dbClose = Number(dayBefore.close);
-
-    // Volume confirmation (RVOL > 1.3)
-    const rvol = state.features.rvol ?? 1.0;
-    volumeConfirmed = rvol > 1.3;
-
-    // Check patterns
-    if (detectMorningStar(dbOpen, dbClose, yesOpen, yesClose, toOpen, toClose)) {
-      detectedCandle = "Morning Star";
-      score = volumeConfirmed ? 90 : 75;
-    } else if (detectBullishEngulfing(yesOpen, yesClose, toOpen, toClose)) {
-      detectedCandle = "Bullish Engulfing";
-      score = volumeConfirmed ? 85 : 70;
-    } else if (detectHammer(toOpen, toHigh, toLow, toClose)) {
-      detectedCandle = "Hammer";
-      score = volumeConfirmed ? 80 : 65;
-    } else {
-      // Inside bar check
-      const toRangeHigh = Math.max(toOpen, toClose);
-      const toRangeLow = Math.min(toOpen, toClose);
-      const yesRangeHigh = Math.max(yesOpen, yesClose);
-      const yesRangeLow = Math.min(yesOpen, yesClose);
-
-      if (toRangeHigh < yesRangeHigh && toRangeLow > yesRangeLow) {
-        detectedCandle = "Inside Bar";
-        score = 65;
-      }
+    if (isGreenDay && closedNearHigh && volumeConfirmed) {
+      detectedCandle = "Breakout Candle";
+      score = 88;
+    } else if (isGreenDay && closedNearHigh) {
+      detectedCandle = "Bullish Close";
+      score = 70;
+    } else if (detectHammer(toOpen, toHigh, toLow, toClose) && volumeDryUp) {
+      detectedCandle = "Hammer (Dry-up)";
+      score = 65;
+    } else if (volumeDryUp) {
+      detectedCandle = "Quiet Coil Day";
+      score = 60;
+    } else if (!isGreenDay && vcp.dailyChangePct < -2) {
+      detectedCandle = "Distribution Day";
+      score = 30;
     }
 
     // Adjust based on historical performance
@@ -378,7 +339,7 @@ export function buildFuguGraph(): FuguLangGraph {
         .where(eq(fuguCandlestickStats.candlestickName, detectedCandle));
       if (stats && stats.totalOccurrences > 5) {
         const wr = Number(stats.winRate5d);
-        score = Math.round(wr * 1.3);
+        score = Math.round(score * 0.6 + wr * 0.4);
       }
     }
 
@@ -1023,6 +984,26 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
               symbol: finalState.symbol
             });
 
+            // Autonomous journaling — every high-conviction VCP breakout gets its
+            // own entry/SL/target row for dedicated SL-hit vs target-hit tracking.
+            const vcp: VcpFeatures | undefined = finalState.features.vcp;
+            if (vcp && finalState.fuguScore >= 72 && vcp.passesAllFilters) {
+              const trade = computeVcpEntrySLTarget(vcp);
+              await logJournalEntry("FUGU", {
+                symbol: finalState.symbol,
+                stockName: finalState.symbol,
+                entryPrice: trade.entry,
+                stopLoss: trade.stopLoss,
+                target: trade.target,
+                riskReward: trade.riskRewardRatio,
+                vcpScore: finalState.fuguScore,
+                atrCompression: vcp.atrCompression,
+                volumeRatio: vcp.volumeRatio,
+                nearHighPct: vcp.nearHighPct,
+                aiNotes: `[FUGU] ${describeVcpSetup(vcp)}`,
+              });
+            }
+
             processed++;
           } catch (err: any) {
             console.error(`[Fugu Engine] Error processing ${cand.symbol}:`, err.message);
@@ -1512,18 +1493,27 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
   let totalNew = 0;
 
   for (const agent of agents) {
+    // VCP-only rebuild: fundamental/sector/macro/sentiment/similarity stay
+    // permanently pinned at 0 — learning may only redistribute weight across
+    // technical/pattern/candlestick, the three VCP-derived agents.
+    if (ZERO_LOCKED_AGENTS.has(agent)) {
+      newWeights[agent] = 0;
+      continue;
+    }
+
     const corr = Math.max(0.01, correlations[agent] || 0.05); // keep positive
     const oldW = currentWeights[agent] ?? DEFAULT_FUGU_WEIGHTS[agent as keyof typeof DEFAULT_FUGU_WEIGHTS];
 
     // Blended weight: EMA blend
     const blended = 0.8 * oldW + 0.2 * (corr * 2);
-    newWeights[agent] = Math.max(0.02, Math.min(0.35, blended));
+    newWeights[agent] = Math.max(0.05, Math.min(0.60, blended));
     totalNew += newWeights[agent];
   }
 
-  // Normalize to 1.0
+  // Normalize the unlocked (VCP) agents to sum to 1.0; locked agents stay at 0
   for (const agent of agents) {
-    newWeights[agent] = newWeights[agent] / totalNew;
+    if (ZERO_LOCKED_AGENTS.has(agent)) continue;
+    newWeights[agent] = totalNew > 0 ? newWeights[agent] / totalNew : newWeights[agent];
   }
 
   // Calculate Accuracy

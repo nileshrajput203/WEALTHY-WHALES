@@ -34,14 +34,23 @@ import {
   computeEMA,
 } from "./stockApi";
 import { calculateStockIQ } from "./stockiq";
+import {
+  computeVcpFeatures,
+  computeVcpScore,
+  computeVcpEntrySLTarget,
+  describeVcpSetup,
+  type VcpFeatures,
+} from "./vcpCore";
+import { logJournalEntry } from "./vcpJournalEngine";
 
 /* ═══════════════════════════════════════════════════════════
-   CONSTANTS & DEFAULT WEIGHTS
+   CONSTANTS & DEFAULT WEIGHTS (VCP-ONLY — HERMES v2)
+   Goal: find VCP breakouts expected to swing 5-10% within ~1-2 days.
 ═══════════════════════════════════════════════════════════ */
 
-/** Win threshold: +3% forward return = WIN, -3% = LOSS */
-const WIN_THRESHOLD = 3.0;
-const LOSS_THRESHOLD = -3.0;
+/** Win threshold aligned to the 5-10% swing target band, loss aligned to SL risk */
+const WIN_THRESHOLD = 5.0;
+const LOSS_THRESHOLD = -4.0;
 
 /** Maximum stocks to scan per daily run */
 const MAX_SCAN_UNIVERSE = 200;
@@ -50,38 +59,18 @@ const MAX_SCAN_UNIVERSE = 200;
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 600;
 
-/** Default weight vector — v0 "intuition" before any learning */
+/** Default weight vector — v0 "intuition" before any learning. VCP factors only. */
 export const DEFAULT_WEIGHTS: Record<string, number> = {
-  // Technicals (30%)
-  rsi14_zone: 0.08,        // RSI in sweet spot (40-65)
-  sma20_above: 0.06,       // Price above SMA20
-  sma50_above: 0.05,       // Price above SMA50
-  golden_cross: 0.04,      // SMA20 > SMA50
-  macd_positive: 0.04,     // MACD histogram positive
-  adx_strong: 0.03,        // ADX > 25 (trending)
-
-  // Fundamentals (25%)
-  roe_quality: 0.07,       // ROE > 15%
-  low_debt: 0.05,          // D/E < 1
-  margin_quality: 0.05,    // OPM > 15%
-  pe_reasonable: 0.04,     // PE 10-30
-  roce_quality: 0.04,      // ROCE > 12%
-
-  // Momentum (25%)
-  return_1w: 0.05,         // 1-week return
-  return_1m: 0.06,         // 1-month return
-  return_3m: 0.06,         // 3-month return
-  proximity_52w_high: 0.04, // Near 52-week high
-  rvol_elevated: 0.04,     // Relative volume > 1.5
-
-  // Insider/Quality (10%)
-  market_cap_stable: 0.04, // Large/mid cap bonus
-  dividend_present: 0.03,  // Has dividend
-  iq_composite: 0.03,      // StockIQ total score
-
-  // Pattern (10%)
-  pattern_bullish: 0.06,   // Bullish pattern detected
-  pattern_breakout: 0.04,  // Pattern in breakout stage
+  atr_compression: 0.16,        // ATR fallen sharply vs 10d ago
+  progressive_contraction: 0.10, // Multi-stage tightening (contractionCount)
+  tight_coil: 0.12,             // ATR/price ratio very tight
+  volume_dryup: 0.16,           // Volume well below 20d avg (classic VCP dry-up)
+  near_52w_high: 0.14,          // Trading near the 52-week high
+  ema_stack_full: 0.14,         // Full stage-2 EMA stack alignment
+  ema50_rising: 0.06,           // EMA50 sloping up
+  range_quality: 0.06,          // Meaningful 52w range (not a flat penny stock)
+  rs_score: 0.04,               // 6-month relative strength
+  liquidity_turnover: 0.02,     // Enough turnover to trade safely
 };
 
 /** Sector mapping for NSE stocks */
@@ -206,76 +195,51 @@ async function getActiveWeights(): Promise<{ weights: Record<string, number>; ve
 }
 
 /* ═══════════════════════════════════════════════════════════
-   HERMES SCORE — Compute adaptive score for a stock
+   HERMES SCORE — Compute adaptive VCP score for a stock
 ═══════════════════════════════════════════════════════════ */
-interface StockFeatures {
-  rsi14: number | null;
-  sma20: number | null;
-  sma50: number | null;
-  price: number;
-  macdHistogram: number | null;
-  adx: number | null;
-  roe: number | null;
-  debtToEquity: number | null;
-  opm: number | null;
-  pe: number | null;
-  roce: number | null;
-  return1w: number | null;
-  return1m: number | null;
-  return3m: number | null;
-  proximity52wHigh: number | null;
-  rvol: number | null;
-  marketCapValue: number | null;
-  dividendYield: number | null;
-  iqTotal: number | null;
-  patternDetected: string | null;
-  patternStage: string | null;
+
+function vcpConditions(f: VcpFeatures): Record<string, boolean> {
+  return {
+    atr_compression: f.atrCompression >= 0.30,
+    progressive_contraction: f.contractionCount >= 2,
+    tight_coil: f.tightCoilRatio <= 0.05,
+    volume_dryup: f.volumeRatio <= 0.75,
+    near_52w_high: f.nearHighPct >= 85,
+    ema_stack_full: f.emaStackScore >= 0.85,
+    ema50_rising: f.ema50Rising,
+    range_quality: f.rangeQuality >= 1.2,
+    rs_score: f.rsScore > 15,
+    liquidity_turnover: f.turnover >= 2_000_000,
+  };
 }
 
-function computeHermesScore(features: StockFeatures, weights: Record<string, number>): number {
+function computeHermesScore(features: VcpFeatures, weights: Record<string, number>): number {
   let score = 0;
   let maxPossible = 0;
 
-  const add = (key: string, condition: boolean, strength: number = 1.0) => {
+  const conditions = vcpConditions(features);
+  const strengths: Record<string, number> = {
+    atr_compression: Math.min(1, features.atrCompression / 0.6),
+    progressive_contraction: features.contractionCount / 3,
+    tight_coil: Math.min(1, Math.max(0, (0.06 - features.tightCoilRatio) / 0.06)),
+    volume_dryup: Math.min(1, Math.max(0, (1 - features.volumeRatio) / 0.5)),
+    near_52w_high: Math.min(1, Math.max(0, (features.nearHighPct - 80) / 20)),
+    ema_stack_full: features.emaStackScore,
+    ema50_rising: 1,
+    range_quality: 1,
+    rs_score: Math.min(1, Math.max(0, features.rsScore / 30)),
+    liquidity_turnover: 1,
+  };
+
+  const add = (key: string) => {
     const w = weights[key] || 0;
     maxPossible += w;
-    if (condition) {
-      score += w * strength;
+    if (conditions[key]) {
+      score += w * (strengths[key] ?? 1.0);
     }
   };
 
-  // Technicals
-  const rsi = features.rsi14;
-  add("rsi14_zone", rsi != null && rsi >= 40 && rsi <= 65, rsi != null ? (rsi >= 50 && rsi <= 60 ? 1.0 : 0.7) : 0);
-  add("sma20_above", features.sma20 != null && features.price > features.sma20);
-  add("sma50_above", features.sma50 != null && features.price > features.sma50);
-  add("golden_cross", features.sma20 != null && features.sma50 != null && features.sma20 > features.sma50);
-  add("macd_positive", features.macdHistogram != null && features.macdHistogram > 0);
-  add("adx_strong", features.adx != null && features.adx > 25, features.adx != null && features.adx > 40 ? 1.0 : 0.7);
-
-  // Fundamentals
-  add("roe_quality", features.roe != null && features.roe > 15, features.roe != null && features.roe > 20 ? 1.0 : 0.7);
-  add("low_debt", features.debtToEquity != null && features.debtToEquity < 1, features.debtToEquity != null && features.debtToEquity < 0.5 ? 1.0 : 0.7);
-  add("margin_quality", features.opm != null && features.opm > 15, features.opm != null && features.opm > 25 ? 1.0 : 0.7);
-  add("pe_reasonable", features.pe != null && features.pe > 10 && features.pe < 30);
-  add("roce_quality", features.roce != null && features.roce > 12);
-
-  // Momentum
-  add("return_1w", features.return1w != null && features.return1w > 0, Math.min(1, Math.max(0, (features.return1w ?? 0) / 5)));
-  add("return_1m", features.return1m != null && features.return1m > 0, Math.min(1, Math.max(0, (features.return1m ?? 0) / 10)));
-  add("return_3m", features.return3m != null && features.return3m > 0, Math.min(1, Math.max(0, (features.return3m ?? 0) / 20)));
-  add("proximity_52w_high", features.proximity52wHigh != null && features.proximity52wHigh > 85);
-  add("rvol_elevated", features.rvol != null && features.rvol > 1.5, features.rvol != null && features.rvol > 2.5 ? 1.0 : 0.7);
-
-  // Insider/Quality
-  const capCr = (features.marketCapValue ?? 0) / 1e7;
-  add("market_cap_stable", capCr > 5000);
-  add("dividend_present", features.dividendYield != null && features.dividendYield > 0.5);
-  add("iq_composite", features.iqTotal != null && features.iqTotal > 60, (features.iqTotal ?? 50) / 100);
-
-  // Pattern
-  add("pattern_bullish", features.patternDetected != null && features.patternDetected !== "");
-  add("pattern_breakout", features.patternStage === "Breakout Confirmed" || features.patternStage === "Near Breakout");
+  for (const key of Object.keys(DEFAULT_WEIGHTS)) add(key);
 
   // Normalize to 0-100
   if (maxPossible <= 0) return 50;
@@ -322,53 +286,24 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
         try {
           const yahooSym = `${sym}.NS`;
 
-          // Fetch data
-          const [quoteRes, histRes, fundRes] = await Promise.allSettled([
+          // Fetch data — candles are all HERMES v2 needs (VCP is pure price/volume)
+          const [quoteRes, histRes] = await Promise.allSettled([
             getYahooStockQuote(yahooSym),
             getYahooHistory(yahooSym, "1y", "1d"),
-            getFmpFundamentals(sym),
           ]);
 
           const quote = quoteRes.status === "fulfilled" ? quoteRes.value : null;
           const candles = histRes.status === "fulfilled" ? histRes.value : [];
-          const fund = fundRes.status === "fulfilled" ? fundRes.value : null;
 
-          if (!quote && candles.length === 0) return;
+          if (!candles || candles.length < 60) return;
 
+          const vcp = computeVcpFeatures(candles);
+          if (!vcp) return;
+
+          const price = quote?.price ?? vcp.price;
+
+          // Momentum (kept for dashboard display only — not used in scoring anymore)
           const closes = candles.map((c: any) => Number(c.close)).filter((v: number) => isFinite(v));
-          const highs = candles.map((c: any) => Number(c.high)).filter((v: number) => isFinite(v));
-          const lows = candles.map((c: any) => Number(c.low)).filter((v: number) => isFinite(v));
-          const volumes = candles.map((c: any) => Number(c.volume)).filter((v: number) => isFinite(v));
-
-          if (closes.length < 20) return;
-
-          const price = quote?.price ?? closes[closes.length - 1];
-          const lastVol = volumes[volumes.length - 1] ?? 0;
-
-          // Technical indicators
-          const smaArr20 = computeSMA(closes, 20);
-          const smaArr50 = computeSMA(closes, 50);
-          const rsiArr = computeRSI(closes, 14);
-          const emaArr12 = computeEMA(closes, 12);
-          const emaArr26 = computeEMA(closes, 26);
-
-          const sma20 = smaArr20.length > 0 ? smaArr20[smaArr20.length - 1] : null;
-          const sma50 = smaArr50.length > 0 ? smaArr50[smaArr50.length - 1] : null;
-          const rsi14 = rsiArr.length > 0 ? rsiArr[rsiArr.length - 1] : null;
-          const ema12 = emaArr12.length > 0 ? emaArr12[emaArr12.length - 1] : null;
-          const ema26 = emaArr26.length > 0 ? emaArr26[emaArr26.length - 1] : null;
-
-          const macdHist = ema12 != null && ema26 != null ? ema12 - ema26 : null;
-          const adx = computeADX(highs, lows, closes);
-          const atr14 = computeATR(highs, lows, closes);
-
-          // Volume analysis
-          const vol20d = volumes.length >= 20
-            ? volumes.slice(-20).reduce((a: number, b: number) => a + b, 0) / 20
-            : null;
-          const rvol = vol20d && vol20d > 0 ? lastVol / vol20d : null;
-
-          // Momentum
           const n = closes.length;
           const ret = (days: number) => n > days ? ((closes[n - 1] - closes[n - 1 - days]) / closes[n - 1 - days]) * 100 : null;
           const return1w = ret(5);
@@ -376,89 +311,50 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
           const return3m = ret(66);
           const return6m = ret(132);
 
-          // 52-week high proximity
-          const high252 = n >= 252 ? Math.max(...closes.slice(n - 252)) : Math.max(...closes);
-          const proximity52wHigh = high252 > 0 ? (price / high252) * 100 : null;
-
-          // Fundamentals
-          const pe = fund?.pe != null ? Number(fund.pe) : null;
-          const roe = fund?.roe != null ? (Number(fund.roe) < 1 ? Number(fund.roe) * 100 : Number(fund.roe)) : null;
-          const debtToEquity = fund?.debtToEquity != null ? Number(fund.debtToEquity) : null;
-          const opm = fund?.opm != null ? (Number(fund.opm) < 1 ? Number(fund.opm) * 100 : Number(fund.opm)) : null;
-          const roce = fund?.roce != null ? (Number(fund.roce) < 1 ? Number(fund.roce) * 100 : Number(fund.roce)) : null;
-          const peg = fund?.peg != null ? Number(fund.peg) : null;
-          const marketCapValue = fund?.marketCap ?? quote?.marketCap ?? null;
-          const dividendYield = fund?.dividendYield != null ? Number(fund.dividendYield) : null;
-
-          // Market cap bucket
+          const marketCapValue = quote?.marketCap ?? null;
           const capCr = (marketCapValue ?? 0) / 1e7;
           const marketCapBucket = capCr >= 50000 ? "LARGE" : capCr >= 10000 ? "MID" : "SMALL";
-
-          // StockIQ
-          let iqTotal = 0, iqFundamentals = 0, iqTechnicals = 0, iqMomentum = 0, iqInsider = 0;
-          try {
-            const iq = await calculateStockIQ(sym);
-            iqTotal = iq.totalScore;
-            iqFundamentals = iq.fundamentals.score;
-            iqTechnicals = iq.technicals.score;
-            iqMomentum = iq.momentum.score;
-            iqInsider = iq.insider.score;
-          } catch {}
-
-          // Pattern detection (lightweight check)
-          let patternDetected: string | null = null;
-          let patternStage: string | null = null;
-          // We skip full pattern scan here for speed — the main pattern scanner already caches results
-
-          // Sector
           const sector = SECTOR_MAP[sym] || "Other";
 
-          // Compute HERMES score
-          const features: StockFeatures = {
-            rsi14, sma20, sma50, price, macdHistogram: macdHist, adx,
-            roe, debtToEquity, opm, pe, roce,
-            return1w, return1m, return3m, proximity52wHigh, rvol,
-            marketCapValue, dividendYield, iqTotal,
-            patternDetected, patternStage,
-          };
-
-          const hermesScoreVal = computeHermesScore(features, weights);
+          const hermesScoreVal = computeHermesScore(vcp, weights);
           const verdict = hermesVerdict(hermesScoreVal);
 
           // Insert snapshot
           const [snap] = await db.insert(hermesSnapshots).values({
             symbol: sym,
             price: String(price),
-            volume: lastVol ? String(Math.round(lastVol)) : null,
-            volumeAvg20d: vol20d ? String(Math.round(vol20d)) : null,
-            rvol: rvol != null ? String(rvol.toFixed(2)) : null,
-            rsi14: rsi14 != null ? String(rsi14.toFixed(2)) : null,
-            sma20: sma20 != null ? String(sma20.toFixed(2)) : null,
-            sma50: sma50 != null ? String(sma50.toFixed(2)) : null,
-            ema12: ema12 != null ? String(ema12.toFixed(2)) : null,
-            ema26: ema26 != null ? String(ema26.toFixed(2)) : null,
-            macdHistogram: macdHist != null ? String(macdHist.toFixed(4)) : null,
-            adx: adx != null ? String(adx.toFixed(2)) : null,
-            atr14: atr14 != null ? String(atr14.toFixed(2)) : null,
-            pe: pe != null ? String(pe.toFixed(2)) : null,
-            roe: roe != null ? String(roe.toFixed(2)) : null,
-            debtToEquity: debtToEquity != null ? String(debtToEquity.toFixed(2)) : null,
-            opm: opm != null ? String(opm.toFixed(2)) : null,
-            roce: roce != null ? String(roce.toFixed(2)) : null,
-            peg: peg != null ? String(peg.toFixed(2)) : null,
+            volume: null,
+            volumeAvg20d: null,
+            rvol: String(vcp.volumeRatio.toFixed(2)),
+            rsi14: null,
+            sma20: null,
+            sma50: null,
+            ema12: null,
+            ema26: null,
+            macdHistogram: null,
+            adx: null,
+            atr14: String(vcp.atr14.toFixed(2)),
+            pe: null,
+            roe: null,
+            debtToEquity: null,
+            opm: null,
+            roce: null,
+            peg: null,
             marketCapValue: marketCapValue != null ? String(Math.round(marketCapValue)) : null,
-            dividendYield: dividendYield != null ? String(dividendYield.toFixed(2)) : null,
+            dividendYield: null,
             return1w: return1w != null ? String(return1w.toFixed(2)) : null,
             return1m: return1m != null ? String(return1m.toFixed(2)) : null,
             return3m: return3m != null ? String(return3m.toFixed(2)) : null,
             return6m: return6m != null ? String(return6m.toFixed(2)) : null,
-            proximity52wHigh: proximity52wHigh != null ? String(proximity52wHigh.toFixed(2)) : null,
-            iqTotal, iqFundamentals, iqTechnicals, iqMomentum, iqInsider,
-            patternDetected, patternStage,
+            proximity52wHigh: String(vcp.nearHighPct.toFixed(2)),
+            iqTotal: computeVcpScore(vcp), iqFundamentals: 0, iqTechnicals: 0, iqMomentum: 0, iqInsider: 0,
+            patternDetected: vcp.passesAllFilters ? "VCP" : null,
+            patternStage: vcp.passesAllFilters ? "Breakout Confirmed" : (vcp.contractionCount >= 2 ? "Near Breakout" : "Consolidation"),
             sector, marketCapBucket,
             hermesScore: String(hermesScoreVal.toFixed(2)),
             hermesVerdict: verdict,
             weightVersion: version,
+            vcpFeatures: vcp,
           }).returning();
 
           // Create outcome tracking row
@@ -466,6 +362,25 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
             snapshotId: snap.id,
             symbol: sym,
           });
+
+          // Autonomous journaling — every BUY-grade VCP setup gets its own
+          // entry/SL/target logged for dedicated SL-hit vs target-hit tracking.
+          if (verdict === "BUY" && vcp.passesAllFilters) {
+            const trade = computeVcpEntrySLTarget(vcp);
+            await logJournalEntry("HERMES", {
+              symbol: sym,
+              stockName: sym,
+              entryPrice: trade.entry,
+              stopLoss: trade.stopLoss,
+              target: trade.target,
+              riskReward: trade.riskRewardRatio,
+              vcpScore: hermesScoreVal,
+              atrCompression: vcp.atrCompression,
+              volumeRatio: vcp.volumeRatio,
+              nearHighPct: vcp.nearHighPct,
+              aiNotes: `[HERMES] ${describeVcpSetup(vcp)}`,
+            });
+          }
 
           inserted++;
         } catch (e) {
@@ -648,32 +563,13 @@ export async function runLearningCycle(): Promise<{
     const returnVal = Number(outcome.return5d ?? 0);
     const isWin = returnVal >= WIN_THRESHOLD;
 
-    // Evaluate each feature condition
-    const rsi = snap.rsi14 != null ? Number(snap.rsi14) : null;
-    const price = Number(snap.price);
+    // Evaluate each VCP feature condition from the stored feature blob
+    const vf = (snap.vcpFeatures as VcpFeatures | null) ?? null;
 
-    const conditions: Record<string, boolean> = {
-      rsi14_zone: rsi != null && rsi >= 40 && rsi <= 65,
-      sma20_above: snap.sma20 != null && price > Number(snap.sma20),
-      sma50_above: snap.sma50 != null && price > Number(snap.sma50),
-      golden_cross: snap.sma20 != null && snap.sma50 != null && Number(snap.sma20) > Number(snap.sma50),
-      macd_positive: snap.macdHistogram != null && Number(snap.macdHistogram) > 0,
-      adx_strong: snap.adx != null && Number(snap.adx) > 25,
-      roe_quality: snap.roe != null && Number(snap.roe) > 15,
-      low_debt: snap.debtToEquity != null && Number(snap.debtToEquity) < 1,
-      margin_quality: snap.opm != null && Number(snap.opm) > 15,
-      pe_reasonable: snap.pe != null && Number(snap.pe) > 10 && Number(snap.pe) < 30,
-      roce_quality: snap.roce != null && Number(snap.roce) > 12,
-      return_1w: snap.return1w != null && Number(snap.return1w) > 0,
-      return_1m: snap.return1m != null && Number(snap.return1m) > 0,
-      return_3m: snap.return3m != null && Number(snap.return3m) > 0,
-      proximity_52w_high: snap.proximity52wHigh != null && Number(snap.proximity52wHigh) > 85,
-      rvol_elevated: snap.rvol != null && Number(snap.rvol) > 1.5,
-      market_cap_stable: (Number(snap.marketCapValue ?? 0) / 1e7) > 5000,
-      dividend_present: snap.dividendYield != null && Number(snap.dividendYield) > 0.5,
-      iq_composite: snap.iqTotal != null && snap.iqTotal > 60,
-      pattern_bullish: snap.patternDetected != null && snap.patternDetected !== "",
-      pattern_breakout: snap.patternStage === "Breakout Confirmed" || snap.patternStage === "Near Breakout",
+    const conditions: Record<string, boolean> = vf ? vcpConditions(vf) : {
+      atr_compression: false, progressive_contraction: false, tight_coil: false,
+      volume_dryup: false, near_52w_high: false, ema_stack_full: false,
+      ema50_rising: false, range_quality: false, rs_score: false, liquidity_turnover: false,
     };
 
     for (const [key, conditionMet] of Object.entries(conditions)) {

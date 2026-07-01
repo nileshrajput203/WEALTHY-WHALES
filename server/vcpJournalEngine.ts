@@ -20,6 +20,113 @@ const MIN_GRADE_SCORE = 65;   // only journal A / A+ stocks
 const MAX_HOLD_DAYS   = 10;   // time-stop after 10 market days
 const RISK_REWARD     = 2.5;  // 2.5R target
 
+export type JournalEngine = "SWING" | "HERMES" | "FUGU";
+
+// ─── Generic entry point: HERMES / FUGU call this directly with pre-computed
+//     entry / SL / target (from vcpCore) instead of going through the swing scanner ───
+export interface LogJournalEntryInput {
+  symbol: string;
+  stockName: string;
+  entryPrice: number;
+  stopLoss: number;
+  target: number;
+  riskReward: number;
+  vcpScore: number;
+  atrCompression?: number;
+  volumeRatio?: number;
+  nearHighPct?: number;
+  aiNotes?: string;
+}
+
+export async function logJournalEntry(engine: JournalEngine, pick: LogJournalEntryInput): Promise<boolean> {
+  try {
+    const existing = await db
+      .select({ id: vcpJournalEntries.id })
+      .from(vcpJournalEntries)
+      .where(
+        and(
+          eq(vcpJournalEntries.symbol, pick.symbol),
+          eq(vcpJournalEntries.engine, engine),
+          eq(vcpJournalEntries.outcome, "OPEN")
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) return false; // already watching this stock for this engine
+
+    if (pick.entryPrice <= pick.stopLoss) return false; // invalid risk
+
+    const grade = gradeOf(pick.vcpScore);
+    const entry: InsertVcpJournalEntry = {
+      engine,
+      symbol:      pick.symbol,
+      stockName:   pick.stockName,
+      entryPrice:  String(Math.round(pick.entryPrice * 100) / 100),
+      stopLoss:    String(Math.round(pick.stopLoss * 100) / 100),
+      target:      String(Math.round(pick.target * 100) / 100),
+      riskReward:  String(Math.round(pick.riskReward * 100) / 100),
+      vcpScore:    Math.round(pick.vcpScore),
+      vcpGrade:    grade,
+      atrCompression: String(Math.round((pick.atrCompression ?? 0) * 10000) / 10000),
+      volumeRatio:    String(Math.round((pick.volumeRatio ?? 0) * 10000) / 10000),
+      nearHighPct:    String(Math.round((pick.nearHighPct ?? 0) * 100) / 100),
+      outcome:    "OPEN",
+      aiNotes:    pick.aiNotes ?? `[${engine}] Grade ${grade} VCP setup.`,
+    };
+
+    await db.insert(vcpJournalEntries).values(entry);
+    console.log(`[VCP Journal:${engine}] → ${pick.symbol} Grade ${grade} | Entry ₹${pick.entryPrice.toFixed(0)} SL ₹${pick.stopLoss.toFixed(0)} T ₹${pick.target.toFixed(0)}`);
+    return true;
+  } catch (err) {
+    console.error(`[VCP Journal:${engine}] logJournalEntry failed for ${pick.symbol}:`, err);
+    return false;
+  }
+}
+
+export interface JournalStats {
+  engine: string;
+  total: number;
+  open: number;
+  targetHit: number;
+  slHit: number;
+  timeStop: number;
+  targetHitRate: number; // % of CLOSED trades that hit target
+  slHitRate: number;     // % of CLOSED trades that hit stop-loss
+  avgReturnPct: number;
+}
+
+export async function getJournalStats(engine: JournalEngine): Promise<JournalStats> {
+  const rows = await db
+    .select()
+    .from(vcpJournalEntries)
+    .where(eq(vcpJournalEntries.engine, engine));
+
+  const stats: JournalStats = {
+    engine, total: rows.length, open: 0, targetHit: 0, slHit: 0, timeStop: 0,
+    targetHitRate: 0, slHitRate: 0, avgReturnPct: 0,
+  };
+
+  let returnSum = 0;
+  let closedCount = 0;
+
+  for (const r of rows) {
+    if (r.outcome === "OPEN") stats.open++;
+    else if (r.outcome === "TARGET_HIT") { stats.targetHit++; closedCount++; }
+    else if (r.outcome === "SL_HIT") { stats.slHit++; closedCount++; }
+    else if (r.outcome === "TIME_STOP") { stats.timeStop++; closedCount++; }
+
+    if (r.outcome !== "OPEN" && r.returnPct != null) {
+      returnSum += parseFloat(r.returnPct);
+    }
+  }
+
+  stats.targetHitRate = closedCount > 0 ? Math.round((stats.targetHit / closedCount) * 1000) / 10 : 0;
+  stats.slHitRate = closedCount > 0 ? Math.round((stats.slHit / closedCount) * 1000) / 10 : 0;
+  stats.avgReturnPct = closedCount > 0 ? Math.round((returnSum / closedCount) * 100) / 100 : 0;
+
+  return stats;
+}
+
 // ─── Grade helpers ───────────────────────────────────────────────────────────
 function gradeOf(score: number): string {
   if (score >= 82) return "A+";
@@ -225,11 +332,10 @@ export async function runVcpLearning(): Promise<VcpGradeStat[]> {
   }
 }
 
-// ─── Public: get all journal entries (desc by entryDate) ─────────────────────
-export async function getVcpJournalEntries(limit = 100): Promise<VcpJournalEntry[]> {
-  return db
-    .select()
-    .from(vcpJournalEntries)
+// ─── Public: get journal entries (desc by entryDate), optionally filtered by engine ──
+export async function getVcpJournalEntries(limit = 100, engine?: JournalEngine): Promise<VcpJournalEntry[]> {
+  const q = db.select().from(vcpJournalEntries);
+  return (engine ? q.where(eq(vcpJournalEntries.engine, engine)) : q)
     .orderBy(desc(vcpJournalEntries.createdAt))
     .limit(limit);
 }

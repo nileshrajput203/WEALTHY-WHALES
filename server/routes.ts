@@ -64,6 +64,10 @@ import {
   getFuguDashboard,
 } from "./fuguEngine";
 import {
+  getJournalStats,
+  getVcpJournalEntries,
+} from "./vcpJournalEngine";
+import {
   triggerManualFuguScan,
   triggerManualFuguOutcome,
   triggerManualFuguLearning,
@@ -2442,6 +2446,38 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     } catch (err: any) {
       console.error('[FUGU API] Learning cycle error:', err);
       res.status(500).json({ message: 'Failed to trigger learning cycle' });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // VCP JOURNAL — per-engine trade journal (entry/SL/target + hit-rates)
+  // ══════════════════════════════════════════════════════════════
+  app.get('/api/journal/:engine/stats', async (req: Request, res: Response) => {
+    try {
+      const engine = req.params.engine.toUpperCase();
+      if (!["SWING", "HERMES", "FUGU"].includes(engine)) {
+        return res.status(400).json({ message: 'Invalid engine. Use SWING, HERMES or FUGU.' });
+      }
+      const stats = await getJournalStats(engine as "SWING" | "HERMES" | "FUGU");
+      res.json(stats);
+    } catch (err: any) {
+      console.error('[Journal API] Stats error:', err);
+      res.status(500).json({ message: 'Failed to load journal stats' });
+    }
+  });
+
+  app.get('/api/journal/:engine/entries', async (req: Request, res: Response) => {
+    try {
+      const engine = req.params.engine.toUpperCase();
+      if (!["SWING", "HERMES", "FUGU"].includes(engine)) {
+        return res.status(400).json({ message: 'Invalid engine. Use SWING, HERMES or FUGU.' });
+      }
+      const limit = parseInt(String(req.query.limit || '100'), 10);
+      const entries = await getVcpJournalEntries(limit, engine as "SWING" | "HERMES" | "FUGU");
+      res.json(entries);
+    } catch (err: any) {
+      console.error('[Journal API] Entries error:', err);
+      res.status(500).json({ message: 'Failed to load journal entries' });
     }
   });
 
