@@ -2205,6 +2205,50 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   });
 
   // ══════════════════════════════════════════════════════════════
+  // VCP Alerts — User watchlist with score thresholds
+  // ══════════════════════════════════════════════════════════════
+
+  app.get('/api/vcp-alerts', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      const alerts = await storage.getVcpAlerts(userId);
+      res.json(alerts);
+    } catch (err: any) {
+      console.error('VCP alerts GET error:', err);
+      res.status(500).json({ message: 'Failed to fetch alerts' });
+    }
+  });
+
+  app.post('/api/vcp-alerts', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      const schema = z.object({
+        symbol:         z.string().max(20),
+        stockName:      z.string().max(100),
+        thresholdScore: z.number().int().min(0).max(100),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: 'Invalid payload', errors: parsed.error.flatten() });
+      const alert = await storage.createVcpAlert({ ...parsed.data, userId });
+      res.json(alert);
+    } catch (err: any) {
+      console.error('VCP alerts POST error:', err);
+      res.status(500).json({ message: 'Failed to create alert' });
+    }
+  });
+
+  app.delete('/api/vcp-alerts/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      await storage.deleteVcpAlert(req.params.id, userId);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('VCP alerts DELETE error:', err);
+      res.status(500).json({ message: 'Failed to delete alert' });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
   // HERMES AI — Self-Learning Stock Intelligence Endpoints
   // ══════════════════════════════════════════════════════════════
 

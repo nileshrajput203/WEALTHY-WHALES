@@ -6,6 +6,7 @@ import {
   scannerData,
   newsItems,
   marketDataCache,
+  vcpAlerts,
   type User,
   type UpsertUser,
   type StockRecommendation,
@@ -17,6 +18,8 @@ import {
   type NewsItem,
   type InsertNewsItem,
   type MarketDataCache,
+  type VcpAlert,
+  type InsertVcpAlert,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -50,6 +53,11 @@ export interface IStorage {
   // Market Data Caching
   getMarketDataCache(key: string): Promise<MarketDataCache | undefined>;
   setMarketDataCache(key: string, data: any): Promise<MarketDataCache>;
+
+  // VCP Alerts
+  getVcpAlerts(userId: string): Promise<VcpAlert[]>;
+  createVcpAlert(alert: InsertVcpAlert): Promise<VcpAlert>;
+  deleteVcpAlert(id: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -157,6 +165,20 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return updated;
+  }
+
+  // VCP Alerts
+  async getVcpAlerts(userId: string): Promise<VcpAlert[]> {
+    return await db.select().from(vcpAlerts).where(eq(vcpAlerts.userId, userId)).orderBy(desc(vcpAlerts.createdAt));
+  }
+
+  async createVcpAlert(alert: InsertVcpAlert): Promise<VcpAlert> {
+    const [created] = await db.insert(vcpAlerts).values(alert).returning();
+    return created;
+  }
+
+  async deleteVcpAlert(id: string, userId: string): Promise<void> {
+    await db.delete(vcpAlerts).where(and(eq(vcpAlerts.id, id), eq(vcpAlerts.userId, userId)));
   }
 }
 

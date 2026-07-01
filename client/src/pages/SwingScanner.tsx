@@ -1,7 +1,8 @@
 import { useState, Fragment } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Search, BarChart2, Activity, Zap, ArrowUpDown, Star } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { TrendingUp, TrendingDown, Search, BarChart2, Activity, Zap, ArrowUpDown, Star, Bell, BellRing, X, Trash2 } from "lucide-react";
 import { StockChartDrawer, type StockDrawerPayload } from "@/components/StockChartDrawer";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 
 interface SwingStock {
   sr:              number;
@@ -28,6 +29,15 @@ interface SwingStock {
   rsScore:         number;
 }
 
+interface VcpAlert {
+  id: string;
+  userId: string;
+  symbol: string;
+  stockName: string;
+  thresholdScore: number;
+  createdAt: string;
+}
+
 /* VCP quality label based on score */
 function vcpLabel(score: number): { text: string; cls: string } {
   if (score >= 80) return { text: "A+ VCP", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
@@ -37,16 +47,51 @@ function vcpLabel(score: number): { text: string; cls: string } {
 }
 
 export default function SwingScanner() {
-  const [search,        setSearch]        = useState("");
+  const [search,           setSearch]           = useState("");
   const [sortFundamentals, setSortFundamentals] = useState(false);
-  const [selectedStock, setSelectedStock] = useState<StockDrawerPayload | null>(null);
-  const [expandedRow,   setExpandedRow]   = useState<number | null>(null);
+  const [selectedStock,    setSelectedStock]    = useState<StockDrawerPayload | null>(null);
+  const [expandedRow,      setExpandedRow]      = useState<number | null>(null);
+  const [alertTarget,      setAlertTarget]      = useState<SwingStock | null>(null);
+  const [alertThreshold,   setAlertThreshold]   = useState(70);
 
   const { data: swingData, isLoading, refetch, isFetching } = useQuery<{ stocks: SwingStock[]; cached?: boolean }>({
     queryKey: ["/api/swing-scanner"],
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
+
+  const { data: authUser } = useQuery<{ id: string } | null>({
+    queryKey: ["/api/auth/user"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const { data: vcpAlerts = [] } = useQuery<VcpAlert[]>({
+    queryKey: ["/api/vcp-alerts"],
+    enabled: !!authUser,
+    staleTime: 30 * 1000,
+  });
+
+  const createAlert = useMutation({
+    mutationFn: async (payload: { symbol: string; stockName: string; thresholdScore: number }) => {
+      const res = await apiRequest("POST", "/api/vcp-alerts", payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vcp-alerts"] });
+      setAlertTarget(null);
+    },
+  });
+
+  const deleteAlert = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/vcp-alerts/${id}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/vcp-alerts"] }),
+  });
+
+  const alertMap = new Map<string, VcpAlert>(vcpAlerts.map(a => [a.symbol, a]));
 
   const rawStocks = (swingData?.stocks ?? []).filter(s =>
     !search ||
@@ -93,6 +138,60 @@ export default function SwingScanner() {
             </div>
           </div>
         </div>
+
+        {/* ── VCP Alerts Panel ─────────────────── */}
+        {vcpAlerts.length > 0 && (
+          <div className="glass-card rounded-2xl border border-purple-500/20 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BellRing className="w-3.5 h-3.5 text-purple-400" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-purple-400">
+                VCP Watchlist — {vcpAlerts.length} Alert{vcpAlerts.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {vcpAlerts.map(alert => {
+                const liveStock  = (swingData?.stocks ?? []).find(s => s.symbol === alert.symbol);
+                const score      = liveStock?.vcpScore ?? null;
+                const triggered  = score !== null && score >= alert.thresholdScore;
+                return (
+                  <div
+                    key={alert.id}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-all
+                      ${triggered
+                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
+                        : "bg-white/4 border-white/8 text-white/50"
+                      }`}
+                    data-testid={`alert-badge-${alert.symbol}`}
+                  >
+                    {triggered
+                      ? <BellRing className="w-3 h-3 text-emerald-400 animate-pulse" />
+                      : <Bell className="w-3 h-3 text-white/30" />
+                    }
+                    <span className={triggered ? "text-white/90" : ""}>{alert.symbol.replace(".NS","").replace(".BO","")}</span>
+                    {score !== null && (
+                      <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${triggered ? "bg-emerald-500/20 text-emerald-300" : "bg-white/5 text-white/30"}`}>
+                        {score}/{alert.thresholdScore}
+                      </span>
+                    )}
+                    {triggered && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-bold animate-pulse">
+                        TRIGGERED
+                      </span>
+                    )}
+                    <button
+                      data-testid={`button-delete-alert-${alert.symbol}`}
+                      onClick={() => deleteAlert.mutate(alert.id)}
+                      className="ml-1 text-white/20 hover:text-red-400 transition-colors"
+                      title="Remove alert"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── 12 VCP Technical Rules ─────────── */}
         <div className="glass-card rounded-2xl border border-white/6 p-4">
@@ -212,6 +311,7 @@ export default function SwingScanner() {
                       { col: "Stock",     align: "left"   },
                       { col: "Symbol",    align: "left"   },
                       { col: "Chart",     align: "center" },
+                      { col: "Alert",     align: "center" },
                       { col: "VCP Grade", align: "left"   },
                       { col: "% Chg",     align: "right"  },
                       { col: "Price",     align: "right"  },
@@ -282,6 +382,45 @@ export default function SwingScanner() {
                             </button>
                           </td>
 
+                          {/* Alert bell */}
+                          <td className="px-4 py-3.5 text-center">
+                            {authUser ? (
+                              alertMap.has(stock.symbol) ? (
+                                <button
+                                  data-testid={`button-alert-active-${stock.symbol}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const a = alertMap.get(stock.symbol)!;
+                                    deleteAlert.mutate(a.id);
+                                  }}
+                                  title="Remove alert"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg
+                                    bg-purple-500/20 border border-purple-500/40 text-purple-400
+                                    hover:bg-red-500/15 hover:border-red-500/30 hover:text-red-400 transition-all duration-150"
+                                >
+                                  <BellRing className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  data-testid={`button-alert-set-${stock.symbol}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAlertThreshold(Math.max(50, stock.vcpScore ?? 70));
+                                    setAlertTarget(stock);
+                                  }}
+                                  title="Set VCP alert"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg
+                                    bg-white/4 border border-white/8 text-white/20
+                                    hover:bg-purple-500/15 hover:border-purple-500/30 hover:text-purple-400 transition-all duration-150"
+                                >
+                                  <Bell className="w-3.5 h-3.5" />
+                                </button>
+                              )
+                            ) : (
+                              <Bell className="w-3.5 h-3.5 text-white/10 mx-auto" />
+                            )}
+                          </td>
+
                           {/* VCP Grade */}
                           <td className="px-4 py-3.5">
                             <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${grade.cls}`}>
@@ -350,7 +489,7 @@ export default function SwingScanner() {
                         {/* Expanded VCP details row */}
                         {isExpanded && (
                           <tr key={`detail-${stock.sr}`} className="bg-white/2 border-b border-white/4">
-                            <td colSpan={9} className="px-6 py-4">
+                            <td colSpan={10} className="px-6 py-4">
                               {/* Score bars */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                                 {[
@@ -465,6 +604,90 @@ export default function SwingScanner() {
           </div>
         )}
       </div>
+
+      {/* Alert dialog modal */}
+      {alertTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" }}
+          onClick={() => setAlertTarget(null)}
+        >
+          <div
+            className="glass-card rounded-2xl border border-purple-500/30 p-6 w-full max-w-sm mx-4 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <BellRing className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-semibold text-white">Set VCP Alert</span>
+              </div>
+              <button onClick={() => setAlertTarget(null)} className="text-white/30 hover:text-white/70 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <p className="text-xs font-mono text-white/50 mb-1">Stock</p>
+              <p className="text-sm font-semibold text-white">{alertTarget.stockName}</p>
+              <p className="text-[11px] font-mono text-primary/60">{alertTarget.symbol?.replace(".NS","").replace(".BO","")}</p>
+            </div>
+
+            <div className="mb-5">
+              <div className="flex justify-between mb-2">
+                <p className="text-xs font-mono text-white/50">Alert when VCP Score reaches</p>
+                <span className="text-sm font-mono font-bold text-purple-400">{alertThreshold}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={alertThreshold}
+                onChange={e => setAlertThreshold(Number(e.target.value))}
+                data-testid="input-alert-threshold"
+                className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
+              />
+              <div className="flex justify-between mt-1 text-[9px] font-mono text-white/20">
+                <span>0</span>
+                <span className="text-blue-400">50 (B)</span>
+                <span className="text-cyan-400">65 (A)</span>
+                <span className="text-emerald-400">80 (A+)</span>
+                <span>100</span>
+              </div>
+              <p className="text-[10px] font-mono text-white/30 mt-2">
+                Current score: <span className={`font-bold ${
+                  (alertTarget.vcpScore ?? 0) >= alertThreshold ? "text-emerald-400" : "text-white/50"
+                }`}>{alertTarget.vcpScore ?? 0}</span>
+                {(alertTarget.vcpScore ?? 0) >= alertThreshold && (
+                  <span className="ml-2 text-emerald-400">— Already triggered!</span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAlertTarget(null)}
+                className="flex-1 py-2 rounded-xl border border-white/8 text-xs font-mono text-white/40 hover:text-white/70 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                data-testid="button-confirm-alert"
+                disabled={createAlert.isPending}
+                onClick={() => createAlert.mutate({
+                  symbol: alertTarget.symbol,
+                  stockName: alertTarget.stockName,
+                  thresholdScore: alertThreshold,
+                })}
+                className="flex-1 py-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-xs font-mono
+                  font-semibold text-purple-300 hover:bg-purple-500/30 transition-all duration-150 disabled:opacity-50"
+              >
+                {createAlert.isPending ? "Saving…" : "Save Alert"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drawer */}
       <StockChartDrawer

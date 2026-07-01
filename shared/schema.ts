@@ -620,6 +620,24 @@ export const apexWeights = pgTable("apex_weights", {
 export type ApexWeight = typeof apexWeights.$inferSelect;
 export type InsertApexWeight = typeof apexWeights.$inferInsert;
 
+// VCP Alerts — user bookmarks a stock with a minimum VCP score threshold
+export const vcpAlerts = pgTable("vcp_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  stockName: varchar("stock_name").notNull(),
+  thresholdScore: integer("threshold_score").notNull().default(70),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertVcpAlertSchema = createInsertSchema(vcpAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertVcpAlert = z.infer<typeof insertVcpAlertSchema>;
+export type VcpAlert = typeof vcpAlerts.$inferSelect;
+
 // Structured error logging — every failure is logged, never silently swallowed
 export const jobErrorLog = pgTable("job_error_log", {
   id: serial("id").primaryKey(),
