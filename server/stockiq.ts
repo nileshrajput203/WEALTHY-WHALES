@@ -20,7 +20,8 @@ import {
 } from "./stockApi";
 
 /* ═══ Types ═══ — re-exported from shared so client can import from @shared/types */
-export type { SubScore, StockIQResult } from "@shared/types";
+import type { SubScore, StockIQResult } from "@shared/types";
+export type { SubScore, StockIQResult };
 
 /* ═══ Cache ═══ */
 const scoreCache: Record<string, { data: StockIQResult; ts: number }> = {};

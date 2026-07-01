@@ -834,6 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw new Error("Failed to fetch sector performance");
         }
 
+        const rng = Math.random;
         const sectors = sectorsList.map(s => {
           let change1d: number, change1w: number, change1m: number;
           let topGainerSym = s.tickers[0], topGainerChange = 0;
