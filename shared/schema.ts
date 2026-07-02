@@ -734,3 +734,58 @@ export const engineLearningLog = pgTable("engine_learning_log", {
 export type EngineLearningLog = typeof engineLearningLog.$inferSelect;
 export type InsertEngineLearningLog = typeof engineLearningLog.$inferInsert;
 
+// ─── Self-Improving Genome — configurable scan parameters per engine ────────────
+// Unlike weights (which tweak feature coefficients), a genome mutates the
+// fundamental rules: score thresholds, hold periods, universe filters, etc.
+export const engineGenome = pgTable("engine_genome", {
+  id: serial("id").primaryKey(),
+  engine: varchar("engine", { length: 20 }).notNull().unique(), // HERMES | SWING | APEX | IPO | FUGU
+  version: integer("version").notNull().default(1),
+  params: jsonb("params").notNull(),           // { key: value } — see selfImprovingCore for keys
+  avgReturn: numeric("avg_return", { precision: 8, scale: 4 }),   // last 20-trade avg return %
+  winRate: numeric("win_rate", { precision: 5, scale: 4 }),
+  sampleSize: integer("sample_size").default(0),
+  promotedAt: timestamp("promoted_at").defaultNow(),
+  notes: text("notes"),
+});
+
+export type EngineGenome = typeof engineGenome.$inferSelect;
+export type InsertEngineGenome = typeof engineGenome.$inferInsert;
+
+// History of every genome mutation attempt (promoted or rejected)
+export const genomeEvolutionLog = pgTable("genome_evolution_log", {
+  id: serial("id").primaryKey(),
+  engine: varchar("engine", { length: 20 }).notNull(),
+  cycleDate: timestamp("cycle_date").notNull().defaultNow(),
+  versionFrom: integer("version_from"),
+  versionTo: integer("version_to"),
+  oldParams: jsonb("old_params"),
+  newParams: jsonb("new_params"),
+  oldAvgReturn: numeric("old_avg_return", { precision: 8, scale: 4 }),
+  newAvgReturn: numeric("new_avg_return", { precision: 8, scale: 4 }),
+  wasPromoted: boolean("was_promoted").notNull().default(false),
+  mutationDescription: text("mutation_description"),
+  geminiAnalysis: text("gemini_analysis"),
+  sampleSize: integer("sample_size"),
+});
+
+export type GenomeEvolutionLog = typeof genomeEvolutionLog.$inferSelect;
+export type InsertGenomeEvolutionLog = typeof genomeEvolutionLog.$inferInsert;
+
+// News signal cache for all stocks (extended from apex-only)
+export const stockNewsCache = pgTable("stock_news_cache", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  newsScore: numeric("news_score", { precision: 6, scale: 2 }),    // -100 to +100
+  catalystType: varchar("catalyst_type", { length: 30 }),           // RESULT_BEAT | ORDER_WIN | etc.
+  headlines: jsonb("headlines"),                                     // top 5 headlines
+  geminiSentiment: text("gemini_sentiment"),                        // Gemini analysis of the news
+  fetchedAt: timestamp("fetched_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_stock_news_symbol").on(table.symbol),
+  index("idx_stock_news_fetched").on(table.fetchedAt),
+]);
+
+export type StockNewsCache = typeof stockNewsCache.$inferSelect;
+export type InsertStockNewsCache = typeof stockNewsCache.$inferInsert;
+

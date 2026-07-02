@@ -52,6 +52,8 @@ import {
   buildCalibrationCurve,
   applyCalibratedConfidence,
 } from "./istUtils";
+import { getNewsScoreForSymbol } from "./apexNewsEngine";
+import { getGenome, runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & DEFAULT WEIGHTS (VCP-ONLY — HERMES v2)
@@ -72,12 +74,54 @@ let calibrationCache: Record<string, { count: number; wins: number; winRate: num
 /** Per-feature prune counter: tracks consecutive low-accuracy cycles */
 let featurePruneCounters: Record<string, number> = {};
 
-/** Maximum stocks to scan per daily run */
-const MAX_SCAN_UNIVERSE = 200;
+/** Maximum stocks to scan per daily run (overridden by genome) */
+const MAX_SCAN_UNIVERSE = 300;
 
 /** Batch size for parallel Yahoo API calls */
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 600;
+
+/**
+ * Computes a 0-100 fundamental quality score from FMP data.
+ * High ROE, low debt, high ROCE, positive revenue growth = higher score.
+ */
+function computeFundamentalScore(fmp: Record<string, any> | null): number {
+  if (!fmp) return 40; // neutral fallback
+  const roe = Number(fmp.returnOnEquity ?? fmp.roe ?? 0) * 100;
+  const debt = Number(fmp.debtToEquity ?? fmp.debtEquityRatio ?? 100);
+  const opm = Number(fmp.operatingProfitMargin ?? fmp.opm ?? 0) * 100;
+  const roce = Number(fmp.returnOnCapitalEmployed ?? fmp.roce ?? 0) * 100;
+  const revenueGrowth = Number(fmp.revenueGrowth ?? 0) * 100;
+
+  let score = 50;
+  // ROE contribution (ideal: 15-30%)
+  if (roe >= 20) score += 15;
+  else if (roe >= 12) score += 8;
+  else if (roe < 0) score -= 15;
+  // Debt contribution (lower is better)
+  if (debt < 0.3) score += 12;
+  else if (debt < 1.0) score += 5;
+  else if (debt > 3.0) score -= 12;
+  // OPM contribution
+  if (opm >= 20) score += 10;
+  else if (opm >= 12) score += 5;
+  else if (opm < 0) score -= 10;
+  // ROCE
+  if (roce >= 20) score += 8;
+  else if (roce >= 12) score += 3;
+  // Revenue growth
+  if (revenueGrowth >= 15) score += 5;
+  else if (revenueGrowth < 0) score -= 5;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Converts a raw news score (-100 to +100) into a 0-100 scale.
+ */
+function newsScoreToRange100(rawScore: number): number {
+  return Math.max(0, Math.min(100, 50 + rawScore / 2));
+}
 
 /** Default weight vector — v0 "intuition" before any learning. VCP factors only. */
 export const DEFAULT_WEIGHTS: Record<string, number> = {
@@ -401,7 +445,7 @@ function hermesVerdict(score: number): string {
 
 let isScanRunning = false;
 
-export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
+export async function runDailyScan(universeSize?: number): Promise<{
   scanned: number;
   inserted: number;
   errors: number;
@@ -414,17 +458,29 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
 
   isScanRunning = true;
   const startTime = Date.now();
-  console.log(
-    `[HERMES] ═══ Starting daily scan for ${universeSize} stocks ═══`,
-  );
 
-  // Pre-classify regime to ensure we use the correct regime-adaptive weights
+  // Load genome to get self-evolved scan parameters
+  const genome = await getGenome("HERMES");
+  const gParams = genome.params;
+  const scanSize = universeSize ?? Math.round(gParams.max_scan_universe ?? MAX_SCAN_UNIVERSE);
+  const newsWeight = gParams.news_weight ?? 0.20;
+  const fundamentalWeight = gParams.fundamental_weight ?? 0.25;
+  const technicalWeight = gParams.technical_weight ?? 0.55;
+  const minScoreThreshold = gParams.min_score_threshold ?? 55;
+
+  console.log(`[HERMES] ═══ Starting daily scan for ${scanSize} stocks ═══`);
+  console.log(`[HERMES] Genome v${genome.version}: news=${(newsWeight*100).toFixed(0)}% fund=${(fundamentalWeight*100).toFixed(0)}% tech=${(technicalWeight*100).toFixed(0)}% minScore=${minScoreThreshold}`);
+
+  // Pre-classify regime
   const regimeLog = await classifyMarketRegime();
   const currentRegime = regimeLog?.regime ?? "RANGING";
   const { weights, version } = await getActiveWeights(currentRegime);
-  const universe = NSE_UNIQUE.slice(0, universeSize);
+  const universe = NSE_UNIQUE.slice(0, scanSize);
   let inserted = 0;
   let errors = 0;
+
+  // Pre-fetch news for all stocks in one pass (cached in memory for the scan)
+  console.log("[HERMES] Pre-fetching news scores for scan universe...");
 
   for (let i = 0; i < universe.length; i += BATCH_SIZE) {
     const batch = universe.slice(i, i + BATCH_SIZE);
@@ -434,14 +490,16 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
         try {
           const yahooSym = `${sym}.NS`;
 
-          // Fetch data — candles are all HERMES v2 needs (VCP is pure price/volume)
-          const [quoteRes, histRes] = await Promise.allSettled([
+          // Fetch price data (required) + fundamentals (nice to have)
+          const [quoteRes, histRes, fmpRes] = await Promise.allSettled([
             getYahooStockQuote(yahooSym),
             getYahooHistory(yahooSym, "1y", "1d"),
+            getFmpFundamentals(sym),
           ]);
 
           const quote = quoteRes.status === "fulfilled" ? quoteRes.value : null;
           const candles = histRes.status === "fulfilled" ? histRes.value : [];
+          const fmp = fmpRes.status === "fulfilled" ? fmpRes.value : null;
 
           if (!candles || candles.length < 60) return;
 
@@ -450,30 +508,77 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
 
           const price = quote?.price ?? vcp.price;
 
-          // Momentum (kept for dashboard display only — not used in scoring anymore)
           const closes = candles
             .map((c: any) => Number(c.close))
             .filter((v: number) => isFinite(v));
           const n = closes.length;
           const ret = (days: number) =>
-            n > days
-              ? ((closes[n - 1] - closes[n - 1 - days]) /
-                  closes[n - 1 - days]) *
-                100
-              : null;
-          const return1w = ret(5);
-          const return1m = ret(22);
-          const return3m = ret(66);
-          const return6m = ret(132);
+            n > days ? ((closes[n - 1] - closes[n - 1 - days]) / closes[n - 1 - days]) * 100 : null;
+
+          const return1w  = ret(5);
+          const return1m  = ret(22);
+          const return3m  = ret(66);
+          const return6m  = ret(132);
 
           const marketCapValue = quote?.marketCap ?? null;
           const capCr = (marketCapValue ?? 0) / 1e7;
-          const marketCapBucket =
-            capCr >= 50000 ? "LARGE" : capCr >= 10000 ? "MID" : "SMALL";
+          const marketCapBucket = capCr >= 50000 ? "LARGE" : capCr >= 10000 ? "MID" : "SMALL";
           const sector = SECTOR_MAP[sym] || "Other";
 
-          const hermesScoreVal = computeHermesScore(vcp, weights);
+          // ── Technical score (VCP / HERMES weights) ──────────────────────
+          const vcpTechnicalScore = computeHermesScore(vcp, weights); // 0-100
+
+          // ── Fundamental score (ROE, debt, margins) ──────────────────────
+          const fmpData = fmp as Record<string, any> | null;
+          const fundamentalScore = computeFundamentalScore(fmpData);
+
+          // ── News score (apexNewsEngine — real RSS + keyword scoring) ─────
+          let rawNewsScore = 0;
+          try {
+            rawNewsScore = await getNewsScoreForSymbol(sym, new Date());
+          } catch (_) {}
+          const newsScore100 = newsScoreToRange100(rawNewsScore); // 0-100
+
+          // ── HERMES Composite Score (genome-weighted blend) ───────────────
+          const totalW = technicalWeight + fundamentalWeight + newsWeight;
+          const hermesScoreVal = Math.round(
+            ((vcpTechnicalScore * technicalWeight) +
+             (fundamentalScore * fundamentalWeight) +
+             (newsScore100 * newsWeight)) / totalW
+          );
+
           const verdict = hermesVerdict(hermesScoreVal);
+
+          // Determine pattern label: VCP takes priority; non-VCP stocks with
+          // good fundamentals/news still get catalogued as "Fundamental Pick"
+          const patternDetected = vcp.passesAllFilters
+            ? "VCP"
+            : fundamentalScore >= 65
+            ? "Fundamental Pick"
+            : rawNewsScore >= 30
+            ? "News Catalyst"
+            : null;
+
+          const patternStage = vcp.passesAllFilters
+            ? "Breakout Confirmed"
+            : vcp.contractionCount >= 2
+            ? "Near Breakout"
+            : "Consolidation";
+
+          // Build AI notes combining all three layers
+          const aiNotes = [
+            `Tech:${vcpTechnicalScore}`,
+            `Fund:${fundamentalScore}`,
+            `News:${newsScore100}(raw:${rawNewsScore.toFixed(0)})`,
+            vcp.passesAllFilters ? describeVcpSetup(vcp) : "",
+          ].filter(Boolean).join(" | ");
+
+          // Extract fundamental columns for DB
+          const peRatio = fmpData?.peRatio ?? fmpData?.pe ?? null;
+          const roeVal  = fmpData?.returnOnEquity ?? fmpData?.roe ?? null;
+          const debtEq  = fmpData?.debtToEquity ?? fmpData?.debtEquityRatio ?? null;
+          const opmVal  = fmpData?.operatingProfitMargin ?? fmpData?.opm ?? null;
+          const roceVal = fmpData?.returnOnCapitalEmployed ?? fmpData?.roce ?? null;
 
           // Insert snapshot
           const [snap] = await db
@@ -481,7 +586,7 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
             .values({
               symbol: sym,
               price: String(price),
-              volume: null,
+              volume: quote?.volume ? String(quote.volume) : null,
               volumeAvg20d: null,
               rvol: String(vcp.volumeRatio.toFixed(2)),
               rsi14: null,
@@ -492,39 +597,32 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
               macdHistogram: null,
               adx: null,
               atr14: String(vcp.atr14.toFixed(2)),
-              pe: null,
-              roe: null,
-              debtToEquity: null,
-              opm: null,
-              roce: null,
+              pe:             peRatio != null ? String(Number(peRatio).toFixed(2)) : null,
+              roe:            roeVal  != null ? String((Number(roeVal) * 100).toFixed(2)) : null,
+              debtToEquity:   debtEq  != null ? String(Number(debtEq).toFixed(2)) : null,
+              opm:            opmVal  != null ? String((Number(opmVal) * 100).toFixed(2)) : null,
+              roce:           roceVal != null ? String((Number(roceVal) * 100).toFixed(2)) : null,
               peg: null,
-              marketCapValue:
-                marketCapValue != null
-                  ? String(Math.round(marketCapValue))
-                  : null,
+              marketCapValue: marketCapValue != null ? String(Math.round(marketCapValue)) : null,
               dividendYield: null,
               return1w: return1w != null ? String(return1w.toFixed(2)) : null,
               return1m: return1m != null ? String(return1m.toFixed(2)) : null,
               return3m: return3m != null ? String(return3m.toFixed(2)) : null,
               return6m: return6m != null ? String(return6m.toFixed(2)) : null,
               proximity52wHigh: String(vcp.nearHighPct.toFixed(2)),
-              iqTotal: computeVcpScore(vcp),
-              iqFundamentals: 0,
-              iqTechnicals: 0,
-              iqMomentum: 0,
+              iqTotal: hermesScoreVal,
+              iqFundamentals: Math.round(fundamentalScore),
+              iqTechnicals:   Math.round(vcpTechnicalScore),
+              iqMomentum:     Math.round(newsScore100),
               iqInsider: 0,
-              patternDetected: vcp.passesAllFilters ? "VCP" : null,
-              patternStage: vcp.passesAllFilters
-                ? "Breakout Confirmed"
-                : vcp.contractionCount >= 2
-                  ? "Near Breakout"
-                  : "Consolidation",
+              patternDetected,
+              patternStage,
               sector,
               marketCapBucket,
-              hermesScore: String(hermesScoreVal.toFixed(2)),
+              hermesScore:   String(hermesScoreVal.toFixed(2)),
               hermesVerdict: verdict,
               weightVersion: version,
-              vcpFeatures: vcp,
+              vcpFeatures:   vcp,
             })
             .returning();
 
@@ -534,22 +632,38 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
             symbol: sym,
           });
 
-          // Autonomous journaling — every BUY-grade VCP setup gets its own
-          // entry/SL/target logged for dedicated SL-hit vs target-hit tracking.
-          if (verdict === "BUY" && vcp.passesAllFilters) {
-            const trade = computeVcpEntrySLTarget(vcp);
+          // Autonomous journaling — BUY-grade stocks (VCP + strong fundamentals/news)
+          // Now supports all 3 tiers: VCP breakout, fundamental pick, news catalyst
+          if (verdict === "BUY") {
+            let tradeEntry: { entry: number; stopLoss: number; target: number; riskRewardRatio: number };
+
+            if (vcp.passesAllFilters) {
+              tradeEntry = computeVcpEntrySLTarget(vcp);
+            } else {
+              // For non-VCP stocks: use ATR-based entry/SL
+              const atr = vcp.atr14 ?? price * 0.02;
+              const sl = price - atr * 1.5;
+              const rr = gParams.risk_reward ?? 2.5;
+              tradeEntry = {
+                entry: price,
+                stopLoss: sl,
+                target: price + (price - sl) * rr,
+                riskRewardRatio: rr,
+              };
+            }
+
             await logJournalEntry("HERMES", {
               symbol: sym,
               stockName: sym,
-              entryPrice: trade.entry,
-              stopLoss: trade.stopLoss,
-              target: trade.target,
-              riskReward: trade.riskRewardRatio,
-              vcpScore: hermesScoreVal,
+              entryPrice: tradeEntry.entry,
+              stopLoss:   tradeEntry.stopLoss,
+              target:     tradeEntry.target,
+              riskReward: tradeEntry.riskRewardRatio,
+              vcpScore:   hermesScoreVal,
               atrCompression: vcp.atrCompression,
-              volumeRatio: vcp.volumeRatio,
-              nearHighPct: vcp.nearHighPct,
-              aiNotes: `[HERMES] ${describeVcpSetup(vcp)}`,
+              volumeRatio:    vcp.volumeRatio,
+              nearHighPct:    vcp.nearHighPct,
+              aiNotes: `[HERMES] ${aiNotes}`,
             });
           }
 
@@ -565,7 +679,6 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
       await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
     }
 
-    // Progress logging every 50 stocks
     if ((i + BATCH_SIZE) % 50 === 0 || i + BATCH_SIZE >= universe.length) {
       console.log(
         `[HERMES] Progress: ${Math.min(i + BATCH_SIZE, universe.length)}/${universe.length} | Inserted: ${inserted} | Errors: ${errors}`,
@@ -574,9 +687,7 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
   }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(
-    `[HERMES] ═══ Scan complete: ${inserted} snapshots in ${duration}s ═══`,
-  );
+  console.log(`[HERMES] ═══ Scan complete: ${inserted} snapshots in ${duration}s ═══`);
 
   isScanRunning = false;
   return {
@@ -1048,6 +1159,28 @@ Generate a summary with bullet points outlining what features worked best in thi
 
   // Clear weight cache for this regime
   delete activeWeightsCache[currentRegime];
+
+  // ─── 12. Self-Improving Genome Evolution ─────────────────────────────
+  // After learning weights, also evolve the scan parameters themselves
+  // (score threshold, news weight, fundamental weight, universe size, etc.)
+  try {
+    const genomeTrades: TradeOutcome[] = completedOutcomes.map(row => ({
+      returnPct: Number(row.hermes_outcomes.return5d ?? 0),
+      vcpScore: row.hermes_snapshots.hermesScore
+        ? Math.round(Number(row.hermes_snapshots.hermesScore))
+        : undefined,
+    }));
+
+    const genomeResult = await runGenomeEvolution("HERMES", genomeTrades, {
+      mutations: 20,
+      minImprovement: 0.3,
+    });
+    console.log(
+      `[HERMES] Genome evolution: ${genomeResult.promoted ? "✅ PROMOTED" : "⬤ unchanged"} | avg return ${genomeResult.oldAvgReturn.toFixed(2)}% → ${genomeResult.newAvgReturn.toFixed(2)}%`,
+    );
+  } catch (genomeErr: any) {
+    console.error("[HERMES] Genome evolution failed (non-fatal):", genomeErr.message);
+  }
 
   console.log(
     `[HERMES] ═══ Self-improving cycle complete: v${newVersion}, accuracy: ${accuracy.toFixed(1)}%, samples: ${completedOutcomes.length}, promoted: ${shouldPromote} ═══`,

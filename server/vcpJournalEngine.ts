@@ -15,10 +15,18 @@ import {
 } from "@shared/schema";
 import { eq, and, ne, desc, gte } from "drizzle-orm";
 import { runSwingScanner, getYahooStockQuote, type SwingScanResult } from "./stockApi";
+import { getGenome, runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
 
-const MIN_GRADE_SCORE = 65;   // only journal A / A+ stocks
-const MAX_HOLD_DAYS   = 10;   // time-stop after 10 market days
-const RISK_REWARD     = 2.5;  // 2.5R target
+// ─── Dynamic genome params — replaced by self-evolving genome at runtime ─────
+// Default fallbacks (overridden by genome each run)
+const DEFAULT_MIN_GRADE_SCORE = 65;
+const DEFAULT_MAX_HOLD_DAYS   = 10;
+const DEFAULT_RISK_REWARD     = 2.5;
+
+// Legacy aliases — still valid for imports that read these
+export const MIN_GRADE_SCORE = DEFAULT_MIN_GRADE_SCORE;
+export const MAX_HOLD_DAYS   = DEFAULT_MAX_HOLD_DAYS;
+export const RISK_REWARD     = DEFAULT_RISK_REWARD;
 
 export type JournalEngine = "SWING" | "HERMES" | "FUGU";
 
@@ -151,8 +159,17 @@ function buildAiNotes(stock: SwingScanResult, grade: string): string {
 export async function syncVcpPicksToJournal(): Promise<void> {
   console.log("[VCP Journal] Syncing today's VCP picks...");
   try {
+    // Load self-evolving genome to get current scan parameters
+    const genome = await getGenome("SWING");
+    const gp = genome.params;
+    const minGradeScore = Math.round(gp.min_grade_score ?? DEFAULT_MIN_GRADE_SCORE);
+    const riskReward    = Number(gp.risk_reward ?? DEFAULT_RISK_REWARD);
+    const slPctMax      = Number(gp.sl_pct_max ?? 0.06);
+
+    console.log(`[VCP Journal] Genome v${genome.version}: minScore=${minGradeScore} RR=${riskReward} slMax=${(slPctMax*100).toFixed(0)}%`);
+
     const results = await runSwingScanner();
-    const picks = results.filter(s => (s.vcpScore ?? 0) >= MIN_GRADE_SCORE);
+    const picks = results.filter(s => (s.vcpScore ?? 0) >= minGradeScore);
 
     let added = 0;
     for (const stock of picks) {
@@ -171,11 +188,14 @@ export async function syncVcpPicksToJournal(): Promise<void> {
       if (existing.length > 0) continue; // already watching this stock
 
       const entryPrice = stock.price;
-      const stopLoss   = stock.ema50 > 0 ? stock.ema50 : entryPrice * 0.97;
-      const risk       = entryPrice - stopLoss;
+      const rawStopLoss = stock.ema50 > 0 ? stock.ema50 : entryPrice * (1 - slPctMax);
+      // Enforce max SL distance from genome
+      const maxSl = entryPrice * (1 - slPctMax);
+      const stopLoss = Math.max(rawStopLoss, maxSl);
+      const risk = entryPrice - stopLoss;
       if (risk <= 0) continue; // price already below EMA50 — skip
 
-      const target  = entryPrice + RISK_REWARD * risk;
+      const target  = entryPrice + riskReward * risk;
       const grade   = gradeOf(stock.vcpScore);
       const aiNotes = buildAiNotes(stock, grade);
 
@@ -185,7 +205,7 @@ export async function syncVcpPicksToJournal(): Promise<void> {
         entryPrice:  String(Math.round(entryPrice * 100) / 100),
         stopLoss:    String(Math.round(stopLoss  * 100) / 100),
         target:      String(Math.round(target    * 100) / 100),
-        riskReward:  String(RISK_REWARD),
+        riskReward:  String(riskReward),
         vcpScore:    stock.vcpScore,
         vcpGrade:    grade,
         atrCompression: String(Math.round((stock.atrCompression ?? 0) * 10000) / 10000),
@@ -210,6 +230,10 @@ export async function syncVcpPicksToJournal(): Promise<void> {
 export async function runVcpOutcomeCheck(): Promise<void> {
   console.log("[VCP Journal] Running outcome check...");
   try {
+    // Load genome for current hold-day parameter
+    const genome = await getGenome("SWING");
+    const maxHoldDays = Math.round(genome.params.max_hold_days ?? DEFAULT_MAX_HOLD_DAYS);
+
     const openEntries = await db
       .select()
       .from(vcpJournalEntries)
@@ -242,7 +266,7 @@ export async function runVcpOutcomeCheck(): Promise<void> {
       } else if (currentPrice >= target) {
         outcome   = "TARGET_HIT";
         exitPrice = target;
-      } else if (daysSince >= MAX_HOLD_DAYS) {
+      } else if (daysSince >= maxHoldDays) {
         outcome   = "TIME_STOP";
         exitPrice = currentPrice;
       }
@@ -325,6 +349,36 @@ export async function runVcpLearning(): Promise<VcpGradeStat[]> {
     }));
 
     console.log("[VCP Learning] Grade performance:", JSON.stringify(stats));
+
+    // ─── Self-Improving Genome Evolution for SWING engine ─────────────
+    // After analyzing grade performance, evolve scan parameters toward
+    // the 5-10% avg return goal.
+    try {
+      const genomeTrades: TradeOutcome[] = closed.map(entry => ({
+        returnPct: parseFloat(entry.returnPct ?? "0"),
+        vcpScore: entry.vcpScore ?? undefined,
+        holdDays: entry.daysHeld ?? undefined,
+        outcome: entry.outcome ?? undefined,
+      }));
+
+      const genomeResult = await runGenomeEvolution("SWING", genomeTrades, {
+        mutations: 20,
+        minImprovement: 0.25,
+      });
+
+      console.log(
+        `[VCP Learning] Genome evolution: ${genomeResult.promoted ? "✅ PROMOTED" : "⬤ unchanged"} | avg return ${genomeResult.oldAvgReturn.toFixed(2)}% → ${genomeResult.newAvgReturn.toFixed(2)}%`,
+      );
+      if (genomeResult.promoted && genomeResult.newParams) {
+        const gp = genomeResult.newParams;
+        console.log(
+          `[VCP Learning] New genome: minScore=${gp.min_grade_score?.toFixed(0)} maxHold=${gp.max_hold_days?.toFixed(0)}d RR=${gp.risk_reward?.toFixed(1)} targetGoal=${gp.target_return_goal?.toFixed(1)}%`,
+        );
+      }
+    } catch (genomeErr: any) {
+      console.error("[VCP Learning] Genome evolution failed (non-fatal):", genomeErr.message);
+    }
+
     return stats;
   } catch (err) {
     console.error("[VCP Learning] Failed:", err);
