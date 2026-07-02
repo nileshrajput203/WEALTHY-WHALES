@@ -147,6 +147,38 @@ interface DashboardData {
   };
 }
 
+interface JournalStats {
+  engine: string;
+  total: number;
+  open: number;
+  targetHit: number;
+  slHit: number;
+  timeStop: number;
+  targetHitRate: number;
+  slHitRate: number;
+  avgReturnPct: number;
+}
+
+interface JournalEntry {
+  id: string;
+  engine: string;
+  symbol: string;
+  stockName: string | null;
+  entryDate: string;
+  entryPrice: string;
+  stopLoss: string;
+  target: string;
+  riskReward: string;
+  vcpScore: number;
+  vcpGrade: string;
+  outcome: string;
+  exitPrice: string | null;
+  exitDate: string | null;
+  returnPct: string | null;
+  daysHeld: number | null;
+  aiNotes: string | null;
+}
+
 const COLORS = {
   win: "#10b981", // green
   loss: "#ef4444", // red
@@ -162,6 +194,16 @@ export default function FuguAI({ hideHeader = false, ...props }: { hideHeader?: 
   const { data: dashboard, isLoading, error } = useQuery<DashboardData>({
     queryKey: ["/api/fugu/dashboard"],
     refetchInterval: 30000,
+  });
+
+  const { data: journalStats } = useQuery<JournalStats>({
+    queryKey: ["/api/journal/FUGU/stats"],
+    refetchInterval: 60000,
+  });
+
+  const { data: journalEntries } = useQuery<JournalEntry[]>({
+    queryKey: ["/api/journal/FUGU/entries"],
+    refetchInterval: 60000,
   });
 
   const scanMutation = useMutation({
@@ -335,6 +377,9 @@ export default function FuguAI({ hideHeader = false, ...props }: { hideHeader?: 
           </TabsTrigger>
           <TabsTrigger value="sectors" className="data-[state=active]:bg-red-500/20 rounded-lg text-xs">
             <BarChart3 className="w-3.5 h-3.5 mr-1" /> Sectors
+          </TabsTrigger>
+          <TabsTrigger value="journal" className="data-[state=active]:bg-red-500/20 rounded-lg text-xs">
+            <Shield className="w-3.5 h-3.5 mr-1" /> Journal
           </TabsTrigger>
           <TabsTrigger value="outcomes" className="data-[state=active]:bg-red-500/20 rounded-lg text-xs">
             <Clock className="w-3.5 h-3.5 mr-1" /> Outcomes
@@ -748,6 +793,116 @@ export default function FuguAI({ hideHeader = false, ...props }: { hideHeader?: 
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ═══ Tab: Journal ═══ */}
+        <TabsContent value="journal" className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-white/50 text-xs font-medium">
+                <Shield className="w-3.5 h-3.5 text-red-400" /> Open Positions
+              </div>
+              <div className="text-2xl font-bold text-white mt-2">{journalStats?.open ?? 0}</div>
+              <div className="text-[10px] text-white/35 mt-1">{journalStats?.total ?? 0} total logged</div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-white/50 text-xs font-medium">
+                <Target className="w-3.5 h-3.5 text-emerald-400" /> Target Hit Rate
+              </div>
+              <div className="text-2xl font-bold text-white mt-2">{journalStats ? `${journalStats.targetHitRate.toFixed(1)}%` : "—"}</div>
+              <div className="text-[10px] text-white/35 mt-1">{journalStats?.targetHit ?? 0} hit target</div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-white/50 text-xs font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400" /> Stop-Loss Hit Rate
+              </div>
+              <div className="text-2xl font-bold text-white mt-2">{journalStats ? `${journalStats.slHitRate.toFixed(1)}%` : "—"}</div>
+              <div className="text-[10px] text-white/35 mt-1">{journalStats?.slHit ?? 0} hit stop-loss</div>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-white/50 text-xs font-medium">
+                <TrendingUp className="w-3.5 h-3.5 text-cyan-400" /> Avg Return
+              </div>
+              <div className="text-2xl font-bold text-white mt-2">
+                {journalStats ? `${journalStats.avgReturnPct > 0 ? "+" : ""}${journalStats.avgReturnPct.toFixed(2)}%` : "—"}
+              </div>
+              <div className="text-[10px] text-white/35 mt-1">Across closed trades</div>
+            </div>
+          </div>
+
+          <Card className="bg-white/[0.02] border-white/[0.06] backdrop-blur-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Shield className="w-4 h-4 text-red-400" />
+                FUGU Trade Journal
+                <Badge variant="outline" className="text-[10px] ml-auto border-white/10 text-white/40">
+                  {journalEntries?.length ?? 0} entries
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!journalEntries || journalEntries.length === 0 ? (
+                <div className="text-center py-12 text-white/30 text-sm">
+                  <Shield className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  No journal entries yet. FUGU Score picks (≥72, all filters passed) are logged automatically after each scan.
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-6">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-white/30 text-[11px] uppercase tracking-wider border-b border-white/[0.04]">
+                        <th className="text-left py-2 px-4">Symbol</th>
+                        <th className="text-center py-2 px-2">Grade</th>
+                        <th className="text-right py-2 px-2">Entry</th>
+                        <th className="text-right py-2 px-2">Stop-Loss</th>
+                        <th className="text-right py-2 px-2">Target</th>
+                        <th className="text-right py-2 px-2">R:R</th>
+                        <th className="text-center py-2 px-2">Outcome</th>
+                        <th className="text-right py-2 px-2">Return</th>
+                        <th className="text-left py-2 px-4">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {journalEntries.map((e) => (
+                        <tr key={e.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                          <td className="py-2.5 px-4 font-semibold text-white">{e.symbol}</td>
+                          <td className="py-2.5 px-2 text-center">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              e.vcpGrade === "A" ? "bg-emerald-500/15 text-emerald-400" :
+                              e.vcpGrade === "B" ? "bg-blue-500/15 text-blue-400" :
+                              "bg-amber-500/15 text-amber-400"
+                            }`}>
+                              {e.vcpGrade}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono text-white/70">₹{Number(e.entryPrice).toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-right font-mono text-red-400/80">₹{Number(e.stopLoss).toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-right font-mono text-emerald-400/80">₹{Number(e.target).toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-right font-mono text-white/50">{Number(e.riskReward).toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-center">
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                              e.outcome === "TARGET_HIT" ? "bg-emerald-500/15 text-emerald-400" :
+                              e.outcome === "SL_HIT" ? "bg-red-500/15 text-red-400" :
+                              e.outcome === "OPEN" ? "bg-white/10 text-white/50" :
+                              "bg-amber-500/15 text-amber-400"
+                            }`}>
+                              {e.outcome.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className={`py-2.5 px-2 text-right font-mono text-xs ${
+                            e.returnPct && Number(e.returnPct) > 0 ? "text-emerald-400" : e.returnPct && Number(e.returnPct) < 0 ? "text-red-400" : "text-white/40"
+                          }`}>
+                            {e.returnPct ? `${Number(e.returnPct) > 0 ? "+" : ""}${Number(e.returnPct).toFixed(2)}%` : "—"}
+                          </td>
+                          <td className="py-2.5 px-4 text-white/40 text-xs">{new Date(e.entryDate).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

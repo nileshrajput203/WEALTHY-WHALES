@@ -25,7 +25,7 @@ import {
   type FuguSectorStat,
   type FuguRegimeStat,
   type FuguLearningMemory as FuguLearningMemoryType,
-  type FuguElitePick
+  type FuguElitePick,
 } from "@shared/schema";
 import { eq, and, isNull, lte, desc, asc, sql, count } from "drizzle-orm";
 import {
@@ -64,37 +64,85 @@ const LOSS_THRESHOLD = -3.0; // -3% is a LOSS
 // legacy nodes keep running (informational only) but never move the needle.
 export const DEFAULT_FUGU_WEIGHTS: Record<string, number> = {
   technical: 0.45,
-  pattern: 0.30,
+  pattern: 0.3,
   candlestick: 0.25,
   fundamental: 0,
   sector: 0,
   macro: 0,
   similarity: 0,
-  sentiment: 0
+  sentiment: 0,
 };
 
 // Any agent whose weight must stay pinned at 0 in the VCP-only rebuild —
 // the weight optimizer clamps these so learning can't drift them back up.
-const ZERO_LOCKED_AGENTS = new Set(["fundamental", "sector", "macro", "sentiment", "similarity"]);
+const ZERO_LOCKED_AGENTS = new Set([
+  "fundamental",
+  "sector",
+  "macro",
+  "sentiment",
+  "similarity",
+]);
 
 const SECTORS = [
-  "IT", "Banking", "Pharma", "FMCG", "Energy", "Metals", 
-  "Auto", "Consumer", "Cement", "Telecom", "Finance", "Infra", "Other"
+  "IT",
+  "Banking",
+  "Pharma",
+  "FMCG",
+  "Energy",
+  "Metals",
+  "Auto",
+  "Consumer",
+  "Cement",
+  "Telecom",
+  "Finance",
+  "Infra",
+  "Other",
 ];
 
 const SECTOR_MAP: Record<string, string> = {
-  TCS: "IT", INFY: "IT", WIPRO: "IT", HCLTECH: "IT", TECHM: "IT", LTIM: "IT",
-  HDFCBANK: "Banking", ICICIBANK: "Banking", SBIN: "Banking", KOTAKBANK: "Banking",
-  AXISBANK: "Banking", INDUSINDBK: "Banking", BANDHANBNK: "Banking",
-  SUNPHARMA: "Pharma", CIPLA: "Pharma", DRREDDY: "Pharma", DIVISLAB: "Pharma",
-  TATAMOTORS: "Auto", MARUTI: "Auto", "M&M": "Auto", "BAJAJ-AUTO": "Auto",
-  HINDUNILVR: "FMCG", ITC: "FMCG", NESTLEIND: "FMCG", BRITANNIA: "FMCG",
-  RELIANCE: "Energy", NTPC: "Energy", POWERGRID: "Energy", ONGC: "Energy",
-  TATASTEEL: "Metals", JSWSTEEL: "Metals", HINDALCO: "Metals", VEDL: "Metals",
-  LT: "Infra", ADANIENT: "Infra", ADANIPORTS: "Infra",
-  BAJFINANCE: "Finance", BAJAJFINSV: "Finance", SBILIFE: "Finance",
-  TITAN: "Consumer", ASIANPAINT: "Consumer",
-  ULTRACEMCO: "Cement", GRASIM: "Cement",
+  TCS: "IT",
+  INFY: "IT",
+  WIPRO: "IT",
+  HCLTECH: "IT",
+  TECHM: "IT",
+  LTIM: "IT",
+  HDFCBANK: "Banking",
+  ICICIBANK: "Banking",
+  SBIN: "Banking",
+  KOTAKBANK: "Banking",
+  AXISBANK: "Banking",
+  INDUSINDBK: "Banking",
+  BANDHANBNK: "Banking",
+  SUNPHARMA: "Pharma",
+  CIPLA: "Pharma",
+  DRREDDY: "Pharma",
+  DIVISLAB: "Pharma",
+  TATAMOTORS: "Auto",
+  MARUTI: "Auto",
+  "M&M": "Auto",
+  "BAJAJ-AUTO": "Auto",
+  HINDUNILVR: "FMCG",
+  ITC: "FMCG",
+  NESTLEIND: "FMCG",
+  BRITANNIA: "FMCG",
+  RELIANCE: "Energy",
+  NTPC: "Energy",
+  POWERGRID: "Energy",
+  ONGC: "Energy",
+  TATASTEEL: "Metals",
+  JSWSTEEL: "Metals",
+  HINDALCO: "Metals",
+  VEDL: "Metals",
+  LT: "Infra",
+  ADANIENT: "Infra",
+  ADANIPORTS: "Infra",
+  BAJFINANCE: "Finance",
+  BAJAJFINSV: "Finance",
+  SBILIFE: "Finance",
+  TITAN: "Consumer",
+  ASIANPAINT: "Consumer",
+  ULTRACEMCO: "Cement",
+  GRASIM: "Cement",
   BHARTIARTL: "Telecom",
 };
 
@@ -127,7 +175,10 @@ export interface FuguState {
 }
 
 class FuguLangGraph {
-  private nodes: Record<string, (state: FuguState) => Promise<Partial<FuguState>>> = {};
+  private nodes: Record<
+    string,
+    (state: FuguState) => Promise<Partial<FuguState>>
+  > = {};
 
   addNode(name: string, fn: (state: FuguState) => Promise<Partial<FuguState>>) {
     this.nodes[name] = fn;
@@ -144,7 +195,7 @@ class FuguLangGraph {
       "macro",
       "sentiment",
       "similarity",
-      "eliteRanker"
+      "eliteRanker",
     ];
 
     for (const nodeName of order) {
@@ -153,7 +204,10 @@ class FuguLangGraph {
           const update = await this.nodes[nodeName](state);
           state = { ...state, ...update };
         } catch (err: any) {
-          console.error(`[FuguGraph] Error in node ${nodeName} for ${state.symbol}:`, err.message);
+          console.error(
+            `[FuguGraph] Error in node ${nodeName} for ${state.symbol}:`,
+            err.message,
+          );
         }
       }
     }
@@ -165,7 +219,12 @@ class FuguLangGraph {
    CANDLESTICK PATTERN DETECTION UTILITIES
    ═══════════════════════════════════════════════════════════ */
 
-function detectHammer(open: number, high: number, low: number, close: number): boolean {
+function detectHammer(
+  open: number,
+  high: number,
+  low: number,
+  close: number,
+): boolean {
   const body = Math.abs(close - open);
   const totalRange = high - low;
   if (totalRange === 0) return false;
@@ -178,8 +237,10 @@ function detectHammer(open: number, high: number, low: number, close: number): b
 }
 
 function detectBullishEngulfing(
-  yesterdayOpen: number, yesterdayClose: number,
-  todayOpen: number, todayClose: number
+  yesterdayOpen: number,
+  yesterdayClose: number,
+  todayOpen: number,
+  todayClose: number,
 ): boolean {
   const yesterdayRed = yesterdayClose < yesterdayOpen;
   const todayGreen = todayClose > todayOpen;
@@ -191,13 +252,16 @@ function detectBullishEngulfing(
 }
 
 function detectMorningStar(
-  day1Open: number, day1Close: number,
-  day2Open: number, day2Close: number,
-  day3Open: number, day3Close: number
+  day1Open: number,
+  day1Close: number,
+  day2Open: number,
+  day2Close: number,
+  day3Open: number,
+  day3Close: number,
 ): boolean {
   const day1Red = day1Close < day1Open;
   const day3Green = day3Close > day3Open;
-  
+
   if (!day1Red || !day3Green) return false;
 
   const day1Body = day1Open - day1Close;
@@ -205,10 +269,10 @@ function detectMorningStar(
 
   // Day 2 is a small body gap down
   const day2Body = Math.abs(day2Close - day2Open);
-  const day2IsSmall = day2Body < (day1Body * 0.3);
+  const day2IsSmall = day2Body < day1Body * 0.3;
 
   // Day 3 closes at least halfway into Day 1's body
-  const day1Mid = day1Close + (day1Body / 2);
+  const day1Mid = day1Close + day1Body / 2;
   const day3ClosesAboveMid = day3Close >= day1Mid;
 
   return day2IsSmall && day3ClosesAboveMid;
@@ -238,7 +302,7 @@ export function buildFuguGraph(): FuguLangGraph {
         tightCoilRatio: vcp.tightCoilRatio,
         emaStackScore: vcp.emaStackScore,
         ema50Rising: vcp.ema50Rising,
-      }
+      },
     };
   });
 
@@ -246,7 +310,11 @@ export function buildFuguGraph(): FuguLangGraph {
   graph.addNode("pattern", async (state) => {
     const vcp: VcpFeatures | undefined = state.features.vcp;
     let detectedPattern = "None";
-    let detectedStage: "Consolidation" | "Near Breakout" | "Breakout Confirmed" | "Pullback" = "Consolidation";
+    let detectedStage:
+      | "Consolidation"
+      | "Near Breakout"
+      | "Breakout Confirmed"
+      | "Pullback" = "Consolidation";
     let score = 40;
     let confidence = 50;
 
@@ -288,7 +356,11 @@ export function buildFuguGraph(): FuguLangGraph {
     return {
       patternScore: Math.max(10, Math.min(100, Math.round(score))),
       patternConfidence: Math.max(10, Math.min(100, Math.round(confidence))),
-      features: { ...state.features, patternName: detectedPattern, patternStage: detectedStage }
+      features: {
+        ...state.features,
+        patternName: detectedPattern,
+        patternStage: detectedStage,
+      },
     };
   });
 
@@ -345,7 +417,11 @@ export function buildFuguGraph(): FuguLangGraph {
 
     return {
       candlestickScore: Math.max(10, Math.min(100, score)),
-      features: { ...state.features, candlestickName: detectedCandle, volumeConfirmed }
+      features: {
+        ...state.features,
+        candlestickName: detectedCandle,
+        volumeConfirmed,
+      },
     };
   });
 
@@ -354,10 +430,25 @@ export function buildFuguGraph(): FuguLangGraph {
     const f = state.fundamentals;
     if (!f) return { fundamentalScore: 50 };
 
-    const roe = f.roe != null ? (Number(f.roe) < 1 ? Number(f.roe) * 100 : Number(f.roe)) : 10;
-    const roce = f.roce != null ? (Number(f.roce) < 1 ? Number(f.roce) * 100 : Number(f.roce)) : 10;
+    const roe =
+      f.roe != null
+        ? Number(f.roe) < 1
+          ? Number(f.roe) * 100
+          : Number(f.roe)
+        : 10;
+    const roce =
+      f.roce != null
+        ? Number(f.roce) < 1
+          ? Number(f.roce) * 100
+          : Number(f.roce)
+        : 10;
     const debtRatio = f.debtToEquity != null ? Number(f.debtToEquity) : 1.5;
-    const opm = f.opm != null ? (Number(f.opm) < 1 ? Number(f.opm) * 100 : Number(f.opm)) : 8;
+    const opm =
+      f.opm != null
+        ? Number(f.opm) < 1
+          ? Number(f.opm) * 100
+          : Number(f.opm)
+        : 8;
     const pe = f.pe != null ? Number(f.pe) : 40;
 
     // Growth metrics (mocked/fallback if not in financial data)
@@ -374,9 +465,12 @@ export function buildFuguGraph(): FuguLangGraph {
     // 2. Valuation Score (out of 100)
     let valScore = 50; // base
     if (pe > 0) {
-      if (pe >= 10 && pe <= 25) valScore = 95; // perfect PE
-      else if (pe > 25 && pe <= 40) valScore = 75; // reasonable
-      else if (pe > 40 && pe <= 65) valScore = 45; // elevated
+      if (pe >= 10 && pe <= 25)
+        valScore = 95; // perfect PE
+      else if (pe > 25 && pe <= 40)
+        valScore = 75; // reasonable
+      else if (pe > 40 && pe <= 65)
+        valScore = 45; // elevated
       else valScore = 20; // expensive
     } else {
       valScore = 30; // negative PE (loss-making)
@@ -397,18 +491,18 @@ export function buildFuguGraph(): FuguLangGraph {
 
     return {
       fundamentalScore,
-      features: { 
-        ...state.features, 
-        roe, 
-        roce, 
-        debtToEquity: debtRatio, 
-        opm, 
-        pe, 
-        revenueGrowth: revGrowth, 
+      features: {
+        ...state.features,
+        roe,
+        roce,
+        debtToEquity: debtRatio,
+        opm,
+        pe,
+        revenueGrowth: revGrowth,
         profitGrowth,
         valuationScore,
-        qualityScore
-      }
+        qualityScore,
+      },
     };
   });
 
@@ -433,7 +527,7 @@ export function buildFuguGraph(): FuguLangGraph {
 
     return {
       sectorScore: Math.max(10, Math.min(100, score)),
-      features: { ...state.features, sectorName }
+      features: { ...state.features, sectorName },
     };
   });
 
@@ -447,9 +541,11 @@ export function buildFuguGraph(): FuguLangGraph {
       if (niftyHistory && niftyHistory.length > 20) {
         const closes = niftyHistory.map((c: any) => Number(c.close));
         const n = closes.length;
-        const indexReturn1m = ((closes[n - 1] - closes[n - 22]) / closes[n - 22]) * 100;
-        
-        if (indexReturn1m > 3.0) score += 15; // trending bull
+        const indexReturn1m =
+          ((closes[n - 1] - closes[n - 22]) / closes[n - 22]) * 100;
+
+        if (indexReturn1m > 3.0)
+          score += 15; // trending bull
         else if (indexReturn1m < -3.0) score -= 15; // trending bear
       }
     } catch {}
@@ -460,21 +556,22 @@ export function buildFuguGraph(): FuguLangGraph {
 
     return {
       macroScore: Math.max(10, Math.min(100, score)),
-      features: { ...state.features, advanceDeclineRatio, marketBreadth }
+      features: { ...state.features, advanceDeclineRatio, marketBreadth },
     };
   });
 
   // 6.5 Sentiment & News Agent Node (uses precomputed batch sentiments to prevent sequential rate-limited calls)
   graph.addNode("sentiment", async (state) => {
     const sentimentScore = state.features.sentimentScore ?? 50;
-    const catalyst = state.features.catalyst ?? "No recent major news catalysts detected.";
+    const catalyst =
+      state.features.catalyst ?? "No recent major news catalysts detected.";
 
     return {
       features: {
         ...state.features,
         sentimentScore,
-        catalyst
-      }
+        catalyst,
+      },
     };
   });
 
@@ -494,12 +591,18 @@ export function buildFuguGraph(): FuguLangGraph {
     }
 
     // Helper: extract numeric vector from features
-    const toVector = (rsi: number, roe: number, de: number, pe: number, rvol: number) => [
+    const toVector = (
+      rsi: number,
+      roe: number,
+      de: number,
+      pe: number,
+      rvol: number,
+    ) => [
       rsi / 100,
       Math.min(1, Math.max(0, roe / 50)),
-      Math.min(1, Math.max(0, 1 - (de / 3))), // lower debt is better
-      Math.min(1, Math.max(0, 1 - (pe / 100))), // lower PE is better
-      Math.min(1, rvol / 4)
+      Math.min(1, Math.max(0, 1 - de / 3)), // lower debt is better
+      Math.min(1, Math.max(0, 1 - pe / 100)), // lower PE is better
+      Math.min(1, rvol / 4),
     ];
 
     const currentRsi = state.features.rsi14 ?? 50;
@@ -508,10 +611,18 @@ export function buildFuguGraph(): FuguLangGraph {
     const currentPe = state.features.pe ?? 30;
     const currentRvol = state.features.rvol ?? 1.2;
 
-    const currVector = toVector(currentRsi, currentRoe, currentDe, currentPe, currentRvol);
+    const currVector = toVector(
+      currentRsi,
+      currentRoe,
+      currentDe,
+      currentPe,
+      currentRvol,
+    );
 
     const cosineSimilarity = (v1: number[], v2: number[]) => {
-      let dot = 0, norm1 = 0, norm2 = 0;
+      let dot = 0,
+        norm1 = 0,
+        norm2 = 0;
       for (let i = 0; i < v1.length; i++) {
         dot += v1[i] * v2[i];
         norm1 += v1[i] * v1[i];
@@ -520,8 +631,10 @@ export function buildFuguGraph(): FuguLangGraph {
       return norm1 && norm2 ? dot / (Math.sqrt(norm1) * Math.sqrt(norm2)) : 0;
     };
 
-    let winsSim = 0, winsCount = 0;
-    let lossSim = 0, lossCount = 0;
+    let winsSim = 0,
+      winsCount = 0;
+    let lossSim = 0,
+      lossCount = 0;
 
     for (const row of pastOutcomes) {
       const snap = row.fugu_snapshots;
@@ -551,11 +664,18 @@ export function buildFuguGraph(): FuguLangGraph {
 
     // Rescale similarity: if more similar to wins, score rises.
     const diff = avgWinSim - avgLossSim;
-    const similarityScore = Math.max(10, Math.min(100, Math.round((diff + 1) / 2 * 100)));
+    const similarityScore = Math.max(
+      10,
+      Math.min(100, Math.round(((diff + 1) / 2) * 100)),
+    );
 
     return {
       similarityScore,
-      features: { ...state.features, winsSimilarity: avgWinSim, lossesSimilarity: avgLossSim }
+      features: {
+        ...state.features,
+        winsSimilarity: avgWinSim,
+        lossesSimilarity: avgLossSim,
+      },
     };
   });
 
@@ -564,7 +684,7 @@ export function buildFuguGraph(): FuguLangGraph {
     const w = state.weights;
 
     // Compute Fugu Score using dynamic weights config
-    const fuguScore = 
+    const fuguScore =
       state.technicalScore * w.technical +
       state.patternScore * w.pattern +
       state.candlestickScore * w.candlestick +
@@ -604,8 +724,9 @@ Explain why this setup is high probability. Write a concise 2-sentence instituti
           model: "gemini-flash-latest",
           contents: prompt,
           config: {
-            systemInstruction: "You are the FUGU Elite Ranking Agent, a top-tier hedge fund portfolio manager."
-          }
+            systemInstruction:
+              "You are the FUGU Elite Ranking Agent, a top-tier hedge fund portfolio manager.",
+          },
         });
 
         if (response?.text) {
@@ -618,7 +739,7 @@ Explain why this setup is high probability. Write a concise 2-sentence instituti
 
     return {
       fuguScore,
-      eliteReasoning
+      eliteReasoning,
     };
   });
 
@@ -629,8 +750,12 @@ Explain why this setup is high probability. Write a concise 2-sentence instituti
    SCANNERS DATA GATHERER (SCANNER AGENT)
    ═══════════════════════════════════════════════════════════ */
 
-export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; source: string }>> {
-  console.log("[Fugu Scanner Agent] Gathering candidates from all active screeners...");
+export async function gatherFuguCandidates(): Promise<
+  Array<{ symbol: string; source: string }>
+> {
+  console.log(
+    "[Fugu Scanner Agent] Gathering candidates from all active screeners...",
+  );
   const candidatesMap = new Map<string, string>();
 
   // Helper validation
@@ -652,7 +777,9 @@ export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; so
         candidatesMap.set(r.symbol.trim().toUpperCase(), "SWING");
       }
     }
-    console.log(`[Fugu Scanner Agent] Gathered ${swingResults.length} swing candidates.`);
+    console.log(
+      `[Fugu Scanner Agent] Gathered ${swingResults.length} swing candidates.`,
+    );
   } catch (err: any) {
     console.error("[Fugu Scanner Agent] Swing scanner error:", err.message);
   }
@@ -661,18 +788,25 @@ export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; so
   try {
     const ipoResults = await runIpoScanner();
     for (const r of ipoResults.slice(0, 15)) {
-      const sym = r ? (r.stockSymbol || r.symbol) : null;
+      const sym = r ? r.stockSymbol || r.symbol : null;
       if (isValidSymbol(sym)) {
         candidatesMap.set(sym.trim().toUpperCase(), "IPO");
       }
     }
-    console.log(`[Fugu Scanner Agent] Gathered ${ipoResults.length} IPO candidates.`);
+    console.log(
+      `[Fugu Scanner Agent] Gathered ${ipoResults.length} IPO candidates.`,
+    );
   } catch (err: any) {
     console.error("[Fugu Scanner Agent] IPO scanner error:", err.message);
   }
 
   // 3. Chart Patterns (Cup & Handle, Flag, etc.)
-  const patternTypes = ["cup_and_handle", "flag_and_pole", "double_bottom", "ascending_triangle"];
+  const patternTypes = [
+    "cup_and_handle",
+    "flag_and_pole",
+    "double_bottom",
+    "ascending_triangle",
+  ];
   for (const pat of patternTypes) {
     try {
       const patResults = await runPatternScanner(pat);
@@ -683,19 +817,27 @@ export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; so
       }
       console.log(`[Fugu Scanner Agent] Gathered pattern ${pat} candidates.`);
     } catch (err: any) {
-      console.error(`[Fugu Scanner Agent] Pattern ${pat} scanner error:`, err.message);
+      console.error(
+        `[Fugu Scanner Agent] Pattern ${pat} scanner error:`,
+        err.message,
+      );
     }
   }
 
   // 4. Smart Screener candidates
   try {
-    const smartResults = await executeScreener({ limit: 15, rawQuery: "momentum" });
+    const smartResults = await executeScreener({
+      limit: 15,
+      rawQuery: "momentum",
+    });
     for (const r of smartResults) {
       if (r && isValidSymbol(r.symbol)) {
         candidatesMap.set(r.symbol.trim().toUpperCase(), "SMART_SCREENER");
       }
     }
-    console.log(`[Fugu Scanner Agent] Gathered ${smartResults.length} Smart Screener candidates.`);
+    console.log(
+      `[Fugu Scanner Agent] Gathered ${smartResults.length} Smart Screener candidates.`,
+    );
   } catch (err: any) {
     console.error("[Fugu Scanner Agent] Smart Screener error:", err.message);
   }
@@ -709,17 +851,22 @@ export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; so
       .where(
         and(
           sql`${hermesSnapshots.hermesScore}::numeric >= 65`,
-          sql`${hermesSnapshots.scanDate} >= ${twoDaysAgo}`
-        )
+          sql`${hermesSnapshots.scanDate} >= ${twoDaysAgo}`,
+        ),
       );
     for (const r of topHermes) {
       if (r && isValidSymbol(r.symbol)) {
         candidatesMap.set(r.symbol.trim().toUpperCase(), "HERMES_TOP");
       }
     }
-    console.log(`[Fugu Scanner Agent] Gathered ${topHermes.length} Hermes AI top candidates.`);
+    console.log(
+      `[Fugu Scanner Agent] Gathered ${topHermes.length} Hermes AI top candidates.`,
+    );
   } catch (err: any) {
-    console.error("[Fugu Scanner Agent] Hermes AI candidate fetch error:", err.message);
+    console.error(
+      "[Fugu Scanner Agent] Hermes AI candidate fetch error:",
+      err.message,
+    );
   }
 
   // 6. Include all stocks from the NSE_UNIQUE universe to cover everything!
@@ -732,17 +879,23 @@ export async function gatherFuguCandidates(): Promise<Array<{ symbol: string; so
         }
       }
     }
-    console.log(`[Fugu Scanner Agent] Appended remaining NSE universe. Total unique candidates: ${candidatesMap.size}`);
+    console.log(
+      `[Fugu Scanner Agent] Appended remaining NSE universe. Total unique candidates: ${candidatesMap.size}`,
+    );
   } catch (err: any) {
     console.error("[Fugu Scanner Agent] NSE_UNIQUE append error:", err.message);
   }
 
   // Convert to array
-  const output = Array.from(candidatesMap.entries()).map(([symbol, source]) => ({
-    symbol,
-    source
-  }));
-  console.log(`[Fugu Scanner Agent] Total unique candidates gathered: ${output.length}`);
+  const output = Array.from(candidatesMap.entries()).map(
+    ([symbol, source]) => ({
+      symbol,
+      source,
+    }),
+  );
+  console.log(
+    `[Fugu Scanner Agent] Total unique candidates gathered: ${output.length}`,
+  );
   return output;
 }
 
@@ -776,7 +929,7 @@ export async function runFuguPipeline(limitSize = 1000): Promise<{
       .where(eq(fuguFactorWeights.isActive, true))
       .limit(1);
 
-    const weights = activeWeightRow 
+    const weights = activeWeightRow
       ? (activeWeightRow.weights as Record<string, number>)
       : DEFAULT_FUGU_WEIGHTS;
     const weightVersion = activeWeightRow ? activeWeightRow.version : 1;
@@ -784,7 +937,11 @@ export async function runFuguPipeline(limitSize = 1000): Promise<{
     // 2. Gather candidate stocks
     const candidates = await gatherFuguCandidates();
     const validCandidates = candidates.filter(
-      (c) => c && typeof c.symbol === "string" && c.symbol.trim() !== "" && c.symbol.toLowerCase() !== "undefined"
+      (c) =>
+        c &&
+        typeof c.symbol === "string" &&
+        c.symbol.trim() !== "" &&
+        c.symbol.toLowerCase() !== "undefined",
     );
     const limitedCandidates = validCandidates.slice(0, limitSize);
 
@@ -794,8 +951,10 @@ export async function runFuguPipeline(limitSize = 1000): Promise<{
     const newsMap = new Map<string, any[]>();
     const BATCH_SIZE = 15;
     const BATCH_DELAY = 100;
-    
-    console.log(`[Fugu Engine] Pre-fetching news for ${limitedCandidates.length} candidates in batches of ${BATCH_SIZE}...`);
+
+    console.log(
+      `[Fugu Engine] Pre-fetching news for ${limitedCandidates.length} candidates in batches of ${BATCH_SIZE}...`,
+    );
     for (let i = 0; i < limitedCandidates.length; i += BATCH_SIZE) {
       const batch = limitedCandidates.slice(i, i + BATCH_SIZE);
       const batchResults = await Promise.allSettled(
@@ -803,35 +962,52 @@ export async function runFuguPipeline(limitSize = 1000): Promise<{
           const sym = cand.symbol;
           const yahooSym = sym.includes(".") ? sym : `${sym}.NS`;
           const news = await getYahooStockNews(yahooSym, 3);
-          return { symbol: sym.replace(/\.(NS|BO|NSE|BSE)$/i, "").toUpperCase(), news };
-        })
+          return {
+            symbol: sym.replace(/\.(NS|BO|NSE|BSE)$/i, "").toUpperCase(),
+            news,
+          };
+        }),
       );
-      
+
       for (const res of batchResults) {
-        if (res.status === "fulfilled" && res.value && res.value.news && res.value.news.length > 0) {
+        if (
+          res.status === "fulfilled" &&
+          res.value &&
+          res.value.news &&
+          res.value.news.length > 0
+        ) {
           newsMap.set(res.value.symbol, res.value.news);
         }
       }
-      
+
       if (i + BATCH_SIZE < limitedCandidates.length) {
         await new Promise((r) => setTimeout(r, BATCH_DELAY));
       }
     }
 
-    const precomputedSentiments = new Map<string, { sentimentScore: number; catalyst: string }>();
+    const precomputedSentiments = new Map<
+      string,
+      { sentimentScore: number; catalyst: string }
+    >();
     const stocksWithNews = Array.from(newsMap.keys());
-    console.log(`[Fugu Engine] ${stocksWithNews.length} stocks have news headlines to analyze.`);
+    console.log(
+      `[Fugu Engine] ${stocksWithNews.length} stocks have news headlines to analyze.`,
+    );
 
     if (stocksWithNews.length > 0) {
       const chunkSize = 30; // Increased chunk size to 30 to make fewer Gemini calls and execute faster
       for (let i = 0; i < stocksWithNews.length; i += chunkSize) {
         const chunk = stocksWithNews.slice(i, i + chunkSize);
-        console.log(`[Fugu Engine] Batch news sentiment for: ${chunk.join(", ")}`);
-        
+        console.log(
+          `[Fugu Engine] Batch news sentiment for: ${chunk.join(", ")}`,
+        );
+
         let promptData = "";
         for (const sym of chunk) {
           const newsList = newsMap.get(sym) || [];
-          const headlines = newsList.map(n => `- ${n.title}: ${n.description || ""}`).join("\n");
+          const headlines = newsList
+            .map((n) => `- ${n.title}: ${n.description || ""}`)
+            .join("\n");
           promptData += `=== STOCK: ${sym} ===\n${headlines}\n\n`;
         }
 
@@ -861,7 +1037,7 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
               systemInstruction: systemPrompt,
               temperature: 0.1,
               maxOutputTokens: 2048,
-            }
+            },
           });
 
           if (response?.text) {
@@ -872,25 +1048,36 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
               for (const sym of chunk) {
                 const stockRes = parsed[sym] || parsed[sym.toLowerCase()];
                 if (stockRes) {
-                  const score = typeof stockRes.sentimentScore === "number"
-                    ? Math.max(0, Math.min(100, stockRes.sentimentScore))
-                    : 50;
-                  const catalyst = typeof stockRes.catalyst === "string" && stockRes.catalyst.trim() !== ""
-                    ? stockRes.catalyst.trim()
-                    : "No recent major news catalysts detected.";
-                  precomputedSentiments.set(sym, { sentimentScore: score, catalyst });
+                  const score =
+                    typeof stockRes.sentimentScore === "number"
+                      ? Math.max(0, Math.min(100, stockRes.sentimentScore))
+                      : 50;
+                  const catalyst =
+                    typeof stockRes.catalyst === "string" &&
+                    stockRes.catalyst.trim() !== ""
+                      ? stockRes.catalyst.trim()
+                      : "No recent major news catalysts detected.";
+                  precomputedSentiments.set(sym, {
+                    sentimentScore: score,
+                    catalyst,
+                  });
                 }
               }
             }
           }
         } catch (err: any) {
-          console.warn(`[Fugu Engine] News sentiment batch failed for chunk starting with ${chunk[0]}:`, err.message);
+          console.warn(
+            `[Fugu Engine] News sentiment batch failed for chunk starting with ${chunk[0]}:`,
+            err.message,
+          );
         }
       }
     }
 
     // 3. Process candidates in chunked parallel batches of size 15 to avoid rate-limiting and maximize speed
-    console.log(`[Fugu Engine] Processing ${limitedCandidates.length} candidates in batches of ${BATCH_SIZE}...`);
+    console.log(
+      `[Fugu Engine] Processing ${limitedCandidates.length} candidates in batches of ${BATCH_SIZE}...`,
+    );
     for (let i = 0; i < limitedCandidates.length; i += BATCH_SIZE) {
       const batch = limitedCandidates.slice(i, i + BATCH_SIZE);
       await Promise.allSettled(
@@ -907,7 +1094,8 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
               getFmpFundamentals(rawSym),
             ]);
 
-            const quote = quoteRes.status === "fulfilled" ? quoteRes.value : null;
+            const quote =
+              quoteRes.status === "fulfilled" ? quoteRes.value : null;
             const candles = histRes.status === "fulfilled" ? histRes.value : [];
             const fund = fundRes.status === "fulfilled" ? fundRes.value : null;
 
@@ -916,9 +1104,16 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
               return;
             }
 
-            const price = quote?.price ?? Number(candles[candles.length - 1].close);
+            const price =
+              quote?.price ?? Number(candles[candles.length - 1].close);
             const lastVol = candles[candles.length - 1].volume ?? 0;
-            const vol20d = candles.slice(-20).reduce((acc: number, curr: any) => acc + Number(curr.volume || 0), 0) / 20;
+            const vol20d =
+              candles
+                .slice(-20)
+                .reduce(
+                  (acc: number, curr: any) => acc + Number(curr.volume || 0),
+                  0,
+                ) / 20;
             const rvol = vol20d > 0 ? lastVol / vol20d : 1.0;
 
             // StockIQ
@@ -928,7 +1123,10 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
             } catch {}
 
             // Compile state
-            const sentimentInfo = precomputedSentiments.get(rawSym) || { sentimentScore: 50, catalyst: "No recent major news catalysts detected." };
+            const sentimentInfo = precomputedSentiments.get(rawSym) || {
+              sentimentScore: 50,
+              catalyst: "No recent major news catalysts detected.",
+            };
             const initialState: FuguState = {
               symbol: rawSym,
               scannerSource: cand.source,
@@ -947,41 +1145,48 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
                 rvol,
                 atr14: 1.5,
                 sentimentScore: sentimentInfo.sentimentScore,
-                catalyst: sentimentInfo.catalyst
+                catalyst: sentimentInfo.catalyst,
               },
               candles,
               fundamentals: fund,
               stockIq,
               weights,
-              weightVersion
+              weightVersion,
             };
 
             // 4. Run LangGraph pipeline
             const finalState = await graph.run(initialState);
 
             // 5. Insert Snapshot & Create Outcome Row
-            const [snap] = await db.insert(fuguSnapshots).values({
-              symbol: finalState.symbol,
-              scannerSource: finalState.scannerSource,
-              price: String(finalState.price.toFixed(2)),
-              technicalScore: finalState.technicalScore,
-              patternScore: finalState.patternScore,
-              patternConfidence: finalState.patternConfidence,
-              candlestickScore: finalState.candlestickScore,
-              fundamentalScore: finalState.fundamentalScore,
-              sectorScore: finalState.sectorScore,
-              macroScore: finalState.macroScore,
-              similarityToWinners: String(finalState.similarityScore.toFixed(2)),
-              similarityToLosers: String((100 - finalState.similarityScore).toFixed(2)),
-              fuguScore: String(finalState.fuguScore.toFixed(2)),
-              features: finalState.features,
-              weightVersion: finalState.weightVersion,
-              eliteReasoning: finalState.eliteReasoning
-            }).returning();
+            const [snap] = await db
+              .insert(fuguSnapshots)
+              .values({
+                symbol: finalState.symbol,
+                scannerSource: finalState.scannerSource,
+                price: String(finalState.price.toFixed(2)),
+                technicalScore: finalState.technicalScore,
+                patternScore: finalState.patternScore,
+                patternConfidence: finalState.patternConfidence,
+                candlestickScore: finalState.candlestickScore,
+                fundamentalScore: finalState.fundamentalScore,
+                sectorScore: finalState.sectorScore,
+                macroScore: finalState.macroScore,
+                similarityToWinners: String(
+                  finalState.similarityScore.toFixed(2),
+                ),
+                similarityToLosers: String(
+                  (100 - finalState.similarityScore).toFixed(2),
+                ),
+                fuguScore: String(finalState.fuguScore.toFixed(2)),
+                features: finalState.features,
+                weightVersion: finalState.weightVersion,
+                eliteReasoning: finalState.eliteReasoning,
+              })
+              .returning();
 
             await db.insert(fuguOutcomes).values({
               snapshotId: snap.id,
-              symbol: finalState.symbol
+              symbol: finalState.symbol,
             });
 
             // Autonomous journaling — every high-conviction VCP breakout gets its
@@ -1006,10 +1211,13 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
 
             processed++;
           } catch (err: any) {
-            console.error(`[Fugu Engine] Error processing ${cand.symbol}:`, err.message);
+            console.error(
+              `[Fugu Engine] Error processing ${cand.symbol}:`,
+              err.message,
+            );
             errors++;
           }
-        })
+        }),
       );
 
       if (i + BATCH_SIZE < limitedCandidates.length) {
@@ -1022,16 +1230,22 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
       // Fetch latest Hermes snapshots to compute composite score (average when matching exists)
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
       const recentHermes = await db
-        .select({ symbol: hermesSnapshots.symbol, hermesScore: hermesSnapshots.hermesScore })
+        .select({
+          symbol: hermesSnapshots.symbol,
+          hermesScore: hermesSnapshots.hermesScore,
+        })
         .from(hermesSnapshots)
         .where(sql`${hermesSnapshots.scanDate} >= ${twoDaysAgo}`);
 
       const hermesScoreMap = new Map<string, number>();
-      recentHermes.forEach(h => {
+      recentHermes.forEach((h) => {
         const sym = h.symbol.trim().toUpperCase();
         const score = parseFloat(h.hermesScore || "0");
         if (score > 0) {
-          hermesScoreMap.set(sym, Math.max(hermesScoreMap.get(sym) || 0, score));
+          hermesScoreMap.set(
+            sym,
+            Math.max(hermesScoreMap.get(sym) || 0, score),
+          );
         }
       });
 
@@ -1043,13 +1257,13 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
         .limit(200);
 
       // Compute composite scores
-      const snapsWithComposite = latestSnaps.map(snap => {
+      const snapsWithComposite = latestSnaps.map((snap) => {
         const fScore = parseFloat(snap.fuguScore || "0");
         const hScore = hermesScoreMap.get(snap.symbol.trim().toUpperCase());
         const compScore = hScore !== undefined ? (fScore + hScore) / 2 : fScore;
         return {
           snap,
-          compScore
+          compScore,
         };
       });
 
@@ -1062,10 +1276,14 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
       // We show whoever has a score of 80-85+ score.
       // If no stocks meet the threshold of 80, we fallback to the top 5 stocks to keep the dashboard populated.
       const threshold = 80;
-      let picksToInsert = snapsWithComposite.filter(s => s.compScore >= threshold);
-      
+      let picksToInsert = snapsWithComposite.filter(
+        (s) => s.compScore >= threshold,
+      );
+
       if (picksToInsert.length === 0) {
-        console.log(`[FUGU Pipeline] No stocks scored above ${threshold}. Falling back to top 5 stocks.`);
+        console.log(
+          `[FUGU Pipeline] No stocks scored above ${threshold}. Falling back to top 5 stocks.`,
+        );
         picksToInsert = snapsWithComposite.slice(0, 5);
       }
 
@@ -1079,8 +1297,10 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
           snapshotId: snap.id,
           symbol: snap.symbol,
           fuguScore: String(compScore.toFixed(2)),
-          reasoning: snap.eliteReasoning || "Bullish confluence with strong valuation, fundamental quality and technical setup.",
-          verdict
+          reasoning:
+            snap.eliteReasoning ||
+            "Bullish confluence with strong valuation, fundamental quality and technical setup.",
+          verdict,
         });
         eliteCount++;
       }
@@ -1091,7 +1311,9 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
     isScanRunning = false;
   }
 
-  console.log(`[FUGU Pipeline] Complete — processed: ${processed}, elites: ${eliteCount}, errors: ${errors}`);
+  console.log(
+    `[FUGU Pipeline] Complete — processed: ${processed}, elites: ${eliteCount}, errors: ${errors}`,
+  );
   return { scanned: limitSize, processed, eliteCount, errors };
 }
 
@@ -1105,28 +1327,48 @@ export async function runFuguOutcomeTracker(): Promise<{ filled: number }> {
   const now = new Date();
 
   // Helper check return
-  const checkInterval = async (days: number, colPrice: string, colReturn: string, colOutcome: string, colFilled: string, calendarDays: number) => {
+  const checkInterval = async (
+    days: number,
+    colPrice: string,
+    colReturn: string,
+    colOutcome: string,
+    colFilled: string,
+    calendarDays: number,
+  ) => {
     const minAge = new Date(now.getTime() - calendarDays * 24 * 60 * 60 * 1000);
     const pending = await db
       .select()
       .from(fuguOutcomes)
       .innerJoin(fuguSnapshots, eq(fuguOutcomes.snapshotId, fuguSnapshots.id))
-      .where(and(
-        sql`${fuguOutcomes[colPrice as keyof typeof fuguOutcomes.$inferSelect]} IS NULL`,
-        lte(fuguSnapshots.scanDate, minAge)
-      ))
+      .where(
+        and(
+          sql`${fuguOutcomes[colPrice as keyof typeof fuguOutcomes.$inferSelect]} IS NULL`,
+          lte(fuguSnapshots.scanDate, minAge),
+        ),
+      )
       .limit(50);
 
     for (const row of pending) {
       try {
-        const quote = await getYahooStockQuote(`${row.fugu_outcomes.symbol}.NS`);
+        const quote = await getYahooStockQuote(
+          `${row.fugu_outcomes.symbol}.NS`,
+        );
         if (quote?.price) {
           const entryPrice = Number(row.fugu_snapshots.price);
           const retPct = ((quote.price - entryPrice) / entryPrice) * 100;
-          const outcome = retPct >= WIN_THRESHOLD ? "WIN" : retPct <= LOSS_THRESHOLD ? "LOSS" : "NEUTRAL";
+          const outcome =
+            retPct >= WIN_THRESHOLD
+              ? "WIN"
+              : retPct <= LOSS_THRESHOLD
+                ? "LOSS"
+                : "NEUTRAL";
 
           // Volatility/drawdown approximation: fetch history from scanDate to now
-          const history = await getYahooHistory(`${row.fugu_outcomes.symbol}.NS`, "6mo", "1d");
+          const history = await getYahooHistory(
+            `${row.fugu_outcomes.symbol}.NS`,
+            "6mo",
+            "1d",
+          );
           let maxDrawdown = 0;
           let volatility = 0;
 
@@ -1150,10 +1392,16 @@ export async function runFuguOutcomeTracker(): Promise<{ filled: number }> {
               // Daily returns volatility (standard deviation)
               const dailyReturns = [];
               for (let i = 1; i < relevantCloses.length; i++) {
-                dailyReturns.push((relevantCloses[i] - relevantCloses[i - 1]) / relevantCloses[i - 1]);
+                dailyReturns.push(
+                  (relevantCloses[i] - relevantCloses[i - 1]) /
+                    relevantCloses[i - 1],
+                );
               }
-              const avgRet = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
-              const variance = dailyReturns.reduce((a, b) => accVariance(a, b, avgRet), 0) / dailyReturns.length;
+              const avgRet =
+                dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
+              const variance =
+                dailyReturns.reduce((a, b) => accVariance(a, b, avgRet), 0) /
+                dailyReturns.length;
               volatility = Math.sqrt(variance) * 100; // pct
             }
           }
@@ -1183,20 +1431,59 @@ export async function runFuguOutcomeTracker(): Promise<{ filled: number }> {
           filled++;
         }
       } catch (err: any) {
-        console.error(`[Fugu Outcome Agent] Error updating ${row.fugu_outcomes.symbol}:`, err.message);
+        console.error(
+          `[Fugu Outcome Agent] Error updating ${row.fugu_outcomes.symbol}:`,
+          err.message,
+        );
       }
     }
   };
 
-  const accVariance = (sum: number, val: number, avg: number) => sum + Math.pow(val - avg, 2);
+  const accVariance = (sum: number, val: number, avg: number) =>
+    sum + Math.pow(val - avg, 2);
 
   // Checks intervals: 5d, 10d, 20d, 30d, 60d, 90d
   await checkInterval(5, "price5d", "return5d", "outcome5d", "filledAt5d", 7);
-  await checkInterval(10, "price10d", "return10d", "outcome10d", "filledAt10d", 14);
-  await checkInterval(20, "price20d", "return20d", "outcome20d", "filledAt20d", 28);
-  await checkInterval(30, "price30d", "return30d", "outcome30d", "filledAt30d", 42);
-  await checkInterval(60, "price60d", "return60d", "outcome60d", "filledAt60d", 84);
-  await checkInterval(90, "price90d", "return90d", "outcome90d", "filledAt90d", 126);
+  await checkInterval(
+    10,
+    "price10d",
+    "return10d",
+    "outcome10d",
+    "filledAt10d",
+    14,
+  );
+  await checkInterval(
+    20,
+    "price20d",
+    "return20d",
+    "outcome20d",
+    "filledAt20d",
+    28,
+  );
+  await checkInterval(
+    30,
+    "price30d",
+    "return30d",
+    "outcome30d",
+    "filledAt30d",
+    42,
+  );
+  await checkInterval(
+    60,
+    "price60d",
+    "return60d",
+    "outcome60d",
+    "filledAt60d",
+    84,
+  );
+  await checkInterval(
+    90,
+    "price90d",
+    "return90d",
+    "outcome90d",
+    "filledAt90d",
+    126,
+  );
 
   console.log(`[Fugu Outcome Agent] Complete — updated ${filled} outcomes.`);
   return { filled };
@@ -1221,7 +1508,9 @@ export async function runFuguLearningCycle(): Promise<{
     .limit(2000);
 
   if (completed.length < 5) {
-    console.log("[Fugu Learning Agent] Insufficient outcome data to perform learning (< 5 samples).");
+    console.log(
+      "[Fugu Learning Agent] Insufficient outcome data to perform learning (< 5 samples).",
+    );
     return { insightsAdded: 0, weightsOptimized: false };
   }
 
@@ -1241,7 +1530,8 @@ export async function runFuguLearningCycle(): Promise<{
     // Pattern stats update
     const patternName = feat.patternName || "None";
     if (patternName !== "None") {
-      if (!patternWins[patternName]) patternWins[patternName] = { wins: 0, total: 0 };
+      if (!patternWins[patternName])
+        patternWins[patternName] = { wins: 0, total: 0 };
       patternWins[patternName].total++;
       if (isWin) patternWins[patternName].wins++;
     }
@@ -1249,7 +1539,8 @@ export async function runFuguLearningCycle(): Promise<{
     // Candlestick stats update
     const candleName = feat.candlestickName || "Normal";
     if (candleName !== "Normal") {
-      if (!candleWins[candleName]) candleWins[candleName] = { wins: 0, total: 0 };
+      if (!candleWins[candleName])
+        candleWins[candleName] = { wins: 0, total: 0 };
       candleWins[candleName].total++;
       if (isWin) candleWins[candleName].wins++;
     }
@@ -1272,7 +1563,7 @@ export async function runFuguLearningCycle(): Promise<{
         winRate5d: String(winRate.toFixed(2)),
         winRate20d: String(winRate.toFixed(2)),
         winRate60d: String(winRate.toFixed(2)),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       })
       .onConflictDoUpdate({
         target: fuguPatternStats.patternName,
@@ -1280,8 +1571,8 @@ export async function runFuguLearningCycle(): Promise<{
           totalOccurrences: s.total,
           winRate5d: String(winRate.toFixed(2)),
           winRate20d: String(winRate.toFixed(2)),
-          lastUpdated: new Date()
-        }
+          lastUpdated: new Date(),
+        },
       });
   }
 
@@ -1296,7 +1587,7 @@ export async function runFuguLearningCycle(): Promise<{
         winRate5d: String(winRate.toFixed(2)),
         winRate20d: String(winRate.toFixed(2)),
         winRate60d: String(winRate.toFixed(2)),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       })
       .onConflictDoUpdate({
         target: fuguCandlestickStats.candlestickName,
@@ -1304,8 +1595,8 @@ export async function runFuguLearningCycle(): Promise<{
           totalOccurrences: s.total,
           winRate5d: String(winRate.toFixed(2)),
           winRate20d: String(winRate.toFixed(2)),
-          lastUpdated: new Date()
-        }
+          lastUpdated: new Date(),
+        },
       });
   }
 
@@ -1321,7 +1612,7 @@ export async function runFuguLearningCycle(): Promise<{
         winRate20d: String(winRate.toFixed(2)),
         winRate60d: String(winRate.toFixed(2)),
         momentumScore: "60", // default sector momentum
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
       })
       .onConflictDoUpdate({
         target: fuguSectorStats.sectorName,
@@ -1329,8 +1620,8 @@ export async function runFuguLearningCycle(): Promise<{
           totalOccurrences: s.total,
           winRate5d: String(winRate.toFixed(2)),
           winRate20d: String(winRate.toFixed(2)),
-          lastUpdated: new Date()
-        }
+          lastUpdated: new Date(),
+        },
       });
   }
 
@@ -1338,27 +1629,27 @@ export async function runFuguLearningCycle(): Promise<{
   let insightsAdded = 0;
   try {
     const winSamples = completed
-      .filter(row => Number(row.fugu_outcomes.return5d) >= WIN_THRESHOLD)
+      .filter((row) => Number(row.fugu_outcomes.return5d) >= WIN_THRESHOLD)
       .slice(0, 5)
-      .map(row => ({
+      .map((row) => ({
         symbol: row.fugu_snapshots.symbol,
         scanner: row.fugu_snapshots.scannerSource,
         techScore: row.fugu_snapshots.technicalScore,
         fundScore: row.fugu_snapshots.fundamentalScore,
         pattern: (row.fugu_snapshots.features as any).patternName || "None",
-        ret: row.fugu_outcomes.return5d
+        ret: row.fugu_outcomes.return5d,
       }));
 
     const lossSamples = completed
-      .filter(row => Number(row.fugu_outcomes.return5d) <= LOSS_THRESHOLD)
+      .filter((row) => Number(row.fugu_outcomes.return5d) <= LOSS_THRESHOLD)
       .slice(0, 5)
-      .map(row => ({
+      .map((row) => ({
         symbol: row.fugu_snapshots.symbol,
         scanner: row.fugu_snapshots.scannerSource,
         techScore: row.fugu_snapshots.technicalScore,
         fundScore: row.fugu_snapshots.fundamentalScore,
         pattern: (row.fugu_snapshots.features as any).patternName || "None",
-        ret: row.fugu_outcomes.return5d
+        ret: row.fugu_outcomes.return5d,
       }));
 
     const learningPrompt = `You are the FUGU Learning Agent. Analyze these historical stock picks and their outcomes:
@@ -1378,8 +1669,9 @@ Generate a structured JSON output with fields:
       model: "gemini-flash-latest",
       contents: learningPrompt,
       config: {
-        systemInstruction: "You are an expert quantitative research assistant analyzing trading results."
-      }
+        systemInstruction:
+          "You are an expert quantitative research assistant analyzing trading results.",
+      },
     });
 
     const reasoning = geminiRes?.text || "";
@@ -1387,19 +1679,22 @@ Generate a structured JSON output with fields:
     // Save Winner Insight
     await db.insert(fuguLearningMemory).values({
       insightType: "WINNER_PATTERN",
-      findings: reasoning.includes("winnerInsights") ? reasoning : `Analyzed ${winSamples.length} wins. Successful recommendations showed strong fundamentals combined with volume breakout confirmation.`,
-      geminiReasoning: reasoning
+      findings: reasoning.includes("winnerInsights")
+        ? reasoning
+        : `Analyzed ${winSamples.length} wins. Successful recommendations showed strong fundamentals combined with volume breakout confirmation.`,
+      geminiReasoning: reasoning,
     });
     insightsAdded++;
 
     // Save Loser Insight
     await db.insert(fuguLearningMemory).values({
       insightType: "LOSER_PATTERN",
-      findings: reasoning.includes("loserInsights") ? reasoning : `Analyzed ${lossSamples.length} losses. Failures were often linked to high PE valuations or overbought RSI levels during market contractions.`,
-      geminiReasoning: reasoning
+      findings: reasoning.includes("loserInsights")
+        ? reasoning
+        : `Analyzed ${lossSamples.length} losses. Failures were often linked to high PE valuations or overbought RSI levels during market contractions.`,
+      geminiReasoning: reasoning,
     });
     insightsAdded++;
-
   } catch (err: any) {
     console.error("[Fugu Learning Agent] Gemini analysis failed:", err.message);
   }
@@ -1410,11 +1705,22 @@ Generate a structured JSON output with fields:
   return { insightsAdded, weightsOptimized };
 }
 
-export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<boolean> {
+export async function runFuguWeightOptimizer(
+  completedOutcomes: any[],
+): Promise<boolean> {
   console.log("[Fugu Weight Optimizer] Evolving factor weights...");
 
   // Simple optimization: check correlation of each agent score with the 20-day returns
-  const agents = ["technical", "pattern", "candlestick", "fundamental", "sector", "macro", "similarity", "sentiment"];
+  const agents = [
+    "technical",
+    "pattern",
+    "candlestick",
+    "fundamental",
+    "sector",
+    "macro",
+    "similarity",
+    "sentiment",
+  ];
   const correlations: Record<string, number> = {};
 
   for (const agent of agents) {
@@ -1435,7 +1741,10 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
       else if (agent === "sector") score = snap.sectorScore;
       else if (agent === "macro") score = snap.macroScore;
       else if (agent === "similarity") score = Number(snap.similarityToWinners);
-      else if (agent === "sentiment") score = Number((snap.features as Record<string, any>)?.sentimentScore ?? 50);
+      else if (agent === "sentiment")
+        score = Number(
+          (snap.features as Record<string, any>)?.sentimentScore ?? 50,
+        );
 
       sumScore += score;
       sumRet += ret;
@@ -1461,7 +1770,10 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
       else if (agent === "sector") score = snap.sectorScore;
       else if (agent === "macro") score = snap.macroScore;
       else if (agent === "similarity") score = Number(snap.similarityToWinners);
-      else if (agent === "sentiment") score = Number((snap.features as Record<string, any>)?.sentimentScore ?? 50);
+      else if (agent === "sentiment")
+        score = Number(
+          (snap.features as Record<string, any>)?.sentimentScore ?? 50,
+        );
 
       const dScore = score - avgScore;
       const dRet = ret - avgRet;
@@ -1485,7 +1797,7 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
     .where(eq(fuguFactorWeights.isActive, true))
     .limit(1);
 
-  const currentWeights = activeRow 
+  const currentWeights = activeRow
     ? (activeRow.weights as Record<string, number>)
     : DEFAULT_FUGU_WEIGHTS;
 
@@ -1502,18 +1814,21 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
     }
 
     const corr = Math.max(0.01, correlations[agent] || 0.05); // keep positive
-    const oldW = currentWeights[agent] ?? DEFAULT_FUGU_WEIGHTS[agent as keyof typeof DEFAULT_FUGU_WEIGHTS];
+    const oldW =
+      currentWeights[agent] ??
+      DEFAULT_FUGU_WEIGHTS[agent as keyof typeof DEFAULT_FUGU_WEIGHTS];
 
     // Blended weight: EMA blend
     const blended = 0.8 * oldW + 0.2 * (corr * 2);
-    newWeights[agent] = Math.max(0.05, Math.min(0.60, blended));
+    newWeights[agent] = Math.max(0.05, Math.min(0.6, blended));
     totalNew += newWeights[agent];
   }
 
   // Normalize the unlocked (VCP) agents to sum to 1.0; locked agents stay at 0
   for (const agent of agents) {
     if (ZERO_LOCKED_AGENTS.has(agent)) continue;
-    newWeights[agent] = totalNew > 0 ? newWeights[agent] / totalNew : newWeights[agent];
+    newWeights[agent] =
+      totalNew > 0 ? newWeights[agent] / totalNew : newWeights[agent];
   }
 
   // Calculate Accuracy
@@ -1525,7 +1840,9 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
 
   // Insert weight version
   const [latestRow] = await db
-    .select({ maxVer: sql<number>`COALESCE(MAX(${fuguFactorWeights.version}), 0)` })
+    .select({
+      maxVer: sql<number>`COALESCE(MAX(${fuguFactorWeights.version}), 0)`,
+    })
     .from(fuguFactorWeights);
   const nextVer = (latestRow?.maxVer ?? 0) + 1;
 
@@ -1537,10 +1854,12 @@ export async function runFuguWeightOptimizer(completedOutcomes: any[]): Promise<
     accuracy: String(accuracy.toFixed(2)),
     sampleSize: completedOutcomes.length,
     notes: `Weight optimized v${nextVer} based on correlation analysis of ${completedOutcomes.length} outcomes.`,
-    isActive: true
+    isActive: true,
   });
 
-  console.log(`[Fugu Weight Optimizer] Evolved to version ${nextVer} with accuracy ${accuracy.toFixed(1)}%.`);
+  console.log(
+    `[Fugu Weight Optimizer] Evolved to version ${nextVer} with accuracy ${accuracy.toFixed(1)}%.`,
+  );
   return true;
 }
 
@@ -1613,22 +1932,26 @@ export async function getFuguDashboard() {
     .from(fuguSnapshots);
 
   return {
-    elitePicks: elite.map(row => ({
+    elitePicks: elite.map((row) => ({
       pick: row.fugu_elite_picks,
-      snapshot: row.fugu_snapshots
+      snapshot: row.fugu_snapshots,
     })),
-    activeWeight: activeWeight ?? { version: 1, weights: DEFAULT_FUGU_WEIGHTS, accuracy: "65.5" },
+    activeWeight: activeWeight ?? {
+      version: 1,
+      weights: DEFAULT_FUGU_WEIGHTS,
+      accuracy: "65.5",
+    },
     weightHistory,
     learningLogs,
     patterns,
     candlesticks,
     sectors,
-    recentOutcomes: recentOutcomes.map(row => ({
+    recentOutcomes: recentOutcomes.map((row) => ({
       outcome: row.fugu_outcomes,
-      snapshot: row.fugu_snapshots
+      snapshot: row.fugu_snapshots,
     })),
     totalCount: recCount?.count ?? 0,
-    isScanRunning
+    isScanRunning,
   };
 }
 
@@ -1649,7 +1972,7 @@ export async function initializeFugu(): Promise<void> {
         accuracy: "62.40",
         sampleSize: 0,
         notes: "Initial FUGU SCORE baseline weights.",
-        isActive: true
+        isActive: true,
       });
       console.log("[FUGU] Baseline factor weights version 1 inserted.");
     } else {
@@ -1662,55 +1985,83 @@ export async function initializeFugu(): Promise<void> {
       if (activeWeights.length > 0) {
         const row = activeWeights[0];
         const w = row.weights as Record<string, number>;
-        if (!w.hasOwnProperty("sentiment") || w.technical !== 0.35 || w.fundamental !== 0.35) {
-          console.log("[FUGU] Updating active weight config to prioritize valuation, fundamentals, and technicals (35% each)...");
-          await db
-            .update(fuguFactorWeights)
-            .set({
-              weights: DEFAULT_FUGU_WEIGHTS,
-              notes: "Updated baseline weight config to prioritize valuation, fundamentals, and technicals (35% each)."
-            })
-            .where(eq(fuguFactorWeights.id, row.id));
+        // VCP rebuild: fundamental/sector/macro/sentiment/similarity must be pinned at 0.
+        // Any active row that still has weight on those (pre-rebuild config) is stale.
+        const hasStaleNonZeroLockedWeight = Array.from(ZERO_LOCKED_AGENTS).some(
+          (k) => (w[k] ?? 0) > 0,
+        );
+        if (
+          hasStaleNonZeroLockedWeight ||
+          w.technical == null ||
+          w.pattern == null
+        ) {
+          console.log(
+            "[FUGU] Active weight config predates the VCP-only rebuild — reseeding VCP-only defaults (technical/pattern/candlestick, others pinned to 0)...",
+          );
+          const nextVer = row.version + 1;
+          await db.update(fuguFactorWeights).set({ isActive: false });
+          await db.insert(fuguFactorWeights).values({
+            version: nextVer,
+            weights: DEFAULT_FUGU_WEIGHTS,
+            accuracy: "0",
+            sampleSize: 0,
+            notes: `VCP rebuild v${nextVer}: reseeded VCP-only weights (previous config was stale/pre-rebuild).`,
+            isActive: true,
+          });
         }
       }
     }
 
     // 2. Seed patterns list
-    const defaultPatterns = ["Cup & Handle", "Double Bottom", "Flag", "Ascending Triangle", "Inverse Head & Shoulders", "IPO Base", "Swing Spectrum"];
+    const defaultPatterns = [
+      "Cup & Handle",
+      "Double Bottom",
+      "Flag",
+      "Ascending Triangle",
+      "Inverse Head & Shoulders",
+      "IPO Base",
+      "Swing Spectrum",
+    ];
     for (const pat of defaultPatterns) {
       const existing = await db
         .select()
         .from(fuguPatternStats)
         .where(eq(fuguPatternStats.patternName, pat))
         .limit(1);
-      
+
       if (existing.length === 0) {
         await db.insert(fuguPatternStats).values({
           patternName: pat,
           totalOccurrences: 0,
           winRate5d: "60.0",
           winRate20d: "58.0",
-          winRate60d: "55.0"
+          winRate60d: "55.0",
         });
       }
     }
 
     // 3. Seed candlesticks list
-    const defaultCandles = ["Bullish Engulfing", "Hammer", "Morning Star", "Inside Bar", "Breakout Candle"];
+    const defaultCandles = [
+      "Bullish Engulfing",
+      "Hammer",
+      "Morning Star",
+      "Inside Bar",
+      "Breakout Candle",
+    ];
     for (const cand of defaultCandles) {
       const existing = await db
         .select()
         .from(fuguCandlestickStats)
         .where(eq(fuguCandlestickStats.candlestickName, cand))
         .limit(1);
-      
+
       if (existing.length === 0) {
         await db.insert(fuguCandlestickStats).values({
           candlestickName: cand,
           totalOccurrences: 0,
           winRate5d: "61.0",
           winRate20d: "57.0",
-          winRate60d: "54.0"
+          winRate60d: "54.0",
         });
       }
     }
@@ -1722,7 +2073,7 @@ export async function initializeFugu(): Promise<void> {
         .from(fuguSectorStats)
         .where(eq(fuguSectorStats.sectorName, sec))
         .limit(1);
-      
+
       if (existing.length === 0) {
         await db.insert(fuguSectorStats).values({
           sectorName: sec,
@@ -1730,12 +2081,14 @@ export async function initializeFugu(): Promise<void> {
           winRate5d: "55.0",
           winRate20d: "53.0",
           winRate60d: "51.0",
-          momentumScore: "50.0"
+          momentumScore: "50.0",
         });
       }
     }
-
   } catch (err: any) {
-    console.error("[FUGU] Seeding failed (ensure tables exist via db:push):", err.message);
+    console.error(
+      "[FUGU] Seeding failed (ensure tables exist via db:push):",
+      err.message,
+    );
   }
 }

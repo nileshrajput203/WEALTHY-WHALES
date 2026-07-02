@@ -66,6 +66,7 @@ import {
 import {
   getJournalStats,
   getVcpJournalEntries,
+  startVcpJournalScheduler,
 } from "./vcpJournalEngine";
 import {
   triggerManualFuguScan,
@@ -2402,6 +2403,9 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
   // Start FUGU background scheduler
   startFuguScheduler();
+
+  // Start the shared VCP journal scheduler (outcome-check + sync for all engines)
+  startVcpJournalScheduler();
 
   // Full dashboard data
   app.get('/api/fugu/dashboard', async (_req: Request, res: Response) => {
