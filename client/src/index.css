@@ -240,6 +240,8 @@
   .no-horizontal-scroll { overflow-x: hidden; max-width: 100vw; }
   .container-safe { width: 100%; max-width: 100vw; overflow-x: hidden; }
   .marquee-container { overflow: hidden; width: 100%; }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   img, video, iframe, embed, object { max-width: 100%; height: auto; }
 
   /* ── Typography ─────────────────────── */

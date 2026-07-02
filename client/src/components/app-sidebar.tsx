@@ -2,13 +2,13 @@ import {
   BarChart3, Eye, Scan, Activity, Clock, Triangle, ArrowUpDown,
   Users, BookOpen, Star, Search, Newspaper, MessageSquare, CalendarDays,
   Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles, Bell, Brain, Zap,
+  FlaskConical, Waves,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -16,7 +16,6 @@ import {
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 
-/* ═══ Menu structure ═══ */
 interface MenuItem {
   title: string;
   url: string;
@@ -34,45 +33,44 @@ interface MenuGroup {
 
 const menuGroups: MenuGroup[] = [
   {
-    label: "Stocks",
+    label: "Trade Desk",
     icon: BarChart3,
     collapsible: true,
     items: [
-      { title: "Scalp Essentials ⚡",url: "/apex",              icon: Zap,        testId: "nav-apex-ai"          },
-      { title: "Insider Strategy",   url: "/insider-strategy",  icon: Eye,        testId: "nav-insider-strategy" },
-      { title: "Sector Scope",      url: "/sector-scope",      icon: Scan,       testId: "nav-sector-scope"     },
-      { title: "Swing Spectrum",    url: "/swing-scanner",     icon: TrendingUp, testId: "nav-swing-spectrum"    },
-      { title: "Chart Patterns",    url: "/chart-patterns",    icon: Sparkles,   testId: "nav-chart-patterns"   },
+      { title: "Scalp Radar ⚡",  url: "/apex",             icon: Zap,        testId: "nav-apex-ai"          },
+      { title: "Smart Money",     url: "/insider-strategy", icon: Eye,        testId: "nav-insider-strategy" },
+      { title: "Sector Pulse",    url: "/sector-scope",     icon: Scan,       testId: "nav-sector-scope"     },
+      { title: "Swing Watch",     url: "/swing-scanner",    icon: TrendingUp, testId: "nav-swing-spectrum"    },
+      { title: "Chart Patterns",  url: "/chart-patterns",   icon: Sparkles,   testId: "nav-chart-patterns"   },
     ],
   },
   {
-    label: "Index",
+    label: "Macro View",
     icon: Triangle,
     collapsible: true,
     items: [
-      { title: "Option Clock",  url: "/option-clock",  icon: Clock,        testId: "nav-option-clock"  },
-      { title: "Option Apex",   url: "/option-apex",   icon: Triangle,     testId: "nav-option-apex"   },
-      { title: "Index Mover",   url: "/index-mover",   icon: ArrowUpDown,  testId: "nav-index-mover"   },
+      { title: "Option Clock",  url: "/option-clock",  icon: Clock,       testId: "nav-option-clock"  },
+      { title: "Option Apex",   url: "/option-apex",   icon: Triangle,    testId: "nav-option-apex"   },
+      { title: "Index Mover",   url: "/index-mover",   icon: ArrowUpDown, testId: "nav-index-mover"   },
     ],
   },
 ];
 
 const standaloneItems: MenuItem[] = [
-  { title: "HERMES & FUGU 🧠🐡", url: "/hermes-fugu",      icon: Brain,        testId: "nav-hermes-fugu"      },
-  { title: "FII / DII",        url: "/fii-dii",          icon: Users,        testId: "nav-fii-dii"          },
-  { title: "Watchlist",         url: "/watchlist",        icon: Star,         testId: "nav-watchlist",       locked: false },
-  { title: "Check Your Stock",  url: "/check-stock",      icon: Search,       testId: "nav-check-stock",     locked: false },
-  { title: "Smart Screener ✨", url: "/smart-screener",     icon: Sparkles,     testId: "nav-smart-screener",   locked: false },
-  { title: "Events Calendar",   url: "/events-calendar",  icon: CalendarDays, testId: "nav-events-calendar", locked: false },
-  { title: "IPO Base",          url: "/ipo-base",         icon: Rocket,       testId: "nav-ipo-base",        locked: false },
-  { title: "News",              url: "/news",             icon: Newspaper,    testId: "nav-news",            locked: false },
-  { title: "Ask AI",            url: "/ask-ai",           icon: MessageSquare,testId: "nav-ask-ai",          locked: false },
-  { title: "Trading Journal",   url: "/trading-journal",  icon: BookOpen,     testId: "nav-trading-journal", locked: false },
-  { title: "Community",          url: "/community",        icon: Users,        testId: "nav-community",       locked: false },
-  { title: "Notification Settings", url: "/settings/notifications", icon: Bell, testId: "nav-notification-settings", locked: false },
+  { title: "Signal Engine 🧠",  url: "/hermes-fugu",           icon: Brain,        testId: "nav-hermes-fugu"      },
+  { title: "Flow Tracker",       url: "/fii-dii",               icon: Waves,        testId: "nav-fii-dii"          },
+  { title: "Watchlist",          url: "/watchlist",             icon: Star,         testId: "nav-watchlist"        },
+  { title: "Stock Lab",          url: "/check-stock",           icon: FlaskConical, testId: "nav-check-stock"      },
+  { title: "Filter Pro ✨",      url: "/smart-screener",        icon: Sparkles,     testId: "nav-smart-screener"   },
+  { title: "Events Calendar",    url: "/events-calendar",       icon: CalendarDays, testId: "nav-events-calendar"  },
+  { title: "IPO Radar",          url: "/ipo-base",              icon: Rocket,       testId: "nav-ipo-base"         },
+  { title: "Market News",        url: "/news",                  icon: Newspaper,    testId: "nav-news"             },
+  { title: "Ask AI",             url: "/ask-ai",                icon: MessageSquare,testId: "nav-ask-ai"           },
+  { title: "Trade Journal",      url: "/trading-journal",       icon: BookOpen,     testId: "nav-trading-journal"  },
+  { title: "Community",          url: "/community",             icon: Users,        testId: "nav-community"        },
+  { title: "Alerts",             url: "/settings/notifications",icon: Bell,         testId: "nav-notification-settings" },
 ];
 
-/* ═══ NavItem renderer ═══ */
 function NavItem({ item, location, indent = false }: { item: MenuItem; location: string; indent?: boolean }) {
   const isActive = location === item.url;
 
@@ -81,39 +79,29 @@ function NavItem({ item, location, indent = false }: { item: MenuItem; location:
       <SidebarMenuButton
         asChild
         className={`
-          relative rounded-xl mx-1 transition-all duration-200 overflow-hidden
-          ${indent ? "ml-4" : ""}
-          ${isActive ? "text-white" : "text-white/45 hover:text-white/80"}
+          relative rounded-lg mx-1 transition-all duration-150 overflow-hidden
+          ${indent ? "ml-3" : ""}
+          ${isActive ? "text-white" : "text-white/40 hover:text-white/70"}
         `}
         style={
           isActive
             ? {
-                background: "linear-gradient(90deg, hsl(260 84% 65% / 0.18) 0%, transparent 100%)",
+                background: "linear-gradient(90deg, hsl(260 84% 65% / 0.14) 0%, transparent 100%)",
                 boxShadow: "inset 2px 0 0 hsl(260 84% 65%)",
               }
             : {}
         }
       >
         <Link href={item.url} data-testid={item.testId}>
-          {isActive && (
-            <span
-              className="absolute left-2 w-6 h-6 rounded-md flex items-center justify-center"
-              style={{
-                background: "hsl(260 84% 65% / 0.15)",
-                boxShadow: "0 0 8px 0 hsl(260 84% 65% / 0.3)",
-              }}
-            />
-          )}
-          {indent && <span className="w-3 h-px bg-white/10 mr-1 flex-shrink-0" />}
-          <item.icon className={`w-4 h-4 relative z-10 ${isActive ? "text-primary" : ""}`} />
-          <span className="font-medium text-sm relative z-10">{item.title}</span>
+          {indent && <span className="w-2.5 h-px bg-white/10 flex-shrink-0" />}
+          <item.icon className={`w-4 h-4 relative z-10 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
+          <span className="font-medium text-[13px] relative z-10 leading-tight">{item.title}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }
 
-/* ═══ Collapsible Group ═══ */
 function CollapsibleGroup({ group, location }: { group: MenuGroup; location: string }) {
   const [isOpen, setIsOpen] = useState(true);
   const hasActiveChild = group.items.some(item => location === item.url);
@@ -122,22 +110,22 @@ function CollapsibleGroup({ group, location }: { group: MenuGroup; location: str
     <SidebarGroup className="py-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-2 w-full rounded-lg transition-all duration-200 group
-          ${hasActiveChild ? "text-white/70" : "text-white/35 hover:text-white/55"}`}
+        className={`flex items-center gap-2 px-3 py-1.5 w-full rounded-lg transition-all duration-150 group
+          ${hasActiveChild ? "text-white/60" : "text-white/30 hover:text-white/50"}`}
       >
-        <group.icon className={`w-4 h-4 ${hasActiveChild ? "text-primary/70" : "text-white/25"}`} />
-        <span className="text-[11px] uppercase tracking-widest font-bold font-mono flex-1 text-left">
+        <group.icon className={`w-3.5 h-3.5 ${hasActiveChild ? "text-primary/60" : "text-white/20"}`} />
+        <span className="text-[10px] uppercase tracking-widest font-bold font-mono flex-1 text-left">
           {group.label}
         </span>
         {isOpen
-          ? <ChevronDown className="w-3 h-3 text-white/20 transition-transform" />
-          : <ChevronRight className="w-3 h-3 text-white/20 transition-transform" />
+          ? <ChevronDown className="w-3 h-3 text-white/15 transition-transform" />
+          : <ChevronRight className="w-3 h-3 text-white/15 transition-transform" />
         }
       </button>
 
       {isOpen && (
         <SidebarGroupContent>
-          <SidebarMenu className="space-y-0.5 mt-0.5">
+          <SidebarMenu className="space-y-0.5 mt-0.5 mb-1">
             {group.items.map(item => (
               <NavItem key={item.title} item={item} location={location} indent />
             ))}
@@ -148,7 +136,6 @@ function CollapsibleGroup({ group, location }: { group: MenuGroup; location: str
   );
 }
 
-/* ═══ Sidebar ═══ */
 export function AppSidebar() {
   const [location] = useLocation();
 
@@ -161,16 +148,30 @@ export function AppSidebar() {
         WebkitBackdropFilter: "blur(24px) saturate(180%)",
       }}
     >
-      <SidebarContent className="p-2 pt-3 flex flex-col">
-        {/* ── Collapsible category groups ── */}
+      {/* Brand header inside sidebar */}
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-white/5">
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, hsl(260 84% 65% / 0.35), hsl(260 84% 65% / 0.15))", border: "1px solid hsl(260 84% 65% / 0.25)" }}
+        >
+          🐋
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[13px] font-bold font-display text-white/85 leading-none tracking-tight">Wealthy Whales</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_1px_hsl(142,71%,50%,0.7)]" />
+            <span className="text-[9px] text-white/30 font-mono tracking-wide">NSE · BSE Live</span>
+          </div>
+        </div>
+      </div>
+
+      <SidebarContent className="p-2 pt-2.5 flex flex-col">
         {menuGroups.map(group => (
           <CollapsibleGroup key={group.label} group={group} location={location} />
         ))}
 
-        {/* ── Divider ── */}
-        <div className="mx-3 my-1.5 h-px bg-white/5" />
+        <div className="mx-3 my-2 h-px bg-white/5" />
 
-        {/* ── Standalone items ── */}
         <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
@@ -180,40 +181,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* ── Wealthy Whale card ── */}
-        <div className="mt-auto p-3 pb-4">
-          <div
-            className="relative rounded-2xl p-4 overflow-hidden"
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-            }}
-          >
-            <div
-              className="absolute top-0 left-0 right-0 h-px"
-              style={{
-                background: "linear-gradient(90deg, transparent, hsl(260 84% 65% / 0.5), hsl(142 71% 50% / 0.3), transparent)",
-              }}
-            />
-            <div className="flex items-center gap-3 mb-2">
-              <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
-                style={{
-                  background: "linear-gradient(135deg, hsl(260 84% 65% / 0.3), hsl(142 71% 50% / 0.2))",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
-                🐋
-              </div>
-              <span className="text-xs font-semibold text-white/70">Made by Wealthy Whale</span>
-            </div>
-            <p className="text-[10px] text-white/30 leading-relaxed font-mono">
-              Professional stock analysis platform for Indian markets.
-            </p>
-          </div>
-        </div>
       </SidebarContent>
     </Sidebar>
   );
