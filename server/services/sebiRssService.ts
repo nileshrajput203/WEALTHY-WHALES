@@ -123,7 +123,7 @@ export async function parseCorporateActions(): Promise<CorporateAction[]> {
     const parser = new XMLParser();
     const actions: CorporateAction[] = [];
 
-    if (response.headers["content-type"]?.includes("xml") || typeof response.data === "string" && response.data.trim().startsWith("<?xml")) {
+    if (String(response.headers["content-type"] || "").includes("xml") || typeof response.data === "string" && response.data.trim().startsWith("<?xml")) {
       const xmlObj = parser.parse(response.data);
       const items = xmlObj.rss?.channel?.item || [];
       const itemArray = Array.isArray(items) ? items : [items];

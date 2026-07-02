@@ -17,6 +17,7 @@ import {
   fuguLearningMemory,
   fuguElitePicks,
   hermesSnapshots,
+  engineLearningLog,
   type FuguSnapshot,
   type FuguOutcome,
   type FuguFactorWeight,
@@ -51,13 +52,23 @@ import {
   type VcpFeatures,
 } from "./vcpCore";
 import { logJournalEntry } from "./vcpJournalEngine";
+import {
+  getTemporalWeight,
+  getAdaptiveLearningRate,
+  computeAdaptiveThresholds,
+  backtestWeightAccuracy,
+  buildCalibrationCurve,
+  applyCalibratedConfidence,
+} from "./istUtils";
+import { hermesRegimeLog } from "@shared/schema";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & BASELINE CONFIGS
    ═══════════════════════════════════════════════════════════ */
 
-const WIN_THRESHOLD = 3.0; // +3% is a WIN
-const LOSS_THRESHOLD = -3.0; // -3% is a LOSS
+/** Default win/loss thresholds — used as fallback until adaptive thresholds have enough data */
+const DEFAULT_WIN_THRESHOLD = 3.0;
+const DEFAULT_LOSS_THRESHOLD = -3.0;
 
 // VCP-ONLY WEIGHTS (FUGU v2) — technical/pattern/candlestick carry the whole
 // score; fundamental/sector/macro/sentiment/similarity are locked at 0 so the
@@ -82,6 +93,106 @@ const ZERO_LOCKED_AGENTS = new Set([
   "sentiment",
   "similarity",
 ]);
+
+/** In-memory calibration curve cache (rebuilt each learning cycle) */
+let fuguCalibrationCache: Record<string, { count: number; wins: number; winRate: number }> | null = null;
+
+let fuguActiveWeightsCache: Record<string, {
+  weights: Record<string, number>;
+  version: number;
+  ts: number;
+}> = {};
+const FUGU_WEIGHT_CACHE_TTL = 30 * 60 * 1000; // 30 min
+
+async function getCurrentRegime(): Promise<string> {
+  try {
+    const [latestLog] = await db
+      .select()
+      .from(hermesRegimeLog)
+      .orderBy(desc(hermesRegimeLog.date))
+      .limit(1);
+    return latestLog?.regime ?? "RANGING";
+  } catch {
+    return "RANGING";
+  }
+}
+
+export async function getFuguActiveWeights(regime: string = "GLOBAL"): Promise<{
+  weights: Record<string, number>;
+  version: number;
+}> {
+  const cached = fuguActiveWeightsCache[regime];
+  if (cached && Date.now() - cached.ts < FUGU_WEIGHT_CACHE_TTL) {
+    return { weights: cached.weights, version: cached.version };
+  }
+
+  try {
+    let active: any = null;
+    // 1. Try loading regime-specific weights first
+    if (regime !== "GLOBAL") {
+      const [res] = await db
+        .select()
+        .from(fuguFactorWeights)
+        .where(and(eq(fuguFactorWeights.isActive, true), eq(fuguFactorWeights.regime, regime)))
+        .limit(1);
+      active = res;
+    }
+
+    // 2. Fallback to global active weights if none found
+    if (!active) {
+      const [res] = await db
+        .select()
+        .from(fuguFactorWeights)
+        .where(and(eq(fuguFactorWeights.isActive, true), isNull(fuguFactorWeights.regime)))
+        .limit(1);
+      active = res;
+    }
+
+    if (active) {
+      const w = active.weights as Record<string, number>;
+      const hasStaleNonZeroLockedWeight = Array.from(ZERO_LOCKED_AGENTS).some(
+        (k) => (w[k] ?? 0) > 0,
+      );
+      if (
+        hasStaleNonZeroLockedWeight ||
+        w.technical == null ||
+        w.pattern == null
+      ) {
+        console.warn(
+          `[FUGU] Active weight config for regime ${regime} predates the VCP-only rebuild — reseeding VCP-only defaults.`,
+        );
+        const nextVer = active.version + 1;
+        await db.update(fuguFactorWeights).set({ isActive: false }).where(eq(fuguFactorWeights.id, active.id));
+        await db.insert(fuguFactorWeights).values({
+          version: nextVer,
+          weights: DEFAULT_FUGU_WEIGHTS,
+          accuracy: "0",
+          sampleSize: 0,
+          notes: `VCP rebuild v${nextVer}: reseeded VCP-only weights (previous config was stale/pre-rebuild).`,
+          isActive: true,
+          regime: regime === "GLOBAL" ? null : regime,
+        });
+        fuguActiveWeightsCache[regime] = {
+          weights: DEFAULT_FUGU_WEIGHTS,
+          version: nextVer,
+          ts: Date.now(),
+        };
+        return { weights: DEFAULT_FUGU_WEIGHTS, version: nextVer };
+      }
+
+      fuguActiveWeightsCache[regime] = {
+        weights: w,
+        version: active.version,
+        ts: Date.now(),
+      };
+      return { weights: w, version: active.version };
+    }
+  } catch (err) {
+    console.error(`[FUGU] getFuguActiveWeights failed for regime ${regime}:`, err);
+  }
+
+  return { weights: DEFAULT_FUGU_WEIGHTS, version: 1 };
+}
 
 const SECTORS = [
   "IT",
@@ -650,10 +761,10 @@ export function buildFuguGraph(): FuguLangGraph {
       const vec = toVector(rsi, roe, de, pe, rvol);
       const sim = cosineSimilarity(currVector, vec);
 
-      if (ret20d >= WIN_THRESHOLD) {
+      if (ret20d >= DEFAULT_WIN_THRESHOLD) {
         winsSim += sim;
         winsCount++;
-      } else if (ret20d <= LOSS_THRESHOLD) {
+      } else if (ret20d <= DEFAULT_LOSS_THRESHOLD) {
         lossSim += sim;
         lossCount++;
       }
@@ -922,17 +1033,9 @@ export async function runFuguPipeline(limitSize = 1000): Promise<{
   let errors = 0;
 
   try {
-    // 1. Fetch active weights config
-    const [activeWeightRow] = await db
-      .select()
-      .from(fuguFactorWeights)
-      .where(eq(fuguFactorWeights.isActive, true))
-      .limit(1);
-
-    const weights = activeWeightRow
-      ? (activeWeightRow.weights as Record<string, number>)
-      : DEFAULT_FUGU_WEIGHTS;
-    const weightVersion = activeWeightRow ? activeWeightRow.version : 1;
+    const currentRegime = await getCurrentRegime();
+    console.log(`[FUGU Pipeline] Using regime-adaptive weights for: ${currentRegime}`);
+    const { weights, version: weightVersion } = await getFuguActiveWeights(currentRegime);
 
     // 2. Gather candidate stocks
     const candidates = await gatherFuguCandidates();
@@ -1357,9 +1460,9 @@ export async function runFuguOutcomeTracker(): Promise<{ filled: number }> {
           const entryPrice = Number(row.fugu_snapshots.price);
           const retPct = ((quote.price - entryPrice) / entryPrice) * 100;
           const outcome =
-            retPct >= WIN_THRESHOLD
+            retPct >= DEFAULT_WIN_THRESHOLD
               ? "WIN"
-              : retPct <= LOSS_THRESHOLD
+              : retPct <= DEFAULT_LOSS_THRESHOLD
                 ? "LOSS"
                 : "NEUTRAL";
 
@@ -1499,20 +1602,53 @@ export async function runFuguLearningCycle(): Promise<{
 }> {
   console.log("[Fugu Learning Agent] Running weekly training cycle...");
 
+  const currentRegime = await getCurrentRegime();
+  console.log(`[Fugu Learning Agent] Evolving weights for regime: ${currentRegime}`);
+
   // 1. Gather all filled outcomes
-  const completed = await db
+  const allCompleted = await db
     .select()
     .from(fuguOutcomes)
     .innerJoin(fuguSnapshots, eq(fuguOutcomes.snapshotId, fuguSnapshots.id))
     .where(sql`${fuguOutcomes.return5d} IS NOT NULL`)
     .limit(2000);
 
-  if (completed.length < 5) {
+  if (allCompleted.length < 5) {
     console.log(
-      "[Fugu Learning Agent] Insufficient outcome data to perform learning (< 5 samples).",
+      "[Fugu Learning Agent] Insufficient outcome data to perform learning (< 5 global samples).",
     );
     return { insightsAdded: 0, weightsOptimized: false };
   }
+
+  // Build date-to-regime map
+  const regimeLogs = await db.select().from(hermesRegimeLog);
+  const regimeByDate: Record<string, string> = {};
+  for (const log of regimeLogs) {
+    const dStr = new Date(log.date).toISOString().split("T")[0];
+    regimeByDate[dStr] = log.regime;
+  }
+
+  // Filter outcomes that match current regime
+  let completed = allCompleted.filter(row => {
+    const snapDate = row.fugu_snapshots.scanDate;
+    const dStr = new Date(snapDate).toISOString().split("T")[0];
+    const outcomeRegime = regimeByDate[dStr] || "RANGING";
+    return outcomeRegime === currentRegime;
+  });
+
+  console.log(`[Fugu Learning Agent] Found ${completed.length} outcomes for regime: ${currentRegime}`);
+  if (completed.length < 5) {
+    console.log(`[Fugu Learning Agent] Too few outcomes for regime ${currentRegime} (<5). Using global outcomes.`);
+    completed = allCompleted;
+  }
+
+  // Compute adaptive thresholds
+  const allReturns = completed.map(r => Number(r.fugu_outcomes.return5d ?? 0));
+  const thresholds = computeAdaptiveThresholds(allReturns, {
+    win: DEFAULT_WIN_THRESHOLD,
+    loss: DEFAULT_LOSS_THRESHOLD,
+  });
+  console.log(`[Fugu Learning Agent] Adaptive thresholds → WIN: ${thresholds.win.toFixed(1)}%, LOSS: ${thresholds.loss.toFixed(1)}%`);
 
   // 2. Recalculate pattern success stats
   const patternWins: Record<string, { wins: number; total: number }> = {};
@@ -1525,7 +1661,7 @@ export async function runFuguLearningCycle(): Promise<{
     const feat = snap.features as Record<string, any>;
 
     const ret5d = Number(out.return5d);
-    const isWin = ret5d >= WIN_THRESHOLD;
+    const isWin = ret5d >= thresholds.win;
 
     // Pattern stats update
     const patternName = feat.patternName || "None";
@@ -1627,9 +1763,10 @@ export async function runFuguLearningCycle(): Promise<{
 
   // 3. Gemini Learning Memory Analysis
   let insightsAdded = 0;
+  let geminiInsights = "";
   try {
     const winSamples = completed
-      .filter((row) => Number(row.fugu_outcomes.return5d) >= WIN_THRESHOLD)
+      .filter((row) => Number(row.fugu_outcomes.return5d) >= thresholds.win)
       .slice(0, 5)
       .map((row) => ({
         symbol: row.fugu_snapshots.symbol,
@@ -1641,7 +1778,7 @@ export async function runFuguLearningCycle(): Promise<{
       }));
 
     const lossSamples = completed
-      .filter((row) => Number(row.fugu_outcomes.return5d) <= LOSS_THRESHOLD)
+      .filter((row) => Number(row.fugu_outcomes.return5d) <= thresholds.loss)
       .slice(0, 5)
       .map((row) => ({
         symbol: row.fugu_snapshots.symbol,
@@ -1675,6 +1812,7 @@ Generate a structured JSON output with fields:
     });
 
     const reasoning = geminiRes?.text || "";
+    geminiInsights = reasoning;
 
     // Save Winner Insight
     await db.insert(fuguLearningMemory).values({
@@ -1700,17 +1838,19 @@ Generate a structured JSON output with fields:
   }
 
   // 4. Run Weight Optimizer
-  const weightsOptimized = await runFuguWeightOptimizer(completed);
+  const weightsOptimized = await runFuguWeightOptimizer(completed, currentRegime, geminiInsights, thresholds);
 
   return { insightsAdded, weightsOptimized };
 }
 
 export async function runFuguWeightOptimizer(
   completedOutcomes: any[],
+  regime: string,
+  geminiInsights: string = "",
+  thresholds = { win: DEFAULT_WIN_THRESHOLD, loss: DEFAULT_LOSS_THRESHOLD },
 ): Promise<boolean> {
-  console.log("[Fugu Weight Optimizer] Evolving factor weights...");
+  console.log(`[Fugu Weight Optimizer] Evolving factor weights for regime: ${regime}...`);
 
-  // Simple optimization: check correlation of each agent score with the 20-day returns
   const agents = [
     "technical",
     "pattern",
@@ -1723,15 +1863,20 @@ export async function runFuguWeightOptimizer(
   ];
   const correlations: Record<string, number> = {};
 
+  // Compute temporally-weighted statistics
   for (const agent of agents) {
     let sumScore = 0;
     let sumRet = 0;
-    let n = completedOutcomes.length;
+    let sumWeight = 0;
 
     for (const row of completedOutcomes) {
       const snap = row.fugu_snapshots;
       const out = row.fugu_outcomes;
       const ret = Number(out.return20d || out.return5d || 0);
+
+      // Temporal decay weighting
+      const outcomeDate = out.filledAt5d || snap.scanDate || new Date();
+      const temporalW = getTemporalWeight(outcomeDate, 60);
 
       let score = 50;
       if (agent === "technical") score = snap.technicalScore;
@@ -1746,12 +1891,13 @@ export async function runFuguWeightOptimizer(
           (snap.features as Record<string, any>)?.sentimentScore ?? 50,
         );
 
-      sumScore += score;
-      sumRet += ret;
+      sumScore += score * temporalW;
+      sumRet += ret * temporalW;
+      sumWeight += temporalW;
     }
 
-    const avgScore = sumScore / n;
-    const avgRet = sumRet / n;
+    const avgScore = sumWeight > 0 ? sumScore / sumWeight : 50;
+    const avgRet = sumWeight > 0 ? sumRet / sumWeight : 0;
 
     let num = 0;
     let denScore = 0;
@@ -1761,6 +1907,9 @@ export async function runFuguWeightOptimizer(
       const snap = row.fugu_snapshots;
       const out = row.fugu_outcomes;
       const ret = Number(out.return20d || out.return5d || 0);
+
+      const outcomeDate = out.filledAt5d || snap.scanDate || new Date();
+      const temporalW = getTemporalWeight(outcomeDate, 60);
 
       let score = 50;
       if (agent === "technical") score = snap.technicalScore;
@@ -1778,63 +1927,91 @@ export async function runFuguWeightOptimizer(
       const dScore = score - avgScore;
       const dRet = ret - avgRet;
 
-      num += dScore * dRet;
-      denScore += dScore * dScore;
-      denRet += dRet * dRet;
+      num += dScore * dRet * temporalW;
+      denScore += dScore * dScore * temporalW;
+      denRet += dRet * dRet * temporalW;
     }
 
     const stdScore = Math.sqrt(denScore);
     const stdRet = Math.sqrt(denRet);
 
-    // Correlation coefficient
     correlations[agent] = stdScore && stdRet ? num / (stdScore * stdRet) : 0.05;
   }
 
-  // Adjust current weights proportional to correlations (exponential smoothing: 80% old, 20% new)
-  const [activeRow] = await db
-    .select()
-    .from(fuguFactorWeights)
-    .where(eq(fuguFactorWeights.isActive, true))
-    .limit(1);
+  // Fetch current active weights for this regime
+  const { weights: currentWeights } = await getFuguActiveWeights(regime);
 
-  const currentWeights = activeRow
-    ? (activeRow.weights as Record<string, number>)
-    : DEFAULT_FUGU_WEIGHTS;
+  // Dynamic learning rate based on data size
+  const learningRate = getAdaptiveLearningRate(completedOutcomes.length);
+  const blendOld = 1.0 - learningRate;
+  console.log(`[Fugu Weight Optimizer] Adaptive learning rate: ${(learningRate * 100).toFixed(0)}% new evidence`);
 
   const newWeights: Record<string, number> = {};
   let totalNew = 0;
 
   for (const agent of agents) {
-    // VCP-only rebuild: fundamental/sector/macro/sentiment/similarity stay
-    // permanently pinned at 0 — learning may only redistribute weight across
-    // technical/pattern/candlestick, the three VCP-derived agents.
     if (ZERO_LOCKED_AGENTS.has(agent)) {
       newWeights[agent] = 0;
       continue;
     }
 
     const corr = Math.max(0.01, correlations[agent] || 0.05); // keep positive
-    const oldW =
-      currentWeights[agent] ??
-      DEFAULT_FUGU_WEIGHTS[agent as keyof typeof DEFAULT_FUGU_WEIGHTS];
+    const oldW = currentWeights[agent] ?? DEFAULT_FUGU_WEIGHTS[agent] ?? 0.05;
 
-    // Blended weight: EMA blend
-    const blended = 0.8 * oldW + 0.2 * (corr * 2);
-    newWeights[agent] = Math.max(0.05, Math.min(0.6, blended));
+    const blended = blendOld * oldW + learningRate * (corr * 2);
+    newWeights[agent] = Math.max(0.05, Math.min(0.70, blended));
     totalNew += newWeights[agent];
   }
 
-  // Normalize the unlocked (VCP) agents to sum to 1.0; locked agents stay at 0
+  // Normalize the unlocked VCP agents to sum to 1.0
   for (const agent of agents) {
     if (ZERO_LOCKED_AGENTS.has(agent)) continue;
-    newWeights[agent] =
-      totalNew > 0 ? newWeights[agent] / totalNew : newWeights[agent];
+    newWeights[agent] = totalNew > 0 ? newWeights[agent] / totalNew : newWeights[agent];
   }
 
-  // Calculate Accuracy
+  // ─── A/B Validation — shadow backtest before promoting ──────────────
+  const backtestSamples = completedOutcomes.slice(-50).map(row => {
+    const snap = row.fugu_snapshots;
+    const cond: Record<string, boolean> = {
+      technical: snap.technicalScore >= 60,
+      pattern: snap.patternScore >= 60,
+      candlestick: snap.candlestickScore >= 60,
+    };
+    return {
+      featureConditions: cond,
+      isWin: Number(row.fugu_outcomes.return5d ?? 0) >= thresholds.win,
+    };
+  });
+
+  const oldVcpWeights = {
+    technical: currentWeights.technical || 0,
+    pattern: currentWeights.pattern || 0,
+    candlestick: currentWeights.candlestick || 0,
+  };
+  const newVcpWeights = {
+    technical: newWeights.technical || 0,
+    pattern: newWeights.pattern || 0,
+    candlestick: newWeights.candlestick || 0,
+  };
+
+  const oldAccuracy = backtestWeightAccuracy(backtestSamples, oldVcpWeights, 60);
+  const newAccuracy = backtestWeightAccuracy(backtestSamples, newVcpWeights, 60);
+
+  const shouldPromote = newAccuracy.accuracy >= oldAccuracy.accuracy - 0.01; // 1% tolerance
+  console.log(`[Fugu Weight Optimizer] A/B Validation — Old: ${(oldAccuracy.accuracy * 100).toFixed(1)}%, New: ${(newAccuracy.accuracy * 100).toFixed(1)}% → ${shouldPromote ? 'PROMOTED' : 'REJECTED'}`);
+
+  // Re-seed calibration curve
+  const scoredOutcomes = completedOutcomes.map(row => {
+    const score = Number(row.fugu_snapshots.fuguScore ?? 50);
+    const isWin = Number(row.fugu_outcomes.return5d ?? 0) >= thresholds.win;
+    return { score, isWin };
+  });
+  fuguCalibrationCache = buildCalibrationCurve(scoredOutcomes);
+
+  // Overall accuracy
   let wins = 0;
   for (const row of completedOutcomes) {
-    if (Number(row.fugu_outcomes.return5d) >= WIN_THRESHOLD) wins++;
+    if (Number(row.fugu_outcomes.return5d) >= thresholds.win) wins++;
   }
   const accuracy = (wins / completedOutcomes.length) * 100;
 
@@ -1846,21 +2023,62 @@ export async function runFuguWeightOptimizer(
     .from(fuguFactorWeights);
   const nextVer = (latestRow?.maxVer ?? 0) + 1;
 
-  await db.update(fuguFactorWeights).set({ isActive: false });
+  const weightsToSave = shouldPromote ? newWeights : currentWeights;
+
+  // Deactivate active weights for this specific regime
+  await db
+    .update(fuguFactorWeights)
+    .set({ isActive: false })
+    .where(and(eq(fuguFactorWeights.isActive, true), eq(fuguFactorWeights.regime, regime)));
 
   await db.insert(fuguFactorWeights).values({
     version: nextVer,
-    weights: newWeights,
+    weights: weightsToSave,
     accuracy: String(accuracy.toFixed(2)),
     sampleSize: completedOutcomes.length,
-    notes: `Weight optimized v${nextVer} based on correlation analysis of ${completedOutcomes.length} outcomes.`,
+    notes: [
+      `Weight optimized v${nextVer} for regime ${regime}`,
+      shouldPromote ? 'PROMOTED' : 'REJECTED',
+      `LR: ${(learningRate * 100).toFixed(0)}%`,
+      `Thresholds: WIN=${thresholds.win.toFixed(1)}% LOSS=${thresholds.loss.toFixed(1)}%`,
+    ].join(' | '),
     isActive: true,
+    regime: regime,
   });
 
+  // Log unified metrics to engineLearningLog
+  await db.insert(engineLearningLog).values({
+    engine: "FUGU",
+    weightVersionFrom: currentWeights === DEFAULT_FUGU_WEIGHTS ? 0 : (fuguActiveWeightsCache[regime]?.version ?? 0),
+    weightVersionTo: nextVer,
+    sampleSize: completedOutcomes.length,
+    accuracyBefore: String(oldAccuracy.accuracy.toFixed(4)),
+    accuracyAfter: String(newAccuracy.accuracy.toFixed(4)),
+    wasPromoted: shouldPromote,
+    regime: regime,
+    geminiInsights: geminiInsights,
+    prunedFeatures: [], // VCP agents are locked/fixed, not pruned
+    calibrationCurve: fuguCalibrationCache,
+  });
+
+  // Clear cache for this regime
+  delete fuguActiveWeightsCache[regime];
+
   console.log(
-    `[Fugu Weight Optimizer] Evolved to version ${nextVer} with accuracy ${accuracy.toFixed(1)}%.`,
+    `[Fugu Weight Optimizer] Evolved to version ${nextVer} with accuracy ${accuracy.toFixed(1)}%, promoted: ${shouldPromote}.`,
   );
   return true;
+}
+
+/** Get the cached FUGU calibration curve */
+export function getFuguCalibration() {
+  return fuguCalibrationCache;
+}
+
+/** Apply calibration to a raw FUGU score */
+export function getCalibratedFuguScore(rawScore: number): number {
+  if (!fuguCalibrationCache) return rawScore;
+  return applyCalibratedConfidence(rawScore, fuguCalibrationCache);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2091,4 +2309,16 @@ export async function initializeFugu(): Promise<void> {
       err.message,
     );
   }
+}
+
+export async function getFuguStockSnapshot(
+  symbol: string,
+): Promise<FuguSnapshot | null> {
+  const [snap] = await db
+    .select()
+    .from(fuguSnapshots)
+    .where(eq(fuguSnapshots.symbol, symbol.toUpperCase()))
+    .orderBy(desc(fuguSnapshots.scanDate))
+    .limit(1);
+  return snap ?? null;
 }

@@ -303,6 +303,7 @@ export const hermesWeights = pgTable("hermes_weights", {
 
   notes: text("notes"), // human-readable change log
   isActive: boolean("is_active").notNull().default(false),
+  regime: varchar("regime", { length: 20 }), // TRENDING_UP | TRENDING_DOWN | RANGING | VOLATILE | null (global)
 });
 
 export type HermesWeight = typeof hermesWeights.$inferSelect;
@@ -420,6 +421,7 @@ export const fuguFactorWeights = pgTable("fugu_factor_weights", {
   sampleSize: integer("sample_size"),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(false),
+  regime: varchar("regime", { length: 20 }), // TRENDING_UP | TRENDING_DOWN | RANGING | VOLATILE | null (global)
 });
 
 export type FuguFactorWeight = typeof fuguFactorWeights.$inferSelect;
@@ -691,4 +693,44 @@ export const insertVcpJournalEntrySchema = createInsertSchema(vcpJournalEntries)
 
 export type InsertVcpJournalEntry = z.infer<typeof insertVcpJournalEntrySchema>;
 export type VcpJournalEntry = typeof vcpJournalEntries.$inferSelect;
+
+// New table: confluence signals
+export const confluenceSignals = pgTable("confluence_signals", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  signalDate: timestamp("signal_date").notNull().defaultNow(),
+  hermesScore: numeric("hermes_score"),
+  fuguScore: numeric("fugu_score"),
+  apexScore: numeric("apex_score"),
+  confluenceScore: numeric("confluence_score"),
+  enginesAgreeing: integer("engines_agreeing"),
+  recommendation: varchar("recommendation", { length: 20 }),
+  // Outcome tracking
+  return5d: numeric("return_5d"),
+  outcome: varchar("outcome", { length: 10 }),
+  filledAt: timestamp("filled_at"),
+});
+
+export type ConfluenceSignal = typeof confluenceSignals.$inferSelect;
+export type InsertConfluenceSignal = typeof confluenceSignals.$inferInsert;
+
+// New table: engine learning log (unified for all engines)
+export const engineLearningLog = pgTable("engine_learning_log", {
+  id: serial("id").primaryKey(),
+  engine: varchar("engine", { length: 10 }).notNull(), // HERMES | FUGU | APEX
+  cycleDate: timestamp("cycle_date").notNull().defaultNow(),
+  weightVersionFrom: integer("weight_version_from"),
+  weightVersionTo: integer("weight_version_to"),
+  sampleSize: integer("sample_size"),
+  accuracyBefore: numeric("accuracy_before"),
+  accuracyAfter: numeric("accuracy_after"),
+  wasPromoted: boolean("was_promoted").notNull(), // A/B validation result
+  regime: varchar("regime", { length: 20 }),
+  geminiInsights: text("gemini_insights"),
+  prunedFeatures: jsonb("pruned_features"),
+  calibrationCurve: jsonb("calibration_curve"),
+});
+
+export type EngineLearningLog = typeof engineLearningLog.$inferSelect;
+export type InsertEngineLearningLog = typeof engineLearningLog.$inferInsert;
 

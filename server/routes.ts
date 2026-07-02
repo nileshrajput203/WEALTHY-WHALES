@@ -109,6 +109,7 @@ import {
   getFuguStatus,
   startFuguScheduler,
 } from "./fuguScheduler";
+import { computeConfluenceScore } from "./confluenceEngine";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -3114,6 +3115,18 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     } catch (err: any) {
       console.error("[HERMES API] Status error:", err);
       res.status(500).json({ message: "Failed to load status" });
+    }
+  });
+
+  // Confluence Endpoint
+  app.get("/api/confluence/:symbol", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const result = await computeConfluenceScore(symbol);
+      res.json(result);
+    } catch (err: any) {
+      console.error("[Confluence API] Error:", err);
+      res.status(500).json({ message: "Failed to compute confluence score" });
     }
   });
 

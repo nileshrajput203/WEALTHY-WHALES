@@ -18,11 +18,13 @@ import {
   hermesOutcomes,
   hermesWeights,
   hermesRegimeLog,
+  engineLearningLog,
   type HermesSnapshot,
   type HermesOutcome,
   type HermesWeight,
   type HermesRegimeLog,
 } from "@shared/schema";
+import { generateWithRetry } from "./gemini";
 import { eq, and, isNull, lte, desc, asc, sql, count } from "drizzle-orm";
 import { NSE_UNIQUE } from "./nseUniverse";
 import {
@@ -42,15 +44,33 @@ import {
   type VcpFeatures,
 } from "./vcpCore";
 import { logJournalEntry } from "./vcpJournalEngine";
+import {
+  getTemporalWeight,
+  getAdaptiveLearningRate,
+  computeAdaptiveThresholds,
+  backtestWeightAccuracy,
+  buildCalibrationCurve,
+  applyCalibratedConfidence,
+} from "./istUtils";
 
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & DEFAULT WEIGHTS (VCP-ONLY — HERMES v2)
    Goal: find VCP breakouts expected to swing 5-10% within ~1-2 days.
 ═══════════════════════════════════════════════════════════ */
 
-/** Win threshold aligned to the 5-10% swing target band, loss aligned to SL risk */
-const WIN_THRESHOLD = 5.0;
-const LOSS_THRESHOLD = -4.0;
+/** Default win/loss thresholds — used as fallback until adaptive thresholds have enough data */
+const DEFAULT_WIN_THRESHOLD = 5.0;
+const DEFAULT_LOSS_THRESHOLD = -4.0;
+
+/** Feature pruning: features with accuracy below this for PRUNE_CONSECUTIVE_CYCLES are soft-pruned */
+const PRUNE_ACCURACY_FLOOR = 0.45;
+const PRUNE_CONSECUTIVE_CYCLES = 3;
+
+/** In-memory calibration curve cache (rebuilt each learning cycle) */
+let calibrationCache: Record<string, { count: number; wins: number; winRate: number }> | null = null;
+
+/** Per-feature prune counter: tracks consecutive low-accuracy cycles */
+let featurePruneCounters: Record<string, number> = {};
 
 /** Maximum stocks to scan per daily run */
 const MAX_SCAN_UNIVERSE = 200;
@@ -209,44 +229,71 @@ function computeATR(
 /* ═══════════════════════════════════════════════════════════
    ACTIVE WEIGHTS — Load from DB or use defaults
 ═══════════════════════════════════════════════════════════ */
-let activeWeightsCache: {
+let activeWeightsCache: Record<string, {
   weights: Record<string, number>;
   version: number;
   ts: number;
-} | null = null;
+}> = {};
 const WEIGHT_CACHE_TTL = 30 * 60 * 1000; // 30 min
 
-async function getActiveWeights(): Promise<{
+async function getCurrentRegime(): Promise<string> {
+  try {
+    const [latestLog] = await db
+      .select()
+      .from(hermesRegimeLog)
+      .orderBy(desc(hermesRegimeLog.date))
+      .limit(1);
+    return latestLog?.regime ?? "RANGING";
+  } catch {
+    return "RANGING";
+  }
+}
+
+async function getActiveWeights(regime: string = "GLOBAL"): Promise<{
   weights: Record<string, number>;
   version: number;
 }> {
+  const cached = activeWeightsCache[regime];
   if (
-    activeWeightsCache &&
-    Date.now() - activeWeightsCache.ts < WEIGHT_CACHE_TTL
+    cached &&
+    Date.now() - cached.ts < WEIGHT_CACHE_TTL
   ) {
     return {
-      weights: activeWeightsCache.weights,
-      version: activeWeightsCache.version,
+      weights: cached.weights,
+      version: cached.version,
     };
   }
 
   try {
-    const [active] = await db
-      .select()
-      .from(hermesWeights)
-      .where(eq(hermesWeights.isActive, true))
-      .limit(1);
+    let active: any = null;
+    // 1. Try loading regime-specific weights first
+    if (regime !== "GLOBAL") {
+      const [res] = await db
+        .select()
+        .from(hermesWeights)
+        .where(and(eq(hermesWeights.isActive, true), eq(hermesWeights.regime, regime)))
+        .limit(1);
+      active = res;
+    }
+
+    // 2. Fallback to global active weights if none found
+    if (!active) {
+      const [res] = await db
+        .select()
+        .from(hermesWeights)
+        .where(and(eq(hermesWeights.isActive, true), isNull(hermesWeights.regime)))
+        .limit(1);
+      active = res;
+    }
 
     if (active) {
       const w = active.weights as Record<string, number>;
       const isStaleSchema = !Object.keys(DEFAULT_WEIGHTS).every((k) => k in w);
       if (isStaleSchema) {
-        // Pre-VCP-rebuild weight rows use a completely different key set (fundamentals/RSI/etc).
-        // Re-seed a fresh v1 VCP weight set rather than silently scoring everything as 0/50.
         console.warn(
-          "[HERMES] Active weights use a stale (pre-VCP) schema — reseeding default VCP weights.",
+          `[HERMES] Active weights use a stale (pre-VCP) schema — reseeding default VCP weights for regime ${regime}.`,
         );
-        await db.update(hermesWeights).set({ isActive: false });
+        await db.update(hermesWeights).set({ isActive: false }).where(eq(hermesWeights.id, active.id));
         const [latest] = await db
           .select({
             maxVer: sql<number>`COALESCE(MAX(${hermesWeights.version}), 0)`,
@@ -260,15 +307,16 @@ async function getActiveWeights(): Promise<{
           sampleSize: 0,
           notes: `VCP rebuild v${newVersion}: reseeded default weights (previous weight schema was stale)`,
           isActive: true,
+          regime: regime === "GLOBAL" ? null : regime,
         });
-        activeWeightsCache = {
+        activeWeightsCache[regime] = {
           weights: DEFAULT_WEIGHTS,
           version: newVersion,
           ts: Date.now(),
         };
         return { weights: DEFAULT_WEIGHTS, version: newVersion };
       }
-      activeWeightsCache = {
+      activeWeightsCache[regime] = {
         weights: w,
         version: active.version,
         ts: Date.now(),
@@ -276,10 +324,10 @@ async function getActiveWeights(): Promise<{
       return { weights: w, version: active.version };
     }
   } catch (e) {
-    console.error("[HERMES] Failed to load active weights:", e);
+    console.error(`[HERMES] Failed to load active weights for ${regime}:`, e);
   }
 
-  // Fallback: insert default weights as v1 if none exist
+  // Fallback: use default weights
   return { weights: DEFAULT_WEIGHTS, version: 0 };
 }
 
@@ -370,7 +418,10 @@ export async function runDailyScan(universeSize = MAX_SCAN_UNIVERSE): Promise<{
     `[HERMES] ═══ Starting daily scan for ${universeSize} stocks ═══`,
   );
 
-  const { weights, version } = await getActiveWeights();
+  // Pre-classify regime to ensure we use the correct regime-adaptive weights
+  const regimeLog = await classifyMarketRegime();
+  const currentRegime = regimeLog?.regime ?? "RANGING";
+  const { weights, version } = await getActiveWeights(currentRegime);
   const universe = NSE_UNIQUE.slice(0, universeSize);
   let inserted = 0;
   let errors = 0;
@@ -577,9 +628,9 @@ export async function runOutcomeTracker(): Promise<{
         const entryPrice = Number(row.hermes_snapshots.price);
         const returnPct = ((quote.price - entryPrice) / entryPrice) * 100;
         const outcome =
-          returnPct >= WIN_THRESHOLD
+          returnPct >= DEFAULT_WIN_THRESHOLD
             ? "WIN"
-            : returnPct <= LOSS_THRESHOLD
+            : returnPct <= DEFAULT_LOSS_THRESHOLD
               ? "LOSS"
               : "NEUTRAL";
 
@@ -623,9 +674,9 @@ export async function runOutcomeTracker(): Promise<{
         const entryPrice = Number(row.hermes_snapshots.price);
         const returnPct = ((quote.price - entryPrice) / entryPrice) * 100;
         const outcome =
-          returnPct >= WIN_THRESHOLD
+          returnPct >= DEFAULT_WIN_THRESHOLD
             ? "WIN"
-            : returnPct <= LOSS_THRESHOLD
+            : returnPct <= DEFAULT_LOSS_THRESHOLD
               ? "LOSS"
               : "NEUTRAL";
 
@@ -669,9 +720,9 @@ export async function runOutcomeTracker(): Promise<{
         const entryPrice = Number(row.hermes_snapshots.price);
         const returnPct = ((quote.price - entryPrice) / entryPrice) * 100;
         const outcome =
-          returnPct >= WIN_THRESHOLD
+          returnPct >= DEFAULT_WIN_THRESHOLD
             ? "WIN"
-            : returnPct <= LOSS_THRESHOLD
+            : returnPct <= DEFAULT_LOSS_THRESHOLD
               ? "LOSS"
               : "NEUTRAL";
 
@@ -696,18 +747,27 @@ export async function runOutcomeTracker(): Promise<{
 }
 
 /* ═══════════════════════════════════════════════════════════
-   LEARNING ENGINE — Evolve weights from outcomes
+   SELF-IMPROVING LEARNING ENGINE
+   Adaptive learning rate, temporal decay, A/B validation,
+   feature pruning, adaptive thresholds, confidence calibration
 ═══════════════════════════════════════════════════════════ */
 
 export async function runLearningCycle(): Promise<{
   newVersion: number;
   accuracy: number;
   sampleSize: number;
+  promoted: boolean;
+  prunedFeatures: string[];
+  adaptiveThresholds: { win: number; loss: number };
 }> {
-  console.log("[HERMES] ═══ Running learning cycle ═══");
+  console.log("[HERMES] ═══ Running self-improving regime-adaptive learning cycle ═══");
 
-  // Get all completed outcomes (at least 5d filled)
-  const completedOutcomes = await db
+  // Get active regime to focus this learning run
+  const currentRegime = await getCurrentRegime();
+  console.log(`[HERMES] Evolving weights for regime: ${currentRegime}`);
+
+  // ─── 1. Gather all completed outcomes ──────────────────────────────
+  const allOutcomes = await db
     .select()
     .from(hermesOutcomes)
     .innerJoin(
@@ -717,79 +777,136 @@ export async function runLearningCycle(): Promise<{
     .where(sql`${hermesOutcomes.return5d} IS NOT NULL`)
     .limit(5000);
 
-  if (completedOutcomes.length < 30) {
+  if (allOutcomes.length < 30) {
     console.log(
-      `[HERMES] Insufficient data (${completedOutcomes.length} outcomes). Need 30+. Skipping learning.`,
+      `[HERMES] Insufficient global data (${allOutcomes.length} outcomes). Need 30+. Skipping learning.`,
     );
-    return { newVersion: 0, accuracy: 0, sampleSize: completedOutcomes.length };
+    return {
+      newVersion: 0, accuracy: 0, sampleSize: allOutcomes.length,
+      promoted: false, prunedFeatures: [], adaptiveThresholds: { win: DEFAULT_WIN_THRESHOLD, loss: DEFAULT_LOSS_THRESHOLD },
+    };
   }
 
-  const { weights: currentWeights } = await getActiveWeights();
+  // Build a date-to-regime lookup map from regime logs
+  const regimeLogs = await db.select().from(hermesRegimeLog);
+  const regimeByDate: Record<string, string> = {};
+  for (const log of regimeLogs) {
+    const dStr = new Date(log.date).toISOString().split("T")[0];
+    regimeByDate[dStr] = log.regime;
+  }
+
+  // Filter outcomes that match current regime
+  let completedOutcomes = allOutcomes.filter(row => {
+    const snapDate = row.hermes_snapshots.scanDate;
+    const dStr = new Date(snapDate).toISOString().split("T")[0];
+    const outcomeRegime = regimeByDate[dStr] || "RANGING";
+    return outcomeRegime === currentRegime;
+  });
+
+  console.log(`[HERMES] Found ${completedOutcomes.length} outcomes for regime: ${currentRegime}`);
+  // Fallback to global if regime-specific outcomes are too few
+  if (completedOutcomes.length < 15) {
+    console.log(`[HERMES] Too few outcomes for regime ${currentRegime} (<15). Falling back to global outcomes for learning.`);
+    completedOutcomes = allOutcomes;
+  }
+
+  // ─── 2. Compute adaptive thresholds from return distribution ──────
+  const allReturns = completedOutcomes.map(r => Number(r.hermes_outcomes.return5d ?? 0));
+  const thresholds = computeAdaptiveThresholds(allReturns, {
+    win: DEFAULT_WIN_THRESHOLD,
+    loss: DEFAULT_LOSS_THRESHOLD,
+  });
+  console.log(`[HERMES] Adaptive thresholds → WIN: ${thresholds.win.toFixed(1)}%, LOSS: ${thresholds.loss.toFixed(1)}%`);
+
+  // ─── 3. Compute temporally-weighted feature win rates ─────────────
+  const { weights: currentWeights } = await getActiveWeights(currentRegime);
   const newWeights = { ...currentWeights };
 
-  // For each weight key, compute correlation between that feature's presence and positive outcomes
-  const featureWinRates: Record<string, { wins: number; total: number }> = {};
-
+  const featureWinRates: Record<string, { weightedWins: number; weightedTotal: number; accuracy: number }> = {};
   for (const key of Object.keys(DEFAULT_WEIGHTS)) {
-    featureWinRates[key] = { wins: 0, total: 0 };
+    featureWinRates[key] = { weightedWins: 0, weightedTotal: 0, accuracy: 0.5 };
   }
 
   for (const row of completedOutcomes) {
     const snap = row.hermes_snapshots;
     const outcome = row.hermes_outcomes;
     const returnVal = Number(outcome.return5d ?? 0);
-    const isWin = returnVal >= WIN_THRESHOLD;
+    const isWin = returnVal >= thresholds.win;
 
-    // Evaluate each VCP feature condition from the stored feature blob
+    // Temporal decay: recent outcomes have more influence
+    const outcomeDate = outcome.filled5dAt ?? snap.scanDate ?? new Date();
+    const temporalW = getTemporalWeight(outcomeDate, 60);
+
     const vf = (snap.vcpFeatures as VcpFeatures | null) ?? null;
-
     const conditions: Record<string, boolean> = vf
       ? vcpConditions(vf)
       : {
-          atr_compression: false,
-          progressive_contraction: false,
-          tight_coil: false,
-          volume_dryup: false,
-          near_52w_high: false,
-          ema_stack_full: false,
-          ema50_rising: false,
-          range_quality: false,
-          rs_score: false,
-          liquidity_turnover: false,
+          atr_compression: false, progressive_contraction: false,
+          tight_coil: false, volume_dryup: false, near_52w_high: false,
+          ema_stack_full: false, ema50_rising: false, range_quality: false,
+          rs_score: false, liquidity_turnover: false,
         };
 
     for (const [key, conditionMet] of Object.entries(conditions)) {
       if (conditionMet) {
-        featureWinRates[key].total++;
-        if (isWin) featureWinRates[key].wins++;
+        featureWinRates[key].weightedTotal += temporalW;
+        if (isWin) featureWinRates[key].weightedWins += temporalW;
       }
     }
   }
 
-  // Compute new weights: EMA blend (70% old, 30% new evidence)
-  const BLEND_OLD = 0.7;
-  const BLEND_NEW = 0.3;
-  const changeLog: string[] = [];
-
+  // Compute per-feature accuracy
   for (const [key, stats] of Object.entries(featureWinRates)) {
-    if (stats.total < 10) continue; // Not enough data for this feature
+    stats.accuracy = stats.weightedTotal > 0 ? stats.weightedWins / stats.weightedTotal : 0.5;
+  }
 
-    const winRate = stats.wins / stats.total;
-    // Target weight: proportional to win rate (normalized)
-    const targetWeight = winRate * (DEFAULT_WEIGHTS[key] || 0.05) * 2; // Scale factor
+  // ─── 4. Adaptive learning rate based on data maturity ─────────────
+  const learningRate = getAdaptiveLearningRate(completedOutcomes.length);
+  const blendOld = 1.0 - learningRate;
+  console.log(`[HERMES] Adaptive learning rate: ${(learningRate * 100).toFixed(0)}% new evidence (${completedOutcomes.length} samples)`);
+
+  // ─── 5. Feature pruning — disable consistently bad features ───────
+  const prunedFeatures: string[] = [];
+  for (const [key, stats] of Object.entries(featureWinRates)) {
+    if (stats.weightedTotal < 10) continue; // insufficient data to judge
+
+    if (stats.accuracy < PRUNE_ACCURACY_FLOOR) {
+      featurePruneCounters[key] = (featurePruneCounters[key] || 0) + 1;
+      if (featurePruneCounters[key] >= PRUNE_CONSECUTIVE_CYCLES) {
+        prunedFeatures.push(key);
+        console.log(`[HERMES] PRUNING feature '${key}' — accuracy ${(stats.accuracy * 100).toFixed(1)}% for ${featurePruneCounters[key]} consecutive cycles`);
+      }
+    } else if (stats.accuracy > 0.55) {
+      // Un-prune if accuracy recovers
+      if (featurePruneCounters[key] && featurePruneCounters[key] >= PRUNE_CONSECUTIVE_CYCLES) {
+        console.log(`[HERMES] UN-PRUNING feature '${key}' — accuracy recovered to ${(stats.accuracy * 100).toFixed(1)}%`);
+      }
+      featurePruneCounters[key] = 0;
+    }
+  }
+
+  // ─── 6. Evolve weights with adaptive blending ─────────────────────
+  const changeLog: string[] = [];
+  for (const [key, stats] of Object.entries(featureWinRates)) {
+    if (stats.weightedTotal < 10) continue;
+
+    // Pruned features get weight set to near-zero
+    if (prunedFeatures.includes(key)) {
+      newWeights[key] = 0.001;
+      changeLog.push(`${key}: PRUNED (accuracy ${(stats.accuracy * 100).toFixed(0)}%)`);
+      continue;
+    }
+
+    const winRate = stats.accuracy;
+    const targetWeight = winRate * (DEFAULT_WEIGHTS[key] || 0.05) * 2;
     const oldWeight = currentWeights[key] || DEFAULT_WEIGHTS[key] || 0.05;
-    const blended = BLEND_OLD * oldWeight + BLEND_NEW * targetWeight;
+    const blended = blendOld * oldWeight + learningRate * targetWeight;
 
-    // Clamp weights to [0.01, 0.20]
-    newWeights[key] = Math.max(0.01, Math.min(0.2, blended));
+    newWeights[key] = Math.max(0.01, Math.min(0.25, blended));
 
-    const delta = (((newWeights[key] - oldWeight) / oldWeight) * 100).toFixed(
-      1,
-    );
+    const delta = (((newWeights[key] - oldWeight) / oldWeight) * 100).toFixed(1);
     if (Math.abs(Number(delta)) > 5) {
-      changeLog.push(
-        `${key}: ${(winRate * 100).toFixed(0)}% win rate → weight ${delta}%`,
-      );
+      changeLog.push(`${key}: ${(winRate * 100).toFixed(0)}% win rate → weight ${delta}%`);
     }
   }
 
@@ -799,43 +916,162 @@ export async function runLearningCycle(): Promise<{
     newWeights[key] = newWeights[key] / totalWeight;
   }
 
-  // Compute overall accuracy
+  // ─── 7. A/B Validation — backtest before promoting ────────────────
+  const backtestSamples = completedOutcomes.slice(-50).map(row => {
+    const vf = (row.hermes_snapshots.vcpFeatures as VcpFeatures | null) ?? null;
+    return {
+      featureConditions: vf ? vcpConditions(vf) : {
+        atr_compression: false, progressive_contraction: false,
+        tight_coil: false, volume_dryup: false, near_52w_high: false,
+        ema_stack_full: false, ema50_rising: false, range_quality: false,
+        rs_score: false, liquidity_turnover: false,
+      },
+      isWin: Number(row.hermes_outcomes.return5d ?? 0) >= thresholds.win,
+    };
+  });
+
+  const oldAccuracy = backtestWeightAccuracy(backtestSamples, currentWeights);
+  const newAccuracy = backtestWeightAccuracy(backtestSamples, newWeights);
+
+  const shouldPromote = newAccuracy.accuracy >= oldAccuracy.accuracy - 0.01; // Allow 1% tolerance
+  console.log(`[HERMES] A/B Validation — Old: ${(oldAccuracy.accuracy * 100).toFixed(1)}%, New: ${(newAccuracy.accuracy * 100).toFixed(1)}% → ${shouldPromote ? 'PROMOTED' : 'REJECTED'}`);
+
+  // ─── 8. Build calibration curve ───────────────────────────────────
+  const scoredOutcomes = completedOutcomes.map(row => {
+    const score = Number(row.hermes_snapshots.hermesScore ?? 50);
+    const isWin = Number(row.hermes_outcomes.return5d ?? 0) >= thresholds.win;
+    return { score, isWin };
+  });
+  calibrationCache = buildCalibrationCurve(scoredOutcomes);
+  console.log(`[HERMES] Calibration curve rebuilt from ${scoredOutcomes.length} outcomes`);
+
+  // ─── 9. Gemini Meta-Learning Insight Analysis ─────────────────────
+  let geminiInsights = "";
+  try {
+    const winSamples = completedOutcomes
+      .filter((row) => Number(row.hermes_outcomes.return5d ?? 0) >= thresholds.win)
+      .slice(0, 5)
+      .map((row) => ({
+        symbol: row.hermes_snapshots.symbol,
+        score: row.hermes_snapshots.hermesScore,
+        return: row.hermes_outcomes.return5d,
+      }));
+
+    const lossSamples = completedOutcomes
+      .filter((row) => Number(row.hermes_outcomes.return5d ?? 0) <= thresholds.loss)
+      .slice(0, 5)
+      .map((row) => ({
+        symbol: row.hermes_snapshots.symbol,
+        score: row.hermes_snapshots.hermesScore,
+        return: row.hermes_outcomes.return5d,
+      }));
+
+    const learningPrompt = `You are the HERMES Swing Trading Learning Agent. Analyze these historical stock picks and their outcomes:
+WINNING TRADES (Successes):
+${JSON.stringify(winSamples, null, 2)}
+
+LOSING TRADES (Failures):
+${JSON.stringify(lossSamples, null, 2)}
+
+Explain key reasons why the winning stocks succeeded (e.g. VCP setup parameters) and why the losers failed.
+Generate a summary with bullet points outlining what features worked best in this ${currentRegime} regime.`;
+
+    const geminiRes = await generateWithRetry({
+      model: "gemini-flash-latest",
+      contents: learningPrompt,
+      config: {
+        systemInstruction:
+          "You are an expert quantitative research assistant analyzing trading results.",
+      },
+    });
+
+    geminiInsights = geminiRes?.text || "";
+  } catch (err: any) {
+    console.error("[HERMES Learning] Gemini analysis failed:", err.message);
+  }
+
+  // ─── 10. Compute overall accuracy ──────────────────────────────────
   let totalWins = 0;
   for (const row of completedOutcomes) {
-    if (Number(row.hermes_outcomes.return5d ?? 0) >= WIN_THRESHOLD) totalWins++;
+    if (Number(row.hermes_outcomes.return5d ?? 0) >= thresholds.win) totalWins++;
   }
   const accuracy = (totalWins / completedOutcomes.length) * 100;
 
-  // Get next version
+  // ─── 11. Persist new weight version ───────────────────────────────
   const [latest] = await db
     .select({ maxVer: sql<number>`COALESCE(MAX(${hermesWeights.version}), 0)` })
     .from(hermesWeights);
   const newVersion = (latest?.maxVer ?? 0) + 1;
 
-  // Deactivate all previous
-  await db.update(hermesWeights).set({ isActive: false });
+  const weightsToSave = shouldPromote ? newWeights : currentWeights;
 
-  // Insert new weight set
+  // Deactivate previous active weight for this specific regime
+  await db
+    .update(hermesWeights)
+    .set({ isActive: false })
+    .where(and(eq(hermesWeights.isActive, true), eq(hermesWeights.regime, currentRegime)));
+
   await db.insert(hermesWeights).values({
     version: newVersion,
-    weights: newWeights,
+    weights: weightsToSave,
     accuracy: String(accuracy.toFixed(2)),
     sampleSize: completedOutcomes.length,
     winRate5d: String(accuracy.toFixed(2)),
-    notes:
-      changeLog.length > 0
-        ? `Learning cycle v${newVersion}: ${changeLog.join("; ")}`
-        : `Learning cycle v${newVersion}: Minor adjustments, ${completedOutcomes.length} samples`,
+    notes: [
+      `Self-improving cycle v${newVersion}`,
+      `Regime: ${currentRegime}`,
+      `LR: ${(learningRate * 100).toFixed(0)}%`,
+      `Thresholds: WIN=${thresholds.win.toFixed(1)}% LOSS=${thresholds.loss.toFixed(1)}%`,
+      shouldPromote ? 'PROMOTED' : 'REJECTED (old weights kept)',
+      prunedFeatures.length > 0 ? `Pruned: [${prunedFeatures.join(', ')}]` : '',
+      changeLog.length > 0 ? changeLog.join('; ') : 'Minor adjustments',
+      `A/B: old=${(oldAccuracy.accuracy * 100).toFixed(1)}% new=${(newAccuracy.accuracy * 100).toFixed(1)}%`,
+    ].filter(Boolean).join(' | '),
     isActive: true,
+    regime: currentRegime,
   });
 
-  // Clear weight cache
-  activeWeightsCache = null;
+  // Log unified metrics to engineLearningLog
+  await db.insert(engineLearningLog).values({
+    engine: "HERMES",
+    weightVersionFrom: currentWeights === DEFAULT_WEIGHTS ? 0 : (activeWeightsCache[currentRegime]?.version ?? 0),
+    weightVersionTo: newVersion,
+    sampleSize: completedOutcomes.length,
+    accuracyBefore: String(oldAccuracy.accuracy.toFixed(4)),
+    accuracyAfter: String(newAccuracy.accuracy.toFixed(4)),
+    wasPromoted: shouldPromote,
+    regime: currentRegime,
+    geminiInsights,
+    prunedFeatures: prunedFeatures,
+    calibrationCurve: calibrationCache,
+  });
+
+  // Clear weight cache for this regime
+  delete activeWeightsCache[currentRegime];
 
   console.log(
-    `[HERMES] ═══ Learning complete: v${newVersion}, accuracy: ${accuracy.toFixed(1)}%, samples: ${completedOutcomes.length} ═══`,
+    `[HERMES] ═══ Self-improving cycle complete: v${newVersion}, accuracy: ${accuracy.toFixed(1)}%, samples: ${completedOutcomes.length}, promoted: ${shouldPromote} ═══`,
   );
-  return { newVersion, accuracy, sampleSize: completedOutcomes.length };
+
+  return {
+    newVersion,
+    accuracy,
+    sampleSize: completedOutcomes.length,
+    promoted: shouldPromote,
+    prunedFeatures,
+    adaptiveThresholds: thresholds,
+  };
+}
+
+/** Get the cached calibration curve for HERMES scores */
+export function getHermesCalibration() {
+  return calibrationCache;
+}
+
+/** Apply calibration to a raw HERMES score */
+export function getCalibratedHermesScore(rawScore: number): number {
+  if (!calibrationCache) return rawScore;
+  return applyCalibratedConfidence(rawScore, calibrationCache);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -978,8 +1214,8 @@ export async function getHermesAccuracy(): Promise<{
 
   for (const row of outcomes) {
     const returnVal = Number(row.hermes_outcomes.return5d ?? 0);
-    const isWin = returnVal >= WIN_THRESHOLD;
-    const isLoss = returnVal <= LOSS_THRESHOLD;
+    const isWin = returnVal >= DEFAULT_WIN_THRESHOLD;
+    const isLoss = returnVal <= DEFAULT_LOSS_THRESHOLD;
 
     if (isWin) overall.wins++;
     else if (isLoss) overall.losses++;

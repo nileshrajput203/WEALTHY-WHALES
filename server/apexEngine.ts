@@ -429,3 +429,13 @@ export async function getApexDashboard() {
     historical: historicalPredictions
   };
 }
+
+export async function getApexPrediction(symbol: string): Promise<any> {
+  const [pred] = await db
+    .select()
+    .from(apexPredictions)
+    .where(eq(apexPredictions.symbol, symbol.toUpperCase()))
+    .orderBy(desc(apexPredictions.predictionDate))
+    .limit(1);
+  return pred ?? null;
+}
