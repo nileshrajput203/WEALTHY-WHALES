@@ -6,6 +6,7 @@ import { markJobStart, markJobDone, markJobFailed, logError } from "./jobLedger"
 import { APEX_DEFAULT_WEIGHTS } from "./apexEngine";
 import { generateWithRetry } from "./gemini";
 import { getTemporalWeight, getAdaptiveLearningRate, backtestWeightAccuracy } from "./istUtils";
+import { runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
 
 /**
  * Computes individual directional accuracy for all 30 features with temporal decay.
@@ -289,6 +290,29 @@ Identify patterns in confidence score vs direction.`;
       prunedFeatures: prunedFeatures,
       calibrationCurve: null,
     });
+    
+    // ─── Self-Improving Genome Evolution for APEX ─────────────────────
+    // After learning weights, also evolve the scan parameters themselves
+    // (confidence threshold, picks per day, feature group proportions)
+    try {
+      const genomeTrades: TradeOutcome[] = history
+        .filter(p => p.isCorrect !== null)
+        .map(p => ({
+          returnPct: p.actualReturnPct ? parseFloat(p.actualReturnPct) : (p.isCorrect ? 2.0 : -2.0),
+          vcpScore: p.confidenceScore ? Math.round(parseFloat(p.confidenceScore)) : undefined,
+          newsScore: p.newsScore ? parseFloat(p.newsScore) - 50 : undefined,
+        }));
+
+      const genomeResult = await runGenomeEvolution("APEX", genomeTrades, {
+        mutations: 20,
+        minImprovement: 0.2,
+      });
+      console.log(
+        `[APEX] Genome evolution: ${genomeResult.promoted ? "✅ PROMOTED" : "⬤ unchanged"} | avg return ${genomeResult.oldAvgReturn.toFixed(2)}% → ${genomeResult.newAvgReturn.toFixed(2)}%`,
+      );
+    } catch (genomeErr: any) {
+      console.error("[APEX] Genome evolution failed (non-fatal):", genomeErr.message);
+    }
     
     console.log(`[LearningEngine] Learning cycle complete. Weights evolved to Version ${newVersion}.`);
     

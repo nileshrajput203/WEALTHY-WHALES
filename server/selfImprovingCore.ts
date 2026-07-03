@@ -194,6 +194,69 @@ export function mutateGenome(
   return mutated;
 }
 
+/**
+ * Crossover: combine best parameters from two parent genomes.
+ * Uniform crossover — each param randomly picked from either parent.
+ */
+export function crossoverGenome(
+  parent1: Record<string, number>,
+  parent2: Record<string, number>,
+): Record<string, number> {
+  const child: Record<string, number> = {};
+  for (const key of Object.keys(parent1)) {
+    // 50% chance from each parent, with slight blend
+    if (Math.random() > 0.5) {
+      child[key] = parent1[key];
+    } else {
+      child[key] = parent2[key];
+    }
+    // 20% chance of blended value (average of parents)
+    if (Math.random() < 0.2) {
+      child[key] = (parent1[key] + parent2[key]) / 2;
+    }
+    const bounds = GENOME_BOUNDS[key];
+    if (bounds) child[key] = clamp(child[key], bounds[0], bounds[1]);
+  }
+
+  // Re-normalize weight keys
+  const weightKeys = Object.keys(child).filter(k => k.endsWith("_weight"));
+  if (weightKeys.length > 1) {
+    const total = weightKeys.reduce((s, k) => s + child[k], 0);
+    if (total > 0) {
+      for (const k of weightKeys) child[k] = child[k] / total;
+    }
+  }
+  return child;
+}
+
+/**
+ * Adaptive mutation: larger mutations for immature genomes, narrower for mature ones.
+ * Maturity is measured by genome version + sample size.
+ */
+export function getAdaptiveMutationStrength(version: number, sampleSize: number): number {
+  // Immature (v1, <20 samples): strong exploration (0.20)
+  // Moderate (v5, ~100 samples): balanced (0.12)
+  // Mature (v20+, 500+ samples): fine-tuning (0.05)
+  const maturity = Math.min(1.0, (version / 20) * 0.5 + (sampleSize / 500) * 0.5);
+  return 0.20 - (maturity * 0.15); // Range: 0.20 → 0.05
+}
+
+/**
+ * Statistical significance test (simplified).
+ * Returns true if improvement is statistically meaningful given sample size.
+ * Uses a conservative threshold: improvement must exceed noise floor.
+ */
+function isStatisticallySignificant(
+  oldReturn: number,
+  newReturn: number,
+  sampleSize: number,
+): boolean {
+  // Noise floor shrinks as sqrt(N): more data → smaller noise
+  const noiseFloor = 2.0 / Math.sqrt(Math.max(10, sampleSize));
+  const improvement = newReturn - oldReturn;
+  return improvement > noiseFloor;
+}
+
 // ─── Evaluate a Genome Against a Trade History ───────────────────────────────
 
 export interface TradeOutcome {
@@ -205,27 +268,50 @@ export interface TradeOutcome {
 }
 
 /**
- * Simulates which trades a genome would have taken and computes avg return.
- * A genome is "better" if it filters more aggressively toward 5-10% returners.
+ * Multi-objective genome evaluation.
+ * Scores genomes on avg return, win rate, AND risk-adjusted returns.
+ * Goal: find genomes that consistently produce 5-10% returners.
  */
 export function evaluateGenome(
   params: Record<string, number>,
   trades: TradeOutcome[],
-): { avgReturn: number; winRate: number; filteredCount: number } {
-  const minScore = params.min_score_threshold ?? params.min_grade_score ?? 0;
+): { avgReturn: number; winRate: number; filteredCount: number; fitnessScore: number; sharpeProxy: number } {
+  const minScore = params.min_score_threshold ?? params.min_grade_score ?? params.min_score_threshold_ipo ?? 0;
 
   const filtered = trades.filter(t => {
     if (t.vcpScore !== undefined && t.vcpScore < minScore) return false;
+    // News filter: if genome has news weight, consider news score
+    if (params.news_weight && params.news_weight > 0.1 && t.newsScore !== undefined) {
+      if (t.newsScore < -30) return false; // Skip stocks with very negative news
+    }
     return true;
   });
 
-  if (filtered.length === 0) return { avgReturn: 0, winRate: 0, filteredCount: 0 };
+  if (filtered.length === 0) return { avgReturn: 0, winRate: 0, filteredCount: 0, fitnessScore: 0, sharpeProxy: 0 };
 
-  const avgReturn = filtered.reduce((s, t) => s + t.returnPct, 0) / filtered.length;
-  const wins = filtered.filter(t => t.returnPct >= (params.target_return_goal ?? 5)).length;
+  const returns = filtered.map(t => t.returnPct);
+  const avgReturn = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const targetGoal = params.target_return_goal ?? 7.5;
+  const wins = filtered.filter(t => t.returnPct >= Math.max(3, targetGoal * 0.5)).length;
   const winRate = wins / filtered.length;
 
-  return { avgReturn, winRate, filteredCount: filtered.length };
+  // Sharpe-like ratio (return / volatility proxy)
+  const mean = avgReturn;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  const stdDev = Math.sqrt(variance) || 1;
+  const sharpeProxy = mean / stdDev;
+
+  // Multi-objective fitness: weighted combination
+  // 50% avg return (toward 5-10% goal)
+  // 30% win rate
+  // 20% risk-adjusted (sharpe proxy)
+  const returnScore = Math.min(1, Math.max(0, avgReturn / 10)); // 10% = perfect
+  const winScore = winRate;
+  const sharpeScore = Math.min(1, Math.max(0, (sharpeProxy + 1) / 3)); // normalize
+
+  const fitnessScore = 0.50 * returnScore + 0.30 * winScore + 0.20 * sharpeScore;
+
+  return { avgReturn, winRate, filteredCount: filtered.length, fitnessScore, sharpeProxy };
 }
 
 // ─── Main Evolution Cycle ─────────────────────────────────────────────────────
@@ -255,43 +341,76 @@ export async function runGenomeEvolution(
     };
   }
 
-  const { mutations = 15, minImprovement = 0.3 } = options;
+  const { mutations = 20, minImprovement = 0.2 } = options;
   const current = await getGenome(engine);
   const currentEval = evaluateGenome(current.params, trades);
 
-  console.log(`[Genome:${engine}] Current avg return: ${currentEval.avgReturn.toFixed(2)}% | Win rate: ${(currentEval.winRate * 100).toFixed(1)}% | ${trades.length} trades`);
+  // Adaptive mutation strength: stronger exploration for immature genomes
+  const mutStrength = getAdaptiveMutationStrength(current.version, current.sampleSize);
 
-  // Generate K mutations and find the best
-  let bestMutated = current.params;
-  let bestEval = currentEval;
+  console.log(`[Genome:${engine}] Current: avg=${currentEval.avgReturn.toFixed(2)}% | win=${(currentEval.winRate * 100).toFixed(1)}% | fitness=${currentEval.fitnessScore.toFixed(3)} | sharpe=${currentEval.sharpeProxy.toFixed(2)} | mutStr=${mutStrength.toFixed(3)} | ${trades.length} trades`);
+
+  // ─── Phase 1: Generate K random mutations ──────────────────────────
+  const candidates: { params: Record<string, number>; eval: ReturnType<typeof evaluateGenome> }[] = [];
 
   for (let i = 0; i < mutations; i++) {
-    const candidate = mutateGenome(current.params);
+    const candidate = mutateGenome(current.params, mutStrength);
     const candidateEval = evaluateGenome(candidate, trades);
-
-    if (
-      candidateEval.avgReturn > bestEval.avgReturn &&
-      candidateEval.filteredCount >= Math.max(5, trades.length * 0.3)
-    ) {
-      bestMutated = candidate;
-      bestEval = candidateEval;
+    if (candidateEval.filteredCount >= Math.max(5, trades.length * 0.25)) {
+      candidates.push({ params: candidate, eval: candidateEval });
     }
   }
 
+  // ─── Phase 2: Crossover — breed top candidates ────────────────────
+  // Sort candidates by multi-objective fitness
+  candidates.sort((a, b) => b.eval.fitnessScore - a.eval.fitnessScore);
+  const topN = candidates.slice(0, Math.min(5, candidates.length));
+
+  for (let i = 0; i < topN.length - 1; i++) {
+    for (let j = i + 1; j < topN.length; j++) {
+      const child = crossoverGenome(topN[i].params, topN[j].params);
+      // Apply light mutation to crossover child
+      const mutatedChild = mutateGenome(child, mutStrength * 0.5);
+      const childEval = evaluateGenome(mutatedChild, trades);
+      if (childEval.filteredCount >= Math.max(5, trades.length * 0.25)) {
+        candidates.push({ params: mutatedChild, eval: childEval });
+      }
+    }
+  }
+
+  // ─── Phase 3: Select best by multi-objective fitness ──────────────
+  candidates.sort((a, b) => b.eval.fitnessScore - a.eval.fitnessScore);
+
+  let bestMutated = current.params;
+  let bestEval = currentEval;
+
+  if (candidates.length > 0 && candidates[0].eval.fitnessScore > currentEval.fitnessScore) {
+    bestMutated = candidates[0].params;
+    bestEval = candidates[0].eval;
+  }
+
   const improvement = bestEval.avgReturn - currentEval.avgReturn;
-  const shouldPromote = improvement >= minImprovement && bestEval !== currentEval;
+  const fitnessImprovement = bestEval.fitnessScore - currentEval.fitnessScore;
+
+  // ─── Phase 4: Statistical significance check ──────────────────────
+  const statSig = isStatisticallySignificant(currentEval.avgReturn, bestEval.avgReturn, trades.length);
+  const shouldPromote =
+    fitnessImprovement > 0.01 &&  // Fitness must improve
+    improvement >= minImprovement &&  // Avg return must improve
+    bestEval !== currentEval &&
+    (statSig || trades.length < 30); // Skip stat test for small samples (bootstrap phase)
 
   // Build diff description
   const diffs: string[] = [];
   for (const [key, newVal] of Object.entries(bestMutated)) {
     const oldVal = current.params[key];
-    if (Math.abs(newVal - oldVal) > 0.001) {
-      const pct = ((newVal - oldVal) / oldVal) * 100;
+    if (oldVal !== undefined && Math.abs(newVal - oldVal) > 0.001) {
+      const pct = oldVal !== 0 ? ((newVal - oldVal) / oldVal) * 100 : 0;
       diffs.push(`${key}: ${oldVal.toFixed(3)} → ${newVal.toFixed(3)} (${pct > 0 ? "+" : ""}${pct.toFixed(1)}%)`);
     }
   }
   const description = diffs.length > 0
-    ? `Mutations: ${diffs.slice(0, 5).join(", ")}`
+    ? `Mutations: ${diffs.slice(0, 6).join(", ")}`
     : "No significant parameter changes";
 
   // Gemini analysis
@@ -303,8 +422,12 @@ export async function runGenomeEvolution(
 Current genome avg return: ${currentEval.avgReturn.toFixed(2)}%
 New genome avg return: ${bestEval.avgReturn.toFixed(2)}%
 Win rate: ${(bestEval.winRate * 100).toFixed(1)}%
+Fitness score: ${currentEval.fitnessScore.toFixed(3)} → ${bestEval.fitnessScore.toFixed(3)}
+Sharpe proxy: ${currentEval.sharpeProxy.toFixed(2)} → ${bestEval.sharpeProxy.toFixed(2)}
+Mutation strength: ${mutStrength.toFixed(3)} (adaptive)
 Sample size: ${trades.length} completed trades
 Target return goal: 5-10% per trade
+Statistically significant: ${statSig ? 'YES' : 'NO (bootstrap phase)'}
 
 Parameter changes:
 ${diffs.join("\n")}
@@ -331,11 +454,13 @@ In 2-3 sentences, explain what this parameter evolution means for the ${engine} 
         winRate: String(bestEval.winRate.toFixed(4)),
         sampleSize: trades.length,
         promotedAt: new Date(),
-        notes: `v${newVersion}: ${description}`,
+        notes: `v${newVersion}: fitness=${bestEval.fitnessScore.toFixed(3)} sharpe=${bestEval.sharpeProxy.toFixed(2)} | ${description}`,
       })
       .where(eq(engineGenome.engine, engine));
 
-    console.log(`[Genome:${engine}] ✅ Promoted v${current.version} → v${newVersion} | avg return ${currentEval.avgReturn.toFixed(2)}% → ${bestEval.avgReturn.toFixed(2)}%`);
+    console.log(`[Genome:${engine}] ✅ Promoted v${current.version} → v${newVersion} | avg ${currentEval.avgReturn.toFixed(2)}% → ${bestEval.avgReturn.toFixed(2)}% | fitness ${currentEval.fitnessScore.toFixed(3)} → ${bestEval.fitnessScore.toFixed(3)}`);
+  } else {
+    console.log(`[Genome:${engine}] ⬤ No promotion — best improvement: ${improvement.toFixed(2)}% (need ${minImprovement}%) | stat_sig: ${statSig}`);
   }
 
   // Always log the attempt

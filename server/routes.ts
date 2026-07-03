@@ -110,6 +110,9 @@ import {
   startFuguScheduler,
 } from "./fuguScheduler";
 import { computeConfluenceScore } from "./confluenceEngine";
+import { startSelfImprovingScheduler } from "./selfImprovingScheduler";
+import { runSwingScannerEvolved, runSwingLearningCycle, getSwingGenomeStatus } from "./swingGenomeEngine";
+import { runIpoScannerEvolved, runIpoLearningCycle, getIpoGenomeStatus } from "./ipoGenomeEngine";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -462,67 +465,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // IPO Scanner — dynamic base detection for recent IPOs
+  // IPO Scanner — dynamic base detection for recent IPOs (Self-Improving Evolved version)
   let ipoScanCache: { data: any[]; ts: number } | null = null;
-  const IPO_CACHE_TTL = 30 * 60 * 1000; // 30 min
+  const IPO_CACHE_TTL = 15 * 60 * 1000; // 15 min cache for faster loads
 
   app.get("/api/scanner/ipo", async (req, res) => {
     try {
       if (ipoScanCache && Date.now() - ipoScanCache.ts < IPO_CACHE_TTL) {
         console.log(
-          `Returning cached IPO results (${ipoScanCache.data.length} stocks)`,
+          `Returning cached evolved IPO results (${ipoScanCache.data.length} stocks)`,
         );
         return res.json(ipoScanCache.data);
       }
 
       console.log(
-        "IPO scanner endpoint hit — scanning stocks for recent listings forming a base...",
+        "IPO scanner endpoint hit — running evolved IPO genome scan...",
       );
-      const results = await runIpoScanner();
-      ipoScanCache = { data: results, ts: Date.now() };
-      res.json(results);
+      const scanResult = await runIpoScannerEvolved();
+      ipoScanCache = { data: scanResult.results, ts: Date.now() };
+      res.json(scanResult.results);
     } catch (error) {
-      console.error("Error in IPO scanner:", error);
-      res.status(500).json({ message: "Failed to run IPO scanner" });
+      console.error("Error in evolved IPO scanner:", error);
+      res.status(500).json({ message: "Failed to run evolved IPO scanner" });
     }
   });
 
-  // Scanner Data (Fallback for any other types)
-  app.get("/api/scanner/:type", async (req, res) => {
-    try {
-      const data = await storage.getScannerData(req.params.type);
-      res.json(data);
-    } catch (error) {
-      console.error("Error fetching scanner data:", error);
-      res.status(500).json({ message: "Failed to fetch scanner data" });
-    }
-  });
-
-  // Swing Scanner — real technical analysis on small/mid-cap stocks
+  // Swing Scanner — real technical analysis on small/mid-cap stocks (Self-Improving Evolved version)
   let swingScanCache: { data: any[]; ts: number } | null = null;
   const SWING_CACHE_TTL = 15 * 60 * 1000; // 15 min
 
   app.get("/api/swing-scanner", async (req, res) => {
     try {
       console.log(
-        "Swing scanner endpoint hit — scanning ~150 small/mid-cap stocks...",
+        "Swing scanner endpoint hit — running evolved Swing genome scan...",
       );
 
       // Return cached if fresh
       if (swingScanCache && Date.now() - swingScanCache.ts < SWING_CACHE_TTL) {
         console.log(
-          `Returning cached swing results (${swingScanCache.data.length} stocks)`,
+          `Returning cached evolved swing results (${swingScanCache.data.length} stocks)`,
         );
         return res.json({ stocks: swingScanCache.data, cached: true });
       }
 
-      const results = await runSwingScanner();
-      swingScanCache = { data: results, ts: Date.now() };
-      console.log(`Swing scanner found ${results.length} qualifying stocks`);
-      res.json({ stocks: results });
+      const scanResult = await runSwingScannerEvolved();
+      swingScanCache = { data: scanResult.results, ts: Date.now() };
+      console.log(`Evolved Swing scanner found ${scanResult.results.length} qualifying stocks (genome v${scanResult.genomeVersion})`);
+      res.json({ stocks: scanResult.results, genomeVersion: scanResult.genomeVersion });
     } catch (error) {
-      console.error("Error in swing scanner:", error);
-      res.status(500).json({ message: "Failed to run swing scanner" });
+      console.error("Error in evolved swing scanner:", error);
+      res.status(500).json({ message: "Failed to run evolved swing scanner" });
+    }
+  });
+
+  // Self-Improving Core API endpoints for Swing & IPO
+  app.get("/api/swing/genome-status", async (req, res) => {
+    try {
+      const status = await getSwingGenomeStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch Swing genome status", error: err.message });
+    }
+  });
+
+  app.post("/api/swing/evolve", async (req, res) => {
+    try {
+      const result = await runSwingLearningCycle();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to run Swing learning cycle", error: err.message });
+    }
+  });
+
+  app.get("/api/ipo/genome-status", async (req, res) => {
+    try {
+      const status = await getIpoGenomeStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch IPO genome status", error: err.message });
+    }
+  });
+
+  app.post("/api/ipo/evolve", async (req, res) => {
+    try {
+      const result = await runIpoLearningCycle();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to run IPO learning cycle", error: err.message });
     }
   });
 
@@ -3139,6 +3168,9 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
   // Start the shared VCP journal scheduler (outcome-check + sync for all engines)
   startVcpJournalScheduler();
+
+  // Start the self-improving scheduler (Swing, IPO, News engines)
+  startSelfImprovingScheduler();
 
   // Full dashboard data
   app.get("/api/fugu/dashboard", async (_req: Request, res: Response) => {

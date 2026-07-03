@@ -789,3 +789,134 @@ export const stockNewsCache = pgTable("stock_news_cache", {
 export type StockNewsCache = typeof stockNewsCache.$inferSelect;
 export type InsertStockNewsCache = typeof stockNewsCache.$inferInsert;
 
+// ══════════════════════════════════════════════════════════════
+// SWING SCANNER — Self-Improving Outcome Tracking
+// ══════════════════════════════════════════════════════════════
+
+export const swingOutcomes = pgTable("swing_outcomes", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  scanDate: timestamp("scan_date").notNull().defaultNow(),
+
+  // Entry data (from genome-aware scanner)
+  entryPrice: numeric("entry_price", { precision: 12, scale: 2 }).notNull(),
+  stopLoss: numeric("stop_loss", { precision: 12, scale: 2 }),
+  target: numeric("target", { precision: 12, scale: 2 }),
+  vcpScore: integer("vcp_score"),
+  newsScore: numeric("news_score", { precision: 6, scale: 2 }),
+  fundamentalScore: integer("fundamental_score"),
+  compositeScore: numeric("composite_score", { precision: 5, scale: 2 }),
+
+  // Genome version used for this scan
+  genomeVersion: integer("genome_version").notNull().default(1),
+
+  // Forward prices
+  price5d: numeric("price_5d", { precision: 12, scale: 2 }),
+  price10d: numeric("price_10d", { precision: 12, scale: 2 }),
+  price20d: numeric("price_20d", { precision: 12, scale: 2 }),
+
+  // Forward returns (%)
+  return5d: numeric("return_5d", { precision: 8, scale: 2 }),
+  return10d: numeric("return_10d", { precision: 8, scale: 2 }),
+  return20d: numeric("return_20d", { precision: 8, scale: 2 }),
+
+  // Outcome classification
+  outcome5d: varchar("outcome_5d", { length: 12 }),  // TARGET_HIT | SL_HIT | TIME_STOP | NEUTRAL
+  outcome10d: varchar("outcome_10d", { length: 12 }),
+  outcome20d: varchar("outcome_20d", { length: 12 }),
+
+  // Fill timestamps
+  filled5dAt: timestamp("filled_5d_at"),
+  filled10dAt: timestamp("filled_10d_at"),
+  filled20dAt: timestamp("filled_20d_at"),
+}, (table) => [
+  index("idx_swing_outcomes_symbol").on(table.symbol),
+  index("idx_swing_outcomes_scan_date").on(table.scanDate),
+]);
+
+export type SwingOutcome = typeof swingOutcomes.$inferSelect;
+export type InsertSwingOutcome = typeof swingOutcomes.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════
+// IPO SCANNER — Self-Improving Outcome Tracking
+// ══════════════════════════════════════════════════════════════
+
+export const ipoOutcomes = pgTable("ipo_outcomes", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  scanDate: timestamp("scan_date").notNull().defaultNow(),
+
+  // Entry data
+  entryPrice: numeric("entry_price", { precision: 12, scale: 2 }).notNull(),
+  listingDate: timestamp("listing_date"),
+  daysOld: integer("days_old"),
+  baseDepth: numeric("base_depth", { precision: 5, scale: 4 }),
+  consolidationRange: numeric("consolidation_range", { precision: 5, scale: 4 }),
+  avgVolume: numeric("avg_volume", { precision: 15, scale: 0 }),
+  ipoScore: integer("ipo_score"),
+  newsScore: numeric("news_score", { precision: 6, scale: 2 }),
+
+  // Genome version
+  genomeVersion: integer("genome_version").notNull().default(1),
+
+  // Forward prices
+  price5d: numeric("price_5d", { precision: 12, scale: 2 }),
+  price10d: numeric("price_10d", { precision: 12, scale: 2 }),
+  price20d: numeric("price_20d", { precision: 12, scale: 2 }),
+
+  // Forward returns (%)
+  return5d: numeric("return_5d", { precision: 8, scale: 2 }),
+  return10d: numeric("return_10d", { precision: 8, scale: 2 }),
+  return20d: numeric("return_20d", { precision: 8, scale: 2 }),
+
+  // Outcome classification
+  outcome5d: varchar("outcome_5d", { length: 12 }),
+  outcome10d: varchar("outcome_10d", { length: 12 }),
+  outcome20d: varchar("outcome_20d", { length: 12 }),
+
+  // Fill timestamps
+  filled5dAt: timestamp("filled_5d_at"),
+  filled10dAt: timestamp("filled_10d_at"),
+  filled20dAt: timestamp("filled_20d_at"),
+}, (table) => [
+  index("idx_ipo_outcomes_symbol").on(table.symbol),
+  index("idx_ipo_outcomes_scan_date").on(table.scanDate),
+]);
+
+export type IpoOutcome = typeof ipoOutcomes.$inferSelect;
+export type InsertIpoOutcome = typeof ipoOutcomes.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════
+// NEWS IMPACT LOG — Tracks news prediction accuracy for learning
+// ══════════════════════════════════════════════════════════════
+
+export const newsImpactLog = pgTable("news_impact_log", {
+  id: serial("id").primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  analysisDate: timestamp("analysis_date").notNull().defaultNow(),
+
+  // Prediction
+  predictedSentiment: numeric("predicted_sentiment", { precision: 6, scale: 2 }),  // -100 to +100
+  predictedMagnitude: integer("predicted_magnitude"),  // 1-5 scale of expected price impact
+  catalystType: varchar("catalyst_type", { length: 30 }),
+  headline: text("headline"),
+  geminiAnalysis: text("gemini_analysis"),
+
+  // Actual outcome (filled later)
+  priceAtAnalysis: numeric("price_at_analysis", { precision: 12, scale: 2 }),
+  priceAfter1d: numeric("price_after_1d", { precision: 12, scale: 2 }),
+  priceAfter3d: numeric("price_after_3d", { precision: 12, scale: 2 }),
+  actualReturn1d: numeric("actual_return_1d", { precision: 8, scale: 2 }),
+  actualReturn3d: numeric("actual_return_3d", { precision: 8, scale: 2 }),
+  predictionAccurate: boolean("prediction_accurate"),  // Did direction match?
+  magnitudeAccurate: boolean("magnitude_accurate"),    // Did magnitude bracket match?
+
+  filledAt: timestamp("filled_at"),
+}, (table) => [
+  index("idx_news_impact_symbol").on(table.symbol),
+  index("idx_news_impact_date").on(table.analysisDate),
+]);
+
+export type NewsImpactLog = typeof newsImpactLog.$inferSelect;
+export type InsertNewsImpactLog = typeof newsImpactLog.$inferInsert;
+

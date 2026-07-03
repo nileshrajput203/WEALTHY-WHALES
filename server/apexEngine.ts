@@ -16,6 +16,7 @@ import { getFOSignalForSymbol } from "./apexFOEngine";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { getGenome } from "./selfImprovingCore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -231,6 +232,7 @@ export function computeAPEXScore(features: Record<string, number>, weights: Reco
 /**
  * Morning scan job running at 9:10 AM IST.
  * Scans 200 stocks, ranks, picks Top 5 UP and Top 5 DOWN.
+ * Now genome-aware.
  */
 export async function runMorningScan(): Promise<void> {
   const startTime = Date.now();
@@ -239,6 +241,20 @@ export async function runMorningScan(): Promise<void> {
   try {
     const now = getNowIST();
     const { version, weights } = await getActiveWeights();
+    
+    // Load APEX genome parameters for meta-filtering
+    let minScoreThreshold = 50.0;
+    let topPicksCount = 5;
+    try {
+      const genome = await getGenome("APEX");
+      if (genome?.params) {
+        minScoreThreshold = genome.params.min_score_threshold ?? 50.0;
+        topPicksCount = Math.round(genome.params.top_picks_count ?? 5);
+        console.log(`[APEXEngine] Genome loaded: minScoreThreshold=${minScoreThreshold.toFixed(1)}, topPicksCount=${topPicksCount}`);
+      }
+    } catch (genomeErr: any) {
+      console.warn("[APEXEngine] Failed to load genome parameters, using defaults:", genomeErr.message);
+    }
     
     const niftyQuote = await getYahooStockQuote("^NSEI");
     const niftyReturn = niftyQuote ? niftyQuote.changePercent / 100 : 0;
@@ -280,8 +296,12 @@ export async function runMorningScan(): Promise<void> {
     // Sort descending
     predictions.sort((a, b) => b.score - a.score);
     
-    const topUp = predictions.slice(0, 5);
-    const topDown = predictions.slice(-5).reverse();
+    // Filter by genome confidence threshold, but ensure we have at least 3 candidates per side
+    const upsFiltered = predictions.filter(p => p.score >= minScoreThreshold);
+    const downsFiltered = predictions.filter(p => (100 - p.score) >= minScoreThreshold); // inverse score for shorts
+    
+    const topUp = (upsFiltered.length >= 3 ? upsFiltered : predictions).slice(0, topPicksCount);
+    const topDown = (downsFiltered.length >= 3 ? downsFiltered : predictions.slice().reverse()).slice(0, topPicksCount);
     
     const toInsert: any[] = [];
     const todayStr = getISTDateString(now);
@@ -328,7 +348,7 @@ export async function runMorningScan(): Promise<void> {
     }
     
     await db.insert(apexPredictions).values(toInsert);
-    console.log(`[APEXEngine] Scanned and saved 10 predictions (5 UP, 5 DOWN).`);
+    console.log(`[APEXEngine] Scanned and saved ${toInsert.length} predictions using genome parameters.`);
     
     const duration = Date.now() - startTime;
     await markJobDone("morning_scan", duration);

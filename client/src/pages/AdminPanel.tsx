@@ -311,6 +311,196 @@ export default function AdminPanel() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Self-Improving Genome Optimizer Dashboard */}
+        <Card className="w-full mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">
+                🧠 Meta-Genome Optimizer (Self-Improving Core)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              These neural-genetic genomes evolve scanner filtering rules, confidence thresholds, weights, and holding times by matching predicted moves against actual market returns. Mutated versions are promoted when they yield a statistically significant boost in expected return.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Swing Scanner Engine */}
+              <SwingGenomeCard queryClient={queryClient} />
+
+              {/* IPO Radar Engine */}
+              <IpoGenomeCard queryClient={queryClient} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function SwingGenomeCard({ queryClient }: { queryClient: any }) {
+  const { data: status, isLoading } = useQuery<any>({
+    queryKey: ["/api/swing/genome-status"],
+  });
+
+  const evolveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/swing/evolve", { method: "POST" });
+      if (!response.ok) throw new Error("Evolution failed");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/swing/genome-status"] });
+      alert(data.promoted 
+        ? `✅ Success! Promoted to new Genome Version. Avg Return: ${data.oldAvgReturn.toFixed(2)}% → ${data.newAvgReturn.toFixed(2)}%.` 
+        : `⬤ Optimization complete. No promotion made (improvement was below significance threshold).`
+      );
+    },
+    onError: (err: any) => {
+      alert(`Error running learning cycle: ${err.message}`);
+    }
+  });
+
+  if (isLoading || !status) return <div className="p-4 border rounded-lg text-center animate-pulse">Loading Swing Genome...</div>;
+
+  return (
+    <div className="border rounded-xl p-5 bg-card/50 space-y-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-lg text-primary flex items-center gap-2">
+            🚀 Swing Watch Genome
+          </h3>
+          <span className="text-xs font-mono bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20">
+            Version {status.genomeVersion}
+          </span>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          disabled={evolveMutation.isPending}
+          onClick={() => evolveMutation.mutate()}
+          className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+        >
+          {evolveMutation.isPending ? "Evolving..." : "Trigger Evolution"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 text-xs">
+        <div className="bg-background/40 p-2 rounded-lg">
+          <span className="text-muted-foreground block">Genome Expected Return</span>
+          <span className="text-base font-bold text-green-400">+{parseFloat(status.avgReturn || "0").toFixed(2)}%</span>
+        </div>
+        <div className="bg-background/40 p-2 rounded-lg">
+          <span className="text-muted-foreground block">Completed Outcomes</span>
+          <span className="text-base font-bold text-foreground">{status.completedOutcomes} trades</span>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-xs text-muted-foreground font-semibold block mb-2">Active DNA Parameters:</span>
+        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Min Grade Score:</span>
+            <span className="text-foreground">{(status.params.min_grade_score ?? 65).toFixed(1)}</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">ATR Tightness Max:</span>
+            <span className="text-foreground">{(status.params.atr_tightness_max ?? 0.06).toFixed(3)}</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Dryup Vol Max:</span>
+            <span className="text-foreground">{(status.params.volume_dryup_max ?? 0.85).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Max Hold Days:</span>
+            <span className="text-foreground">{(status.params.max_hold_days ?? 10).toFixed(0)}d</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IpoGenomeCard({ queryClient }: { queryClient: any }) {
+  const { data: status, isLoading } = useQuery<any>({
+    queryKey: ["/api/ipo/genome-status"],
+  });
+
+  const evolveMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/ipo/evolve", { method: "POST" });
+      if (!response.ok) throw new Error("Evolution failed");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ipo/genome-status"] });
+      alert(data.promoted 
+        ? `✅ Success! Promoted to new Genome Version. Avg Return: ${data.oldAvgReturn.toFixed(2)}% → ${data.newAvgReturn.toFixed(2)}%.` 
+        : `⬤ Optimization complete. No promotion made (improvement was below significance threshold).`
+      );
+    },
+    onError: (err: any) => {
+      alert(`Error running learning cycle: ${err.message}`);
+    }
+  });
+
+  if (isLoading || !status) return <div className="p-4 border rounded-lg text-center animate-pulse">Loading IPO Genome...</div>;
+
+  return (
+    <div className="border rounded-xl p-5 bg-card/50 space-y-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-lg text-primary flex items-center gap-2">
+            🎯 IPO Radar Genome
+          </h3>
+          <span className="text-xs font-mono bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-500/20">
+            Version {status.genomeVersion}
+          </span>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          disabled={evolveMutation.isPending}
+          onClick={() => evolveMutation.mutate()}
+          className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+        >
+          {evolveMutation.isPending ? "Evolving..." : "Trigger Evolution"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 text-xs">
+        <div className="bg-background/40 p-2 rounded-lg">
+          <span className="text-muted-foreground block">Genome Expected Return</span>
+          <span className="text-base font-bold text-green-400">+{parseFloat(status.avgReturn || "0").toFixed(2)}%</span>
+        </div>
+        <div className="bg-background/40 p-2 rounded-lg">
+          <span className="text-muted-foreground block">Completed Outcomes</span>
+          <span className="text-base font-bold text-foreground">{status.completedOutcomes} trades</span>
+        </div>
+      </div>
+
+      <div>
+        <span className="text-xs text-muted-foreground font-semibold block mb-2">Active DNA Parameters:</span>
+        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Min IPO Score:</span>
+            <span className="text-foreground">{(status.params.min_score_threshold ?? 50).toFixed(1)}</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Max Base Depth:</span>
+            <span className="text-foreground">{((status.params.max_base_depth_pct ?? 0.35) * 100).toFixed(1)}%</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Consol. Range:</span>
+            <span className="text-foreground">{((status.params.consolidation_range_pct ?? 0.15) * 100).toFixed(1)}%</span>
+          </div>
+          <div className="flex justify-between border-b py-1">
+            <span className="text-muted-foreground">Min Avg Volume:</span>
+            <span className="text-foreground">{(status.params.min_avg_volume ?? 5000).toFixed(0)}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

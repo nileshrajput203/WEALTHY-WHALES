@@ -1377,24 +1377,37 @@ Return ONLY valid JSON (no markdown formatting, no explanation, no backticks).`;
       await db.update(fuguElitePicks).set({ isActive: false });
 
       // We show whoever has a score of 80-85+ score.
-      // If no stocks meet the threshold of 80, we fallback to the top 5 stocks to keep the dashboard populated.
-      const threshold = 80;
+      // Now genome-aware.
+      let threshold = 80;
+      let topCount = 5;
+      try {
+        const { getGenome } = await import("./selfImprovingCore");
+        const genome = await getGenome("FUGU");
+        if (genome?.params) {
+          threshold = genome.params.min_score_threshold ?? 80;
+          topCount = Math.round(genome.params.top_picks_count ?? 5);
+          console.log(`[FUGU Pipeline] Evolved parameters loaded: threshold=${threshold}, topCount=${topCount}`);
+        }
+      } catch (genomeErr: any) {
+        console.warn("[FUGU Pipeline] Failed to load genome parameters, using defaults:", genomeErr.message);
+      }
+
       let picksToInsert = snapsWithComposite.filter(
         (s) => s.compScore >= threshold,
       );
 
       if (picksToInsert.length === 0) {
         console.log(
-          `[FUGU Pipeline] No stocks scored above ${threshold}. Falling back to top 5 stocks.`,
+          `[FUGU Pipeline] No stocks scored above ${threshold}. Falling back to top ${topCount} stocks.`,
         );
-        picksToInsert = snapsWithComposite.slice(0, 5);
+        picksToInsert = snapsWithComposite.slice(0, topCount);
       }
 
       for (let i = 0; i < picksToInsert.length; i++) {
         const { snap, compScore } = picksToInsert[i];
         let verdict = "ELITE_80";
-        if (compScore >= 85) verdict = "ELITE_85";
-        else if (compScore < 80) verdict = `TOP_${i + 1}`; // fallback classification
+        if (compScore >= Math.min(95, threshold + 5)) verdict = "ELITE_85";
+        else if (compScore < threshold) verdict = `TOP_${i + 1}`; // fallback classification
 
         await db.insert(fuguElitePicks).values({
           snapshotId: snap.id,
@@ -1839,6 +1852,25 @@ Generate a structured JSON output with fields:
 
   // 4. Run Weight Optimizer
   const weightsOptimized = await runFuguWeightOptimizer(completed, currentRegime, geminiInsights, thresholds);
+
+  // 5. Run FUGU Genome Evolution (Self-Improving Meta-Parameters)
+  try {
+    const { runGenomeEvolution } = await import("./selfImprovingCore");
+    const genomeTrades = completed.map((row) => ({
+      returnPct: parseFloat(row.fugu_outcomes.return5d || "0"),
+      vcpScore: parseFloat(row.fugu_snapshots.fuguScore || "0"),
+    }));
+
+    const genomeResult = await runGenomeEvolution("FUGU", genomeTrades, {
+      mutations: 20,
+      minImprovement: 0.2,
+    });
+    console.log(
+      `[Fugu Learning Agent] Genome evolution complete: ${genomeResult.promoted ? "✅ PROMOTED" : "⬤ unchanged"} | avg return ${genomeResult.oldAvgReturn.toFixed(2)}% → ${genomeResult.newAvgReturn.toFixed(2)}%`,
+    );
+  } catch (err: any) {
+    console.error("[Fugu Learning Agent] Genome evolution failed:", err.message);
+  }
 
   return { insightsAdded, weightsOptimized };
 }
