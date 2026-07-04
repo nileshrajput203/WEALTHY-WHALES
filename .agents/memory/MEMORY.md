@@ -6,3 +6,6 @@
 - [AI JSON validation](ai-json-validation.md) — StockInsight JSON from Gemini is runtime-validated field by field; no blind "as Type" casts allowed on AI output
 - [Schema enum types](schema-enums.md) — recommendationType, role, scannerType use .$type<"BUY"|"SELL"|"HOLD">() etc for TypeScript narrowing without DB migration
 - [Zod POST validation](zod-post-validation.md) — /api/user/telegram and /api/signals/log use z.safeParse() for body validation; return 400 on invalid input
+- [Gemini token reduction](gemini-token-reduction.md) — cache TTLs (60m/15m/4h), toPromptJSON(), maxOutputTokens 4096, no thinkingBudget; mandatory for all new AI functions
+- [Security headers](security-headers.md) — headers in server/index.ts; CSP must include TradingView domains (s3.tradingview.com) or chart widgets break in production
+- [Genome API routes](genome-api-routes.md) — unified genome endpoints + EngineId allowlist validation pattern + hermesScheduler swing/IPO genome jobs at 19:00/19:15 IST

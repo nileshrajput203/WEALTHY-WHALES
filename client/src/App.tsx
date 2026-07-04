@@ -56,7 +56,7 @@ function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="hover-elevate rounded-full hidden sm:flex"
+      className="hover-elevate rounded-full flex"
       data-testid="button-theme-toggle"
     >
       <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
@@ -154,7 +154,7 @@ function AppContent() {
               borderBottom: "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:hidden" />
               <div className="hidden sm:flex items-center gap-2">
                 <span className="text-base font-bold font-display text-foreground/80 leading-none tracking-tight">Wealthy Whales</span>
@@ -165,32 +165,56 @@ function AppContent() {
                 </div>
               </div>
             </div>
-            <div className="flex-1 max-w-xl mx-2 sm:mx-3 min-w-0">
+            <div className="flex-1 max-w-xl mx-1.5 sm:mx-3 min-w-0">
               <StockSearchBar />
             </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <ViewModeToggle />
               <ThemeToggle />
               {isAuthenticated ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.location.href = "/api/logout"}
-                  data-testid="button-logout"
-                  className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
-                >
-                  Sign out
-                </Button>
+                <>
+                  {/* Desktop: text button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.location.href = "/api/logout"}
+                    data-testid="button-logout"
+                    className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
+                  >
+                    Sign out
+                  </Button>
+                  {/* Mobile: icon button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => window.location.href = "/api/logout"}
+                    className="flex sm:hidden h-8 w-8 text-foreground/40"
+                    title="Sign out"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  </Button>
+                </>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => window.location.href = "/api/auth/google"}
-                  data-testid="button-login"
-                  className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
-                >
-                  Sign in
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.location.href = "/api/auth/google"}
+                    data-testid="button-login"
+                    className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
+                  >
+                    Sign in
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => window.location.href = "/api/auth/google"}
+                    className="flex sm:hidden h-8 w-8 text-primary/70"
+                    title="Sign in"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                  </Button>
+                </>
               )}
             </div>
           </header>

@@ -23,20 +23,33 @@ const MODEL = "gemini-flash-latest";
 export const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL || "gemini-flash-latest";
 const GEMINI_FLASH_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-// Simple in-memory cache to handle Gemini API rate limits (Free Tier 5 RPM)
+// In-memory cache — reduces AI calls and token spend dramatically
 const cache: Record<string, { data: any; timestamp: number }> = {};
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache life
+const CACHE_TTL        = 60 * 60 * 1000;  // 60 min default (slow-changing analysis)
+const CACHE_TTL_SHORT  = 15 * 60 * 1000;  // 15 min for volatile data (technicals, insights)
+const CACHE_TTL_LONG   = 4 * 60 * 60 * 1000; // 4h for sector rotation & concall data
 
-function getCached<T>(key: string): T | null {
+function getCached<T>(key: string, ttl = CACHE_TTL): T | null {
   const cached = cache[key];
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < ttl) {
     return cached.data as T;
   }
   return null;
 }
 
-function setCached(key: string, data: any): void {
+function setCached(key: string, data: any, _ttl?: number): void {
+  // _ttl is informational — expiry is checked in getCached() using its ttl param
   cache[key] = { data, timestamp: Date.now() };
+}
+
+/** Compress object to compact JSON for prompt injection (no pretty-printing = fewer tokens). */
+function toPromptJSON(obj: any, maxKeys?: number): string {
+  if (!obj || typeof obj !== "object") return String(obj ?? "N/A");
+  const cleaned: Record<string, any> = {};
+  const keys = Object.keys(obj).filter(k => obj[k] !== null && obj[k] !== undefined && obj[k] !== "");
+  const selected = maxKeys ? keys.slice(0, maxKeys) : keys;
+  for (const k of selected) cleaned[k] = obj[k];
+  return JSON.stringify(cleaned);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -270,7 +283,7 @@ async function callGeminiFlashApi(
       contents: [{ role: "user", parts: [{ text: userContents }] }],
       generationConfig: {
         temperature: 0.25,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 4096,
         responseMimeType: "text/plain",
       },
     },
@@ -401,7 +414,7 @@ export async function getFinancialAdvice(
 
   const historyKey = history.map((h) => `${h.role}:${h.message.slice(0, 80)}`).join("|");
   const cacheKey = `financialAdvice:${userQuery}:${stockContext || ""}:${historyKey}`;
-  const cached = getCached<{ text: string; model: string }>(cacheKey);
+  const cached = getCached<{ text: string; model: string }>(cacheKey, CACHE_TTL_SHORT);
   if (cached) return cached;
 
   const historyBlock = buildConversationContext(history);
@@ -414,9 +427,9 @@ For general market questions: concise professional answer with bullet highlights
 
   const dataBlock = stockData
     ? `\n\nLIVE DATA FOR ${stockData.symbol}${stockData.companyName ? ` (${stockData.companyName})` : ""}:
-Current Price: ₹${stockData.currentPrice ?? "N/A"}
-Fundamentals: ${JSON.stringify(stockData.fundamentals || {}, null, 2)}
-Recent News: ${JSON.stringify((stockData.newsSample || []).slice(0, 8))}`
+Price: ₹${stockData.currentPrice ?? "N/A"}
+Fundamentals: ${toPromptJSON(stockData.fundamentals, 20)}
+News: ${JSON.stringify((stockData.newsSample || []).slice(0, 5))}`
     : stockContext
       ? `\n\nStock context: ${stockContext}`
       : "";
@@ -458,7 +471,7 @@ Symbol: ${symbol}
 Timeframe: ${timeframe} (short=1 month, mid=6 months, long=2 years)
 
 FUNDAMENTAL SIGNALS (weight 40%):
-${JSON.stringify(fundamentals || {}, null, 2)}
+${toPromptJSON(fundamentals, 15)}
 
 TECHNICAL SIGNALS (weight 40%):
 Key metrics — RSI14: ${technicals?.indicators?.rsi14?.toFixed(1) ?? "N/A"},
@@ -466,10 +479,10 @@ SMA20: ₹${technicals?.indicators?.sma20?.toFixed(2) ?? "N/A"},
 SMA50: ₹${technicals?.indicators?.sma50?.toFixed(2) ?? "N/A"},
 Trend: ${technicals?.trend ?? "unknown"},
 Momentum: ${technicals?.momentum ?? "unknown"}
-Full data: ${JSON.stringify(technicals || {}, null, 2)}
+Full data: ${toPromptJSON(technicals)}
 
 NEWS/SENTIMENT (weight 20%):
-${(newsSample ?? []).slice(0, 5).join("\n") || "No recent news available."}
+${(newsSample ?? []).slice(0, 4).join("\n") || "No recent news available."}
 
 SCORING FRAMEWORK:
 - RSI < 30 = oversold bullish signal; RSI > 70 = overbought bearish signal
@@ -488,11 +501,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 Be decisive. Confidence > 70 for clear signals. Only use Hold if evidence is genuinely split.`;
 
-  const response = await generateWithRetry({
-    model:    MODEL,
-    contents: prompt,
-    config:   { thinkingConfig: { thinkingBudget: 512 } },
-  });
+  const response = await generateWithRetry({ model: MODEL, contents: prompt });
 
   try {
     const text = (response.text || "{}").replace(/```json|```/g, "").trim();
@@ -566,19 +575,16 @@ For missing values use "-" but provide sector-benchmark insight.
 Use bold with ** only. No single-asterisk italics. No disclaimers.
 
 Symbol: ${params.symbol}
-Fundamentals data: ${JSON.stringify(params.fundamentals || {})}
-Technical context: ${JSON.stringify(params.technicals || {})}
-News: ${JSON.stringify(params.newsSample || [])}`;
+Fundamentals: ${toPromptJSON(params.fundamentals, 15)}
+Technicals: RSI=${params.technicals?.indicators?.rsi14?.toFixed(1) ?? "N/A"} Trend=${params.technicals?.trend ?? "N/A"} Momentum=${params.technicals?.momentum ?? "N/A"}
+News: ${JSON.stringify((params.newsSample || []).slice(0, 4))}`;
 
   const response = await generateWithRetry({
     model:    MODEL,
     contents: prompt,
-    config:   { thinkingConfig: { thinkingBudget: 2048 } },
   });
   const result = response.text || "";
-  if (result) {
-    setCached(cacheKey, result);
-  }
+  if (result) setCached(cacheKey, result);
   return result;
 }
 
@@ -640,12 +646,9 @@ Bold with ** only. No disclaimers.`;
   const response = await generateWithRetry({
     model:    MODEL,
     contents: prompt,
-    config:   { thinkingConfig: { thinkingBudget: 1024 } },
   });
   const result = response.text || "";
-  if (result) {
-    setCached(cacheKey, result);
-  }
+  if (result) setCached(cacheKey, result);
   return result;
 }
 
@@ -697,11 +700,7 @@ Return ONLY a valid JSON array. No explanation, no markdown:
 ]`;
 
   try {
-    const response = await generateWithRetry({
-      model:    MODEL,
-      contents: prompt,
-      config:   { thinkingConfig: { thinkingBudget: 512 } },
-    });
+    const response = await generateWithRetry({ model: MODEL, contents: prompt });
 
     const text = (response.text || "[]")
       .replace(/```json|```/g, "")
@@ -775,8 +774,8 @@ CRITICAL INSTRUCTION: You MUST provide data ONLY for the specific company reques
 
 Using your knowledge of this company's last 4 quarterly earnings concall transcripts and last 2 annual reports (FY2024-25 and FY2023-24), provide a structured JSON response.
 
-Available fundamental data: ${JSON.stringify(fundamentals || {}, null, 2)}
-Recent news: ${JSON.stringify((newsSample || []).slice(0, 5))}
+Fundamentals: ${toPromptJSON(fundamentals, 12)}
+News: ${JSON.stringify((newsSample || []).slice(0, 3))}
 
 Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 {
@@ -893,16 +892,12 @@ All numbers should be realistic based on your knowledge of this company.
 If you don't know exact figures, provide reasonable estimates clearly labeled.`;
 
   try {
-    const response = await generateWithRetry({
-      model: MODEL,
-      contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 4096 } },
-    });
+    const response = await generateWithRetry({ model: MODEL, contents: prompt });
     const text = (response.text || "{}").replace(/```json|```/g, "").trim();
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in response");
     const parsed = JSON.parse(match[0]);
-    setCached(cacheKey, parsed);
+    setCached(cacheKey, parsed, CACHE_TTL_LONG);
     return parsed;
   } catch (err) {
     console.error("Concall/AR summary error:", err);
@@ -935,10 +930,10 @@ Produce a comprehensive fundamental analysis dashboard for stock: ${symbol}${con
 CRITICAL INSTRUCTION: You MUST provide the dashboard ONLY for ${concallData?.companyName || symbol}. DO NOT substitute it with another company's analysis (like Eicher Motors). All text, commentary, risks, and opportunities MUST be specifically about ${concallData?.companyName || symbol} and its specific industry.
 
 CURRENT PRICE: ₹${currentPrice ?? "N/A"}
-FUNDAMENTALS: ${JSON.stringify(fundamentals || {}, null, 2)}
+FUNDAMENTALS: ${toPromptJSON(fundamentals, 20)}
 TECHNICALS: RSI=${technicals?.indicators?.rsi14?.toFixed(1) ?? "N/A"}, Trend=${technicals?.trend ?? "N/A"}, Momentum=${technicals?.momentum ?? "N/A"}
-NEWS: ${JSON.stringify((newsSample || []).slice(0, 8))}
-CONCALL + ANNUAL REPORT DATA: ${JSON.stringify(concallData || {}, null, 2)}
+NEWS: ${JSON.stringify((newsSample || []).slice(0, 5))}
+CONCALL + ANNUAL REPORT DATA: ${toPromptJSON(concallData)}
 
 Return ONLY valid JSON (no markdown, no explanation):
 {
@@ -1138,11 +1133,7 @@ debtMaturityProfile must be one of: "Comfortable", "Moderate", "Stressed"
 Be specific and accurate based on the company's actual situation.`;
 
   try {
-    const response = await generateWithRetry({
-      model: MODEL,
-      contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 4096 } },
-    });
+    const response = await generateWithRetry({ model: MODEL, contents: prompt });
     const text = (response.text || "{}").replace(/```json|```/g, "").trim();
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in dashboard response");
@@ -1157,7 +1148,7 @@ Be specific and accurate based on the company's actual situation.`;
 
 export async function getSectorRotationAnalysis(sectorPerformanceData: any[]): Promise<any> {
   const cacheKey = "sectorRotationAnalysis";
-  const cached = getCached<any>(cacheKey);
+  const cached = getCached<any>(cacheKey, CACHE_TTL_LONG);
   if (cached) return cached;
 
   const today = new Date().toLocaleDateString("en-IN", {
@@ -1170,7 +1161,7 @@ Today is ${today}.
 
 Analyze the Indian market sectors (Nifty Bank, Nifty IT, Nifty Pharma, Nifty Auto, Nifty Metal, Nifty FMCG, Nifty Realty, Nifty Infrastructure, Nifty Energy) under the lens of the economic cycle, interest rate trajectory (RBI repo rate cycle), inflation trends, rupee strength, credit growth, and global liquidity.
 
-Here is the current performance data for these sectors:
+Current sector performance data:
 ${JSON.stringify(sectorPerformanceData, null, 2)}
 
 Provide a comprehensive, institutional-grade Sector Rotation Strategy report. Your analysis must be highly specific, professional, and directly useful for structuring a multi-crore investment portfolio.
@@ -1252,16 +1243,12 @@ Return ONLY valid JSON matching this exact structure:
 Do not return any markdown formatting outside the JSON block. Be specific, accurate, and base details on Indian market realities.`;
 
   try {
-    const response = await generateWithRetry({
-      model: MODEL,
-      contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 4096 } },
-    });
+    const response = await generateWithRetry({ model: MODEL, contents: prompt });
     const text = (response.text || "{}").replace(/```json|```/g, "").trim();
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No JSON in sector rotation response");
     const parsed = JSON.parse(match[0]);
-    setCached(cacheKey, parsed);
+    setCached(cacheKey, parsed, CACHE_TTL_LONG);
     return parsed;
   } catch (err) {
     console.error("Sector rotation engine error:", err);

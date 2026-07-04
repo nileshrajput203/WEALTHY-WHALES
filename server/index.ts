@@ -4,6 +4,51 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// ── Security headers — protect source, prevent framing & scraping ──────────
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Prevent clickjacking
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // Prevent MIME sniffing
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // XSS protection (legacy browsers)
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  // Referrer control
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Remove server fingerprint
+  res.removeHeader("X-Powered-By");
+  // Permissions policy — restrict sensitive APIs
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  // Content-Security-Policy — restrict where resources can be fetched from
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        // TradingView widget scripts + Google OAuth
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://s3.tradingview.com https://s.tradingview.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https://generativelanguage.googleapis.com https://api.groq.com https://openrouter.ai https://query1.finance.yahoo.com https://finance.yahoo.com wss:",
+        // TradingView chart iframes
+        "frame-src 'self' https://s.tradingview.com https://www.tradingview.com",
+        "frame-ancestors 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+      ].join("; ")
+    );
+  }
+  next();
+});
+
+// ── robots.txt — block scrapers from crawling API routes ───────────────────
+app.get("/robots.txt", (_req: Request, res: Response) => {
+  res.type("text/plain").send(
+    "User-agent: *\nDisallow: /api/\nDisallow: /admin\nAllow: /\n"
+  );
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

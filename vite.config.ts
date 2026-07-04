@@ -30,6 +30,34 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: false,           // ← Never expose source maps in production
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,     // Strip console.* calls from production bundle
+        drop_debugger: true,
+        passes: 2,
+      },
+      mangle: {
+        toplevel: true,         // Aggressively rename top-level identifiers
+      },
+      format: {
+        comments: false,        // Strip all comments
+      },
+    },
+    rollupOptions: {
+      output: {
+        // Chunk names without readable module paths
+        chunkFileNames: "assets/[hash].js",
+        entryFileNames: "assets/[hash].js",
+        assetFileNames: "assets/[hash].[ext]",
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          charts: ["recharts"],
+          motion: ["framer-motion"],
+        },
+      },
+    },
   },
   server: {
     fs: {

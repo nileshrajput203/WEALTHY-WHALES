@@ -88,6 +88,7 @@ import {
   getHermesWeightHistory,
   getHermesRegimeHistory,
   getHermesRecentOutcomes,
+  runLearningCycle as runHermesLearningCycle,
 } from "./hermesEngine";
 import {
   triggerManualScan,
@@ -96,7 +97,7 @@ import {
   getHermesStatus,
   startHermesScheduler,
 } from "./hermesScheduler";
-import { getFuguDashboard } from "./fuguEngine";
+import { getFuguDashboard, runFuguLearningCycle } from "./fuguEngine";
 import {
   getJournalStats,
   getVcpJournalEntries,
@@ -113,6 +114,8 @@ import { computeConfluenceScore } from "./confluenceEngine";
 import { startSelfImprovingScheduler } from "./selfImprovingScheduler";
 import { runSwingScannerEvolved, runSwingLearningCycle, getSwingGenomeStatus } from "./swingGenomeEngine";
 import { runIpoScannerEvolved, runIpoLearningCycle, getIpoGenomeStatus } from "./ipoGenomeEngine";
+import { getAllGenomes, getGenomeHistory, runGenomeEvolution, type EngineId } from "./selfImprovingCore";
+import { analyzeNewsImpact } from "./newsImpactScorer";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -528,7 +531,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/swing/evolve", async (req, res) => {
+  app.post("/api/swing/evolve", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id;
+    const adminUser = await storage.getUser(userId);
+    if (!adminUser?.isAdmin) return res.status(403).json({ message: "Admin access required" });
     try {
       const result = await runSwingLearningCycle();
       res.json(result);
@@ -546,12 +552,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ipo/evolve", async (req, res) => {
+  app.post("/api/ipo/evolve", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id;
+    const adminUser = await storage.getUser(userId);
+    if (!adminUser?.isAdmin) return res.status(403).json({ message: "Admin access required" });
     try {
       const result = await runIpoLearningCycle();
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: "Failed to run IPO learning cycle", error: err.message });
+    }
+  });
+
+  // ── Unified Genome API ──────────────────────────────────────────────────────
+
+  /** GET /api/genome/status — status of all engine genomes */
+  app.get("/api/genome/status", async (req, res) => {
+    try {
+      const [swingStatus, ipoStatus, allGenomes] = await Promise.all([
+        getSwingGenomeStatus(),
+        getIpoGenomeStatus(),
+        getAllGenomes(),
+      ]);
+      res.json({ swing: swingStatus, ipo: ipoStatus, all: allGenomes });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch genome status", error: err.message });
+    }
+  });
+
+  const VALID_ENGINE_IDS: EngineId[] = ["HERMES", "SWING", "APEX", "IPO", "FUGU"];
+  function parseEngineId(raw: string): EngineId | null {
+    const upper = raw.toUpperCase() as EngineId;
+    return VALID_ENGINE_IDS.includes(upper) ? upper : null;
+  }
+
+  /** GET /api/genome/:engine/history — genome evolution history for one engine */
+  app.get("/api/genome/:engine/history", async (req, res) => {
+    const engine = parseEngineId(req.params.engine);
+    if (!engine) return res.status(400).json({ message: `Invalid engine. Must be one of: ${VALID_ENGINE_IDS.join(", ")}` });
+    try {
+      const rawLimit = parseInt(String(req.query.limit || "20"), 10);
+      const limit = isNaN(rawLimit) ? 20 : Math.min(Math.max(1, rawLimit), 100);
+      const history = await getGenomeHistory(engine, limit);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch genome history", error: err.message });
+    }
+  });
+
+  /** POST /api/genome/:engine/evolve — manually trigger a full learning+genome-evolution cycle (admin-only) */
+  app.post("/api/genome/:engine/evolve", isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id;
+    const adminUser = await storage.getUser(userId);
+    if (!adminUser?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+    const engine = parseEngineId(req.params.engine);
+    if (!engine) return res.status(400).json({ message: `Invalid engine. Must be one of: ${VALID_ENGINE_IDS.join(", ")}` });
+    try {
+      // Delegate to the engine-specific learning cycle — it loads real outcomes from DB
+      // before calling runGenomeEvolution internally, so trades are never empty.
+      let result: any;
+      switch (engine) {
+        case "HERMES": result = await runHermesLearningCycle(); break;
+        case "SWING":  result = await runSwingLearningCycle(); break;
+        case "IPO":    result = await runIpoLearningCycle(); break;
+        case "FUGU":   result = await runFuguLearningCycle(); break;
+        case "APEX":   result = await runLearningCycle(); break;
+        default:       return res.status(400).json({ message: "Unknown engine" });
+      }
+      res.json({ engine, result });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to evolve genome", error: err.message });
+    }
+  });
+
+  /** GET /api/news/impact/:symbol — deep news impact analysis for a symbol */
+  app.get("/api/news/impact/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      const result = await analyzeNewsImpact(symbol);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to analyze news impact", error: err.message });
     }
   });
 

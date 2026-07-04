@@ -17,6 +17,8 @@ import {
   classifyMarketRegime,
   initializeHermes,
 } from "./hermesEngine";
+import { runSwingLearningCycle } from "./swingGenomeEngine";
+import { runIpoLearningCycle } from "./ipoGenomeEngine";
 import { db } from "./db";
 import { hermesSnapshots } from "@shared/schema";
 import { sql } from "drizzle-orm";
@@ -207,6 +209,32 @@ export function startHermesScheduler(): void {
           status.lastLearningResult = result;
         } catch (e) {
           console.error("[HERMES Scheduler] Learning cycle error:", e);
+        }
+      }
+
+      // 4. Swing Genome Evolution: 7:00 PM IST (19:00), every 12 hours
+      if (isWeekday(ist) && hour === 19 && minute === 0) {
+        if (await shouldRunJob("swing_genome_evolution", 720)) {
+          try {
+            console.log("[HERMES Scheduler] Running Swing genome evolution...");
+            await runSwingLearningCycle();
+            console.log("[HERMES Scheduler] ✅ Swing genome evolution complete.");
+          } catch (e) {
+            console.error("[HERMES Scheduler] Swing genome evolution error:", e);
+          }
+        }
+      }
+
+      // 5. IPO Genome Evolution: 7:15 PM IST (19:15), every 12 hours
+      if (isWeekday(ist) && hour === 19 && minute === 15) {
+        if (await shouldRunJob("ipo_genome_evolution", 720)) {
+          try {
+            console.log("[HERMES Scheduler] Running IPO genome evolution...");
+            await runIpoLearningCycle();
+            console.log("[HERMES Scheduler] ✅ IPO genome evolution complete.");
+          } catch (e) {
+            console.error("[HERMES Scheduler] IPO genome evolution error:", e);
+          }
         }
       }
 
