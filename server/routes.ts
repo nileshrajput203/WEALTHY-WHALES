@@ -116,6 +116,7 @@ import { runSwingScannerEvolved, runSwingLearningCycle, getSwingGenomeStatus } f
 import { runIpoScannerEvolved, runIpoLearningCycle, getIpoGenomeStatus } from "./ipoGenomeEngine";
 import { getAllGenomes, getGenomeHistory, runGenomeEvolution, type EngineId } from "./selfImprovingCore";
 import { analyzeNewsImpact } from "./newsImpactScorer";
+import { runVcp2Scanner } from "./vcp2Scanner";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -518,6 +519,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in evolved swing scanner:", error);
       res.status(500).json({ message: "Failed to run evolved swing scanner" });
+    }
+  });
+
+  // VCP2 Scanner — relaxed 8-filter VCP scan
+  let vcp2ScanCache: { data: any[]; ts: number } | null = null;
+  const VCP2_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+  app.get("/api/swing-scanner-vcp2", async (req, res) => {
+    try {
+      console.log("VCP2 scanner endpoint hit — running 8-filter relaxed VCP scan...");
+
+      // Return cached if fresh
+      if (vcp2ScanCache && Date.now() - vcp2ScanCache.ts < VCP2_CACHE_TTL) {
+        console.log(`Returning cached VCP2 results (${vcp2ScanCache.data.length} stocks)`);
+        return res.json({ stocks: vcp2ScanCache.data, cached: true });
+      }
+
+      const results = await runVcp2Scanner();
+      vcp2ScanCache = { data: results, ts: Date.now() };
+      console.log(`VCP2 scanner found ${results.length} qualifying stocks`);
+      res.json({ stocks: results });
+    } catch (error) {
+      console.error("Error in VCP2 scanner:", error);
+      res.status(500).json({ message: "Failed to run VCP2 scanner" });
     }
   });
 

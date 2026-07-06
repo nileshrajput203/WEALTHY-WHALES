@@ -53,9 +53,12 @@ export default function SwingScanner() {
   const [expandedRow,      setExpandedRow]      = useState<number | null>(null);
   const [alertTarget,      setAlertTarget]      = useState<SwingStock | null>(null);
   const [alertThreshold,   setAlertThreshold]   = useState(70);
+  const [scannerMode,      setScannerMode]      = useState<"vcp1" | "vcp2">("vcp1");
+
+  const scannerEndpoint = scannerMode === "vcp2" ? "/api/swing-scanner-vcp2" : "/api/swing-scanner";
 
   const { data: swingData, isLoading, refetch, isFetching } = useQuery<{ stocks: SwingStock[]; cached?: boolean }>({
-    queryKey: ["/api/swing-scanner"],
+    queryKey: [scannerEndpoint],
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
@@ -119,12 +122,19 @@ export default function SwingScanner() {
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white mb-1 flex items-center gap-2">
               <Activity className="w-6 h-6 text-primary" />
               Swing Spectrum
-              <span className="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-primary/80 ml-1">
-                VCP Scanner
+              <span className={`text-xs font-mono font-normal px-2 py-0.5 rounded-full border ml-1 ${
+                scannerMode === "vcp1"
+                  ? "bg-primary/15 border-primary/30 text-primary/80"
+                  : "bg-violet-500/15 border-violet-500/30 text-violet-400"
+              }`}>
+                {scannerMode === "vcp1" ? "VCP1 Scanner" : "VCP2 Scanner"}
               </span>
             </h1>
             <p className="text-sm text-white/40 font-sans">
-              Minervini-style VCP screen · 12 strict filters · NSE &amp; BSE small/mid-cap · No Nifty 50 / ETFs
+              {scannerMode === "vcp1"
+                ? "Minervini-style VCP screen · 12 strict filters · NSE & BSE small/mid-cap · No Nifty 50 / ETFs"
+                : "Relaxed VCP screen · 8 filters · NSE & BSE small/mid-cap · Catches earlier-stage setups"
+              }
             </p>
           </div>
 
@@ -193,13 +203,17 @@ export default function SwingScanner() {
           </div>
         )}
 
-        {/* ── 12 VCP Technical Rules ─────────── */}
+        {/* ── VCP Filter Rules ─────────────────── */}
         <div className="glass-card rounded-2xl border border-white/6 p-4">
           <p className="text-[10px] font-mono uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
-            <Zap className="w-3 h-3" /> Active VCP Filters — All 12 Minervini Conditions Applied
+            <Zap className="w-3 h-3" />
+            {scannerMode === "vcp1"
+              ? "Active VCP1 Filters — All 12 Minervini Conditions Applied"
+              : "Active VCP2 Filters — 8 Relaxed Conditions Applied"
+            }
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {[
+          <div className={`grid gap-2 ${scannerMode === "vcp1" ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 md:grid-cols-4"}`}>
+            {(scannerMode === "vcp1" ? [
               { label: "1. ATR(14) < ATR(14) 10d ago",      desc: "Volatility actively contracting" },
               { label: "2. ATR 5d ago < ATR 10d ago",       desc: "Progressive (not random) compression" },
               { label: "3. ATR(14)/Close < 0.06",           desc: "Tight coil: volatility tiny vs price" },
@@ -212,7 +226,16 @@ export default function SwingScanner() {
               { label: "10. Daily Change −1% to +4%",       desc: "Controlled consolidation phase" },
               { label: "11. EMA(50) slope rising",          desc: "Healthy stage-2 uptrend slope" },
               { label: "12. 52W High > 52W Low × 1.20",    desc: "Meaningful range, not flat stock" },
-            ].map((f, i) => (
+            ] : [
+              { label: "1. ATR(14) < ATR(14) 10d ago",      desc: "Volatility actively contracting" },
+              { label: "2. ATR(14) / Close < 0.08",         desc: "Low volatility relative to price" },
+              { label: "3. Close > 52W High × 0.75",        desc: "Within 25% of 52-week high" },
+              { label: "4. EMA(50) > EMA(150)",             desc: "50 EMA above 150 EMA" },
+              { label: "5. EMA(150) > EMA(200)",            desc: "150 EMA above 200 EMA" },
+              { label: "6. Close > EMA(50)",                desc: "Price above 50 EMA" },
+              { label: "7. Close > ₹10",                    desc: "Minimum price filter" },
+              { label: "8. Close × Volume > ₹10 Lakh",     desc: "Minimum turnover filter" },
+            ]).map((f, i) => (
               <div key={i} className="p-2 rounded-xl bg-white/2 border border-white/5 flex flex-col justify-between hover:bg-white/4 transition-colors">
                 <span className="text-[10px] font-mono font-bold text-white/80">{f.label}</span>
                 <span className="text-[9px] font-sans text-white/40 mt-0.5">{f.desc}</span>
@@ -223,6 +246,32 @@ export default function SwingScanner() {
 
         {/* ── Controls ──────────────────────── */}
         <div className="flex items-center gap-3 flex-wrap">
+          {/* VCP1 / VCP2 toggle */}
+          <div className="flex items-center rounded-xl border border-white/10 bg-white/3 p-0.5" data-testid="scanner-mode-toggle">
+            <button
+              data-testid="button-vcp1"
+              onClick={() => setScannerMode("vcp1")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-200 ${
+                scannerMode === "vcp1"
+                  ? "bg-primary/20 text-primary border border-primary/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]"
+                  : "text-white/40 hover:text-white/70 border border-transparent"
+              }`}
+            >
+              VCP1
+            </button>
+            <button
+              data-testid="button-vcp2"
+              onClick={() => setScannerMode("vcp2")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-200 ${
+                scannerMode === "vcp2"
+                  ? "bg-violet-500/20 text-violet-400 border border-violet-500/40 shadow-[0_0_10px_rgba(139,92,246,0.15)]"
+                  : "text-white/40 hover:text-white/70 border border-transparent"
+              }`}
+            >
+              VCP2
+            </button>
+          </div>
+
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
             <input
@@ -287,10 +336,18 @@ export default function SwingScanner() {
             <div className="glass-card rounded-2xl border border-white/6 p-8 text-center">
               <div className="inline-flex items-center gap-3 text-primary/60">
                 <div className="w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
-                <span className="text-sm font-mono">Running Minervini VCP scan on 800+ NSE/BSE stocks…</span>
+                <span className="text-sm font-mono">
+                  {scannerMode === "vcp1"
+                    ? "Running Minervini VCP scan on 800+ NSE/BSE stocks…"
+                    : "Running VCP2 relaxed scan on 800+ NSE/BSE stocks…"
+                  }
+                </span>
               </div>
               <p className="text-[11px] text-white/20 mt-2 font-mono">
-                Checking 12 strict VCP conditions · ATR compression · volume dry-up · stage-2 trend · Results cached 15 min
+                {scannerMode === "vcp1"
+                  ? "Checking 12 strict VCP conditions · ATR compression · volume dry-up · stage-2 trend · Results cached 15 min"
+                  : "Checking 8 relaxed VCP conditions · ATR contraction · EMA stack · near 52W high · Results cached 15 min"
+                }
               </p>
             </div>
             <div className="space-y-2">
@@ -595,11 +652,21 @@ export default function SwingScanner() {
         ) : (
           <div className="text-center py-20 glass-card rounded-2xl border border-white/6">
             <Activity className="w-14 h-14 mx-auto text-white/15 mb-4" />
-            <h3 className="text-base font-semibold text-white/60 mb-2">No stocks matched all 12 VCP filters</h3>
+            <h3 className="text-base font-semibold text-white/60 mb-2">
+              {scannerMode === "vcp1"
+                ? "No stocks matched all 12 VCP filters"
+                : "No stocks matched all 8 VCP2 filters"
+              }
+            </h3>
             <p className="text-sm text-white/30 max-w-md mx-auto">
-              The scanner checks ATR progressive contraction, full EMA stack (9›20›50›150›200), 
-              volume dry-up (below 85% of 20D avg), within 15% of 52W high, and controlled daily change.
-              Try again during market hours — VCP setups are more common in trending markets.
+              {scannerMode === "vcp1"
+                ? `The scanner checks ATR progressive contraction, full EMA stack (9›20›50›150›200), 
+                  volume dry-up (below 85% of 20D avg), within 15% of 52W high, and controlled daily change.
+                  Try again during market hours — VCP setups are more common in trending markets.`
+                : `The VCP2 scanner checks ATR contraction, ATR/price ratio below 0.08, EMA(50)>EMA(150)>EMA(200),
+                  price above EMA(50), within 25% of 52W high, and minimum turnover.
+                  Try again during market hours — more setups appear in trending markets.`
+              }
             </p>
           </div>
         )}
