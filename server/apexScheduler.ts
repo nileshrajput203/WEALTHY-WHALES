@@ -3,7 +3,9 @@ import { shouldRunJob } from "./jobLedger";
 import { runNewsIngestJob } from "./apexNewsEngine";
 import { runFODataJob } from "./apexFOEngine";
 import { runMorningScan } from "./apexEngine";
+import { runScalpEngine } from "./scalpEngine";
 import { fillTodayOutcomes } from "./apexOutcomeTracker";
+import { runScalpMonitoringJob } from "./scalpMonitor";
 import { runLearningCycle } from "./apexLearningEngine";
 import { db } from "./db";
 import { jobLedger } from "@shared/schema";
@@ -57,11 +59,25 @@ export async function catchUpOnBoot(): Promise<void> {
   }
   
   // Morning scanner scan catch-up
-  if (hour >= 10) {
+    if (hour >= 10) {
     const scanRan = await hasJobRanToday("morning_scan");
     if (!scanRan) {
       console.log("[APEXScheduler] Catch-up: morning_scan was missed today. Starting...");
       runMorningScan().catch(e => console.error(e));
+    }
+    const scalpRan = await hasJobRanToday("scalp_engine");
+    if (!scalpRan) {
+      console.log("[APEXScheduler] Catch-up: scalp_engine was missed today. Starting...");
+      runScalpEngine().catch(e => console.error(e));
+    }
+  }
+
+  // Scalp monitoring catch-up
+  if (hour >= 17) {
+    const scalpMonitorRan = await hasJobRanToday("scalp_monitoring");
+    if (!scalpMonitorRan) {
+      console.log("[APEXScheduler] Catch-up: scalp_monitoring was missed today. Starting...");
+      runScalpMonitoringJob().catch(e => console.error(e));
     }
   }
   
@@ -117,11 +133,25 @@ export function startApexScheduler(): void {
           runMorningScan().catch(e => console.error(e));
         }
       }
+
+      // 9:15 AM IST -> runScalpEngine
+      if (hour === 9 && minute === 15) {
+        if (await shouldRunJob("scalp_engine", 60)) {
+          runScalpEngine().catch(e => console.error(e));
+        }
+      }
       
       // 4:00 PM IST (16:00) -> fillTodayOutcomes
       if (hour === 16 && minute === 0) {
         if (await shouldRunJob("fill_outcomes", 60)) {
           fillTodayOutcomes().catch(e => console.error(e));
+        }
+      }
+
+      // 4:15 PM IST (16:15) -> runScalpMonitoringJob
+      if (hour === 16 && minute === 15) {
+        if (await shouldRunJob("scalp_monitoring", 60)) {
+          runScalpMonitoringJob().catch(e => console.error(e));
         }
       }
       
