@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Search, BarChart2, Activity, Zap, ArrowUpDown, Star, Bell, BellRing, X, Trash2 } from "lucide-react";
 import { StockChartDrawer, type StockDrawerPayload } from "@/components/StockChartDrawer";
@@ -40,10 +40,10 @@ interface VcpAlert {
 
 /* VCP quality label based on score */
 function vcpLabel(score: number): { text: string; cls: string } {
-  if (score >= 80) return { text: "A+ VCP", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
-  if (score >= 65) return { text: "A VCP",  cls: "text-cyan-400   bg-cyan-500/10   border-cyan-500/20"    };
-  if (score >= 50) return { text: "B VCP",  cls: "text-blue-400   bg-blue-500/10   border-blue-500/20"    };
-  return               { text: "C VCP",  cls: "text-white/40   bg-white/5       border-white/8"       };
+  if (score >= 80) return { text: "ROCKET BASE", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" };
+  if (score >= 65) return { text: "ELITE VCP",  cls: "text-cyan-400   bg-cyan-500/10   border-cyan-500/20"    };
+  if (score >= 50) return { text: "QUALITY VCP",  cls: "text-blue-400   bg-blue-500/10   border-blue-500/20"    };
+  return               { text: "FORMING",  cls: "text-white/40   bg-white/5       border-white/8"       };
 }
 
 export default function SwingScanner() {
@@ -113,7 +113,7 @@ export default function SwingScanner() {
   const negCount = stocks.filter(s => s.changePercent < 0).length;
 
   return (
-    <div>
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="space-y-6">
 
         {/* ── Header ──────────────────────────── */}
@@ -121,19 +121,19 @@ export default function SwingScanner() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white mb-1 flex items-center gap-2">
               <Activity className="w-6 h-6 text-primary" />
-              Swing Spectrum
+              Wealthy Whales VCP
               <span className={`text-xs font-mono font-normal px-2 py-0.5 rounded-full border ml-1 ${
                 scannerMode === "vcp1"
                   ? "bg-primary/15 border-primary/30 text-primary/80"
                   : "bg-violet-500/15 border-violet-500/30 text-violet-400"
               }`}>
-                {scannerMode === "vcp1" ? "VCP1 Scanner" : "VCP2 Scanner"}
+                {scannerMode === "vcp1" ? "VCP1: EVOLVED" : "VCP2: ROCKET"}
               </span>
             </h1>
             <p className="text-sm text-white/40 font-sans">
               {scannerMode === "vcp1"
-                ? "Minervini-style VCP screen · 12 strict filters · NSE & BSE small/mid-cap · No Nifty 50 / ETFs"
-                : "Relaxed VCP screen · 8 filters · NSE & BSE small/mid-cap · Catches earlier-stage setups"
+                ? "Hyper-accurate Minervini VCP screen · 12 strict filters · 10%+ return targets"
+                : "Rocket Base Setup · Extreme volatility contraction · Ghost town volume detection"
               }
             </p>
           </div>
@@ -171,7 +171,6 @@ export default function SwingScanner() {
                         ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.12)]"
                         : "bg-white/4 border-white/8 text-white/50"
                       }`}
-                    data-testid={`alert-badge-${alert.symbol}`}
                   >
                     {triggered
                       ? <BellRing className="w-3 h-3 text-emerald-400 animate-pulse" />
@@ -189,7 +188,6 @@ export default function SwingScanner() {
                       </span>
                     )}
                     <button
-                      data-testid={`button-delete-alert-${alert.symbol}`}
                       onClick={() => deleteAlert.mutate(alert.id)}
                       className="ml-1 text-white/20 hover:text-red-400 transition-colors"
                       title="Remove alert"
@@ -203,564 +201,260 @@ export default function SwingScanner() {
           </div>
         )}
 
-        {/* ── VCP Filter Rules ─────────────────── */}
-        <div className="glass-card rounded-2xl border border-white/6 p-4">
-          <p className="text-[10px] font-mono uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
-            <Zap className="w-3 h-3" />
-            {scannerMode === "vcp1"
-              ? "Active VCP1 Filters — All 12 Minervini Conditions Applied"
-              : "Active VCP2 Filters — 8 Relaxed Conditions Applied"
-            }
-          </p>
-          <div className={`grid gap-2 ${scannerMode === "vcp1" ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 md:grid-cols-4"}`}>
-            {(scannerMode === "vcp1" ? [
-              { label: "1. ATR(14) < ATR(14) 10d ago",      desc: "Volatility actively contracting" },
-              { label: "2. ATR 5d ago < ATR 10d ago",       desc: "Progressive (not random) compression" },
-              { label: "3. ATR(14)/Close < 0.06",           desc: "Tight coil: volatility tiny vs price" },
-              { label: "4. Close > EMA50 > EMA150 > EMA200",desc: "Full stage-2 trend template" },
-              { label: "5. EMA9 > EMA20 > EMA50",           desc: "Short-term momentum aligned" },
-              { label: "6. Close within 15% of 52W High",   desc: "Near pivot — not a laggard" },
-              { label: "7. Volume < 85% of 20D Avg",        desc: "Supply dry-up inside the base" },
-              { label: "8. Daily Turnover > ₹20 Lakh",      desc: "Institutional-grade liquidity" },
-              { label: "9. Share Price > ₹20",              desc: "Filters penny & micro-cap risk" },
-              { label: "10. Daily Change −1% to +4%",       desc: "Controlled consolidation phase" },
-              { label: "11. EMA(50) slope rising",          desc: "Healthy stage-2 uptrend slope" },
-              { label: "12. 52W High > 52W Low × 1.20",    desc: "Meaningful range, not flat stock" },
-            ] : [
-              { label: "1. ATR(14) < ATR(14) 10d ago",      desc: "Volatility actively contracting" },
-              { label: "2. ATR(14) / Close < 0.08",         desc: "Low volatility relative to price" },
-              { label: "3. Close > 52W High × 0.75",        desc: "Within 25% of 52-week high" },
-              { label: "4. EMA(50) > EMA(150)",             desc: "50 EMA above 150 EMA" },
-              { label: "5. EMA(150) > EMA(200)",            desc: "150 EMA above 200 EMA" },
-              { label: "6. Close > EMA(50)",                desc: "Price above 50 EMA" },
-              { label: "7. Close > ₹10",                    desc: "Minimum price filter" },
-              { label: "8. Close × Volume > ₹10 Lakh",     desc: "Minimum turnover filter" },
-            ]).map((f, i) => (
-              <div key={i} className="p-2 rounded-xl bg-white/2 border border-white/5 flex flex-col justify-between hover:bg-white/4 transition-colors">
-                <span className="text-[10px] font-mono font-bold text-white/80">{f.label}</span>
-                <span className="text-[9px] font-sans text-white/40 mt-0.5">{f.desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Controls ──────────────────────── */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* VCP1 / VCP2 toggle */}
-          <div className="flex items-center rounded-xl border border-white/10 bg-white/3 p-0.5" data-testid="scanner-mode-toggle">
-            <button
-              data-testid="button-vcp1"
-              onClick={() => setScannerMode("vcp1")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-200 ${
-                scannerMode === "vcp1"
-                  ? "bg-primary/20 text-primary border border-primary/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]"
-                  : "text-white/40 hover:text-white/70 border border-transparent"
-              }`}
-            >
-              VCP1
-            </button>
-            <button
-              data-testid="button-vcp2"
-              onClick={() => setScannerMode("vcp2")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-200 ${
-                scannerMode === "vcp2"
-                  ? "bg-violet-500/20 text-violet-400 border border-violet-500/40 shadow-[0_0_10px_rgba(139,92,246,0.15)]"
-                  : "text-white/40 hover:text-white/70 border border-transparent"
-              }`}
-            >
-              VCP2
-            </button>
-          </div>
-
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+        {/* ── Search & Controls ────────────────── */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
             <input
               type="text"
+              placeholder="Search by name or symbol..."
+              className="w-full bg-white/4 border border-white/8 rounded-2xl py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Filter by name or symbol…"
-              data-testid="input-search"
-              className="w-full pl-9 pr-4 py-2 rounded-xl glass-card border border-white/8 text-sm text-white/80
-                placeholder:text-white/25 focus:outline-none focus:border-primary/50 font-mono bg-transparent transition-all"
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          {/* Sort by Fundamentals toggle */}
-          <button
-            data-testid="button-sort-fundamentals"
-            onClick={() => setSortFundamentals(v => !v)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-mono transition-all duration-200
-              ${sortFundamentals
-                ? "bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
-                : "glass-card border-white/8 text-white/50 hover:text-white hover:border-white/20"
+          <div className="flex items-center p-1 bg-white/4 border border-white/8 rounded-2xl">
+            <button
+              onClick={() => setScannerMode("vcp1")}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                scannerMode === "vcp1"
+                  ? "bg-primary text-black shadow-lg"
+                  : "text-white/40 hover:text-white"
               }`}
+            >
+              VCP1 (Strict)
+            </button>
+            <button
+              onClick={() => setScannerMode("vcp2")}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                scannerMode === "vcp2"
+                  ? "bg-violet-500 text-white shadow-lg"
+                  : "text-white/40 hover:text-white"
+              }`}
+            >
+              VCP2 (Rocket)
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSortFundamentals(!sortFundamentals)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all ${
+              sortFundamentals
+                ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                : "bg-white/4 border-white/8 text-white/40 hover:text-white"
+            }`}
           >
-            <Star className={`w-3.5 h-3.5 ${sortFundamentals ? "fill-amber-400 text-amber-400" : ""}`} />
-            Sort by Fundamentals
-            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ml-0.5 ${
-              sortFundamentals ? "bg-amber-500/20 text-amber-300" : "bg-white/6 text-white/30"
-            }`}>
-              {sortFundamentals ? "ON" : "OFF"}
-            </span>
+            <BarChart2 className="w-4 h-4" />
+            {sortFundamentals ? "Sorted by Fundamentals" : "Sort by Fundamentals"}
           </button>
 
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            data-testid="button-refresh"
-            className="px-3 py-2 rounded-xl glass-card border border-white/8 text-xs font-mono text-white/50
-              hover:text-white hover:border-primary/40 transition-all duration-200 flex items-center gap-1.5
-              disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2.5 rounded-2xl bg-white/4 border border-white/8 text-white/40 hover:text-white transition-all disabled:opacity-50"
           >
-            {isFetching ? "⏳ Scanning…" : "↻ Refresh"}
+            <Activity className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
           </button>
-
-          {swingData?.cached && (
-            <span className="text-[10px] font-mono text-white/20 px-2 py-1 bg-white/3 rounded-lg border border-white/5">
-              cached
-            </span>
-          )}
         </div>
 
-        {/* Sort mode indicator */}
-        {sortFundamentals && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/8 border border-amber-500/15 text-xs font-mono text-amber-400/80">
-            <ArrowUpDown className="w-3 h-3" />
-            Sorted by Fundamental Score (RS strength + turnover + stability + trend health). Higher score = stronger stock.
-          </div>
-        )}
-
-        {/* ── Loading state ─────────────────── */}
-        {isLoading || isFetching ? (
-          <div className="space-y-4">
-            <div className="glass-card rounded-2xl border border-white/6 p-8 text-center">
-              <div className="inline-flex items-center gap-3 text-primary/60">
-                <div className="w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
-                <span className="text-sm font-mono">
-                  {scannerMode === "vcp1"
-                    ? "Running Minervini VCP scan on 800+ NSE/BSE stocks…"
-                    : "Running VCP2 relaxed scan on 800+ NSE/BSE stocks…"
-                  }
-                </span>
-              </div>
-              <p className="text-[11px] text-white/20 mt-2 font-mono">
-                {scannerMode === "vcp1"
-                  ? "Checking 12 strict VCP conditions · ATR compression · volume dry-up · stage-2 trend · Results cached 15 min"
-                  : "Checking 8 relaxed VCP conditions · ATR contraction · EMA stack · near 52W high · Results cached 15 min"
-                }
-              </p>
-            </div>
-            <div className="space-y-2">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-14 rounded-xl bg-white/3 animate-pulse border border-white/5" />
-              ))}
-            </div>
-          </div>
-        ) : stocks.length > 0 ? (
-          /* ── Table ───────────────────────── */
-          <div className="rounded-2xl border border-white/6 overflow-hidden glass-card">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    {[
-                      { col: "#",         align: "left"   },
-                      { col: "Stock",     align: "left"   },
-                      { col: "Symbol",    align: "left"   },
-                      { col: "Chart",     align: "center" },
-                      { col: "Alert",     align: "center" },
-                      { col: "VCP Grade", align: "left"   },
-                      { col: "% Chg",     align: "right"  },
-                      { col: "Price",     align: "right"  },
-                      { col: "Near High", align: "right"  },
-                      { col: sortFundamentals ? "F.Score" : "VCP Score", align: "right" },
-                    ].map(({ col, align }) => (
-                      <th key={col}
-                        className={`px-4 py-3 text-[10px] font-mono font-semibold uppercase tracking-widest text-white/30 text-${align}`}
-                      >
-                        {col}
-                      </th>
-                    ))}
+        {/* ── Table View ───────────────────────── */}
+        <div className="glass-card rounded-3xl border border-white/8 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/8 bg-white/2">
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40">#</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40">Stock</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40 text-right">Price</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40 text-right">Change</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40">Setup / Strategy</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40 text-center">VCP Score</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40 text-center">Quality</th>
+                  <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-widest text-white/40 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/4">
+                {isLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={8} className="px-6 py-4 h-16 bg-white/2" />
+                    </tr>
+                  ))
+                ) : stocks.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-20 text-center text-white/20 font-mono text-sm">
+                      No matching stocks found in current universe
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {stocks.map((stock, idx) => {
-                    const isPos      = stock.changePercent >= 0;
-                    const isExpanded = expandedRow === idx;
-                    const grade      = vcpLabel(stock.vcpScore ?? 0);
-                    const scoreVal   = sortFundamentals
-                      ? (stock.fundamentalScore ?? 0)
-                      : (stock.vcpScore ?? 0);
+                ) : (
+                  stocks.map((stock) => {
+                    const label = vcpLabel(stock.vcpScore);
+                    const isPositive = stock.changePercent >= 0;
+                    const hasAlert = alertMap.has(stock.symbol);
 
                     return (
-                      <Fragment key={stock.sr}>
-                        <tr
-                          data-testid={`row-stock-${stock.symbol}`}
-                          className="group border-b border-white/4 last:border-0 hover:bg-white/3 cursor-pointer transition-colors duration-150"
-                          onClick={() => setExpandedRow(isExpanded ? null : idx)}
-                        >
-                          {/* # */}
-                          <td className="px-4 py-3.5">
-                            <span className="text-xs text-white/25 font-mono">{idx + 1}</span>
-                          </td>
-
-                          {/* Stock name */}
-                          <td className="px-4 py-3.5">
-                            <span className="text-sm text-white/80 font-sans group-hover:text-white transition-colors">
-                              {stock.stockName}
-                            </span>
-                          </td>
-
-                          {/* Symbol */}
-                          <td className="px-4 py-3.5">
-                            <span className="text-sm text-primary/70 group-hover:text-primary font-mono font-semibold transition-colors">
-                              {stock.symbol?.replace('.NS','').replace('.BO','')}
-                            </span>
-                          </td>
-
-                          {/* Chart launch */}
-                          <td className="px-4 py-3.5 text-center">
-                            <button
-                              data-testid={`button-chart-${stock.symbol}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedStock({
-                                  symbol: stock.symbol?.replace('.NS','').replace('.BO',''),
-                                  name: stock.stockName,
-                                  price: stock.price,
-                                  changePercent: stock.changePercent,
-                                });
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono
-                                bg-white/4 border border-white/8 text-white/35 group-hover:text-primary/80
-                                group-hover:border-primary/30 group-hover:bg-primary/8 transition-all duration-150"
-                            >
-                              <BarChart2 className="w-3 h-3" /> Chart
-                            </button>
-                          </td>
-
-                          {/* Alert bell */}
-                          <td className="px-4 py-3.5 text-center">
-                            {authUser ? (
-                              alertMap.has(stock.symbol) ? (
-                                <button
-                                  data-testid={`button-alert-active-${stock.symbol}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const a = alertMap.get(stock.symbol)!;
-                                    deleteAlert.mutate(a.id);
-                                  }}
-                                  title="Remove alert"
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg
-                                    bg-purple-500/20 border border-purple-500/40 text-purple-400
-                                    hover:bg-red-500/15 hover:border-red-500/30 hover:text-red-400 transition-all duration-150"
-                                >
-                                  <BellRing className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <button
-                                  data-testid={`button-alert-set-${stock.symbol}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setAlertThreshold(Math.max(50, stock.vcpScore ?? 70));
-                                    setAlertTarget(stock);
-                                  }}
-                                  title="Set VCP alert"
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg
-                                    bg-white/4 border border-white/8 text-white/20
-                                    hover:bg-purple-500/15 hover:border-purple-500/30 hover:text-purple-400 transition-all duration-150"
-                                >
-                                  <Bell className="w-3.5 h-3.5" />
-                                </button>
-                              )
-                            ) : (
-                              <Bell className="w-3.5 h-3.5 text-white/10 mx-auto" />
-                            )}
-                          </td>
-
-                          {/* VCP Grade */}
-                          <td className="px-4 py-3.5">
-                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${grade.cls}`}>
-                              {grade.text}
-                            </span>
-                          </td>
-
-                          {/* % Change */}
-                          <td className="px-4 py-3.5 text-right">
-                            <span
-                              className={`inline-flex items-center gap-1 text-sm font-mono font-bold tabular-nums px-2 py-0.5 rounded-full
-                                ${isPos
-                                  ? "text-emerald-400 bg-emerald-500/8 border border-emerald-500/15"
-                                  : "text-red-400 bg-red-500/8 border border-red-500/15"
-                                }`}
-                            >
-                              {isPos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                              {isPos ? "+" : ""}{stock.changePercent.toFixed(2)}%
-                            </span>
-                          </td>
-
-                          {/* Price */}
-                          <td className="px-4 py-3.5 text-right">
-                            <span className="text-sm font-mono font-bold text-white tabular-nums">
-                              ₹{stock.price.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                            </span>
-                          </td>
-
-                          {/* Near 52W High % */}
-                          <td className="px-4 py-3.5 text-right">
-                            <span className={`text-xs font-mono tabular-nums ${
-                              (stock.nearHighPct ?? 0) >= 95 ? "text-emerald-400" :
-                              (stock.nearHighPct ?? 0) >= 90 ? "text-cyan-400" : "text-white/50"
-                            }`}>
-                              {(stock.nearHighPct ?? ((stock.price / stock.weekHigh52) * 100)).toFixed(1)}%
-                            </span>
-                          </td>
-
-                          {/* Score (VCP or Fundamental) */}
-                          <td className="px-4 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <div className="w-12 h-1.5 rounded-full bg-white/8 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    sortFundamentals
-                                      ? "bg-amber-400"
-                                      : scoreVal >= 80 ? "bg-emerald-400"
-                                      : scoreVal >= 65 ? "bg-cyan-400"
-                                      : scoreVal >= 50 ? "bg-blue-400"
-                                      : "bg-white/30"
-                                  }`}
-                                  style={{ width: `${scoreVal}%` }}
-                                />
-                              </div>
-                              <span className={`text-xs font-mono font-bold tabular-nums ${
-                                sortFundamentals ? "text-amber-400" :
-                                scoreVal >= 80 ? "text-emerald-400" :
-                                scoreVal >= 65 ? "text-cyan-400" : "text-white/40"
-                              }`}>
-                                {scoreVal}
-                              </span>
+                      <tr
+                        key={stock.symbol}
+                        className="group hover:bg-white/4 transition-all cursor-pointer"
+                        onClick={() => setSelectedStock({ symbol: stock.symbol, name: stock.stockName, price: stock.price })}
+                      >
+                        <td className="px-6 py-4 text-xs font-mono text-white/30">{stock.sr}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">{stock.symbol.replace(".NS","").replace(".BO","")}</span>
+                            <span className="text-[10px] text-white/40 truncate max-w-[120px]">{stock.stockName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right text-sm font-mono text-white">₹{stock.price.toLocaleString("en-IN")}</td>
+                        <td className={`px-6 py-4 text-right text-xs font-mono font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                          {isPositive ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[11px] text-white/80 font-medium">{stock.setup}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/8">{stock.links}</span>
+                              <span className="text-[9px] text-white/30">Vol Ratio: {stock.volumeRatio.toFixed(2)}x</span>
                             </div>
-                          </td>
-                        </tr>
-
-                        {/* Expanded VCP details row */}
-                        {isExpanded && (
-                          <tr key={`detail-${stock.sr}`} className="bg-white/2 border-b border-white/4">
-                            <td colSpan={10} className="px-6 py-4">
-                              {/* Score bars */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                                {[
-                                  { label: "VCP Score",       val: stock.vcpScore ?? 0,        color: "bg-emerald-400",  max: 100 },
-                                  { label: "Fundamental",     val: stock.fundamentalScore ?? 0, color: "bg-amber-400",    max: 100 },
-                                  { label: "ATR Compression", val: Math.round((stock.atrCompression ?? 0) * 100), color: "bg-purple-400", max: 100 },
-                                  { label: "Vol Dry-up",      val: Math.round((1 - Math.min(1, stock.volumeRatio ?? 1)) * 100), color: "bg-cyan-400", max: 100 },
-                                ].map(bar => (
-                                  <div key={bar.label}>
-                                    <div className="flex justify-between mb-1">
-                                      <span className="text-[9px] font-mono text-white/30 uppercase tracking-wider">{bar.label}</span>
-                                      <span className="text-[10px] font-mono font-bold text-white/60">{bar.val}</span>
-                                    </div>
-                                    <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
-                                      <div className={`h-full rounded-full ${bar.color}`} style={{ width: `${(bar.val / bar.max) * 100}%` }} />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* Technical metrics */}
-                              <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 text-xs font-mono">
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">EMA 9</p>
-                                  <p className="text-cyan-400 font-semibold">₹{stock.ema9?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">EMA 20</p>
-                                  <p className="text-blue-400 font-semibold">₹{stock.ema20?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">EMA 50</p>
-                                  <p className="text-emerald-400 font-semibold">₹{stock.ema50?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">EMA 150</p>
-                                  <p className="text-yellow-400 font-semibold">₹{stock.ema150?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">EMA 200</p>
-                                  <p className="text-orange-400 font-semibold">₹{stock.ema200?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">ATR(14)</p>
-                                  <p className="text-purple-400 font-semibold">₹{stock.atr?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">52W High</p>
-                                  <p className="text-white/60 font-semibold">₹{stock.weekHigh52?.toFixed(2)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">Near High</p>
-                                  <p className="text-emerald-400 font-semibold">{(stock.nearHighPct ?? 0).toFixed(1)}%</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">Vol Ratio</p>
-                                  <p className="text-cyan-400 font-semibold">{((stock.volumeRatio ?? 0) * 100).toFixed(0)}%</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">6M RS</p>
-                                  <p className={`font-semibold ${(stock.rsScore ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                    {(stock.rsScore ?? 0) >= 0 ? "+" : ""}{(stock.rsScore ?? 0).toFixed(1)}%
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">Turnover</p>
-                                  <p className="text-white/60 font-semibold">₹{(stock.turnover / 100000).toFixed(1)}L</p>
-                                </div>
-                                <div>
-                                  <p className="text-white/25 text-[9px] uppercase tracking-wider mb-0.5">Setup</p>
-                                  <p className="text-primary/60 font-semibold text-[9px] leading-tight">{stock.setup}</p>
-                                </div>
-                              </div>
-
-                              {/* EMA Stack visual */}
-                              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                                <span className="text-[9px] font-mono text-white/20 uppercase">EMA Stack:</span>
-                                {[
-                                  { label: "Price", val: stock.price,  color: "text-white"      },
-                                  { label: "9",     val: stock.ema9,   color: "text-cyan-400"   },
-                                  { label: "20",    val: stock.ema20,  color: "text-blue-400"   },
-                                  { label: "50",    val: stock.ema50,  color: "text-emerald-400"},
-                                  { label: "150",   val: stock.ema150, color: "text-yellow-400" },
-                                  { label: "200",   val: stock.ema200, color: "text-orange-400" },
-                                ].map((e, i, arr) => (
-                                  <span key={e.label} className="inline-flex items-center gap-1">
-                                    <span className={`text-[10px] font-mono font-bold ${e.color}`}>{e.label}</span>
-                                    {i < arr.length - 1 && <span className="text-emerald-500/50 text-[10px]">›</span>}
-                                  </span>
-                                ))}
-                                <span className="text-[9px] text-emerald-400/50 font-mono ml-1">✓ Perfect VCP alignment</span>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/4 border border-white/8 text-sm font-display font-bold text-white">
+                            {stock.vcpScore}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${label.cls}`}>
+                            {label.text}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (hasAlert) deleteAlert.mutate(alertMap.get(stock.symbol)!.id);
+                              else setAlertTarget(stock);
+                            }}
+                            className={`p-2 rounded-xl border transition-all ${
+                              hasAlert
+                                ? "bg-purple-500/20 border-purple-500/40 text-purple-400"
+                                : "bg-white/4 border-white/8 text-white/20 hover:text-white hover:border-white/20"
+                            }`}
+                          >
+                            <Bell className={`w-4 h-4 ${hasAlert ? "fill-current" : ""}`} />
+                          </button>
+                        </td>
+                      </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="text-center py-20 glass-card rounded-2xl border border-white/6">
-            <Activity className="w-14 h-14 mx-auto text-white/15 mb-4" />
-            <h3 className="text-base font-semibold text-white/60 mb-2">
-              {scannerMode === "vcp1"
-                ? "No stocks matched all 12 VCP filters"
-                : "No stocks matched all 8 VCP2 filters"
-              }
-            </h3>
-            <p className="text-sm text-white/30 max-w-md mx-auto">
-              {scannerMode === "vcp1"
-                ? `The scanner checks ATR progressive contraction, full EMA stack (9›20›50›150›200), 
-                  volume dry-up (below 85% of 20D avg), within 15% of 52W high, and controlled daily change.
-                  Try again during market hours — VCP setups are more common in trending markets.`
-                : `The VCP2 scanner checks ATR contraction, ATR/price ratio below 0.08, EMA(50)>EMA(150)>EMA(200),
-                  price above EMA(50), within 25% of 52W high, and minimum turnover.
-                  Try again during market hours — more setups appear in trending markets.`
-              }
+        </div>
+
+        {/* ── Info Cards ──────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="glass-card rounded-3xl border border-white/8 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-primary/10 border border-primary/20">
+                <Zap className="w-5 h-5 text-primary" />
+              </div>
+              <h3 className="font-display font-bold text-white">VCP1: EVOLVED</h3>
+            </div>
+            <p className="text-xs text-white/50 leading-relaxed">
+              Based on Mark Minervini's "Trade Like a Stock Market Wizard" criteria. We use 12 high-precision filters including EMA stack alignment, 200d trend slope, and progressive ATR contraction.
             </p>
           </div>
-        )}
+
+          <div className="glass-card rounded-3xl border border-white/8 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20">
+                <Activity className="w-5 h-5 text-violet-400" />
+              </div>
+              <h3 className="font-display font-bold text-white">VCP2: ROCKET</h3>
+            </div>
+            <p className="text-xs text-white/50 leading-relaxed">
+              Detects the "Cheat" or "Rocket Base" setup. Focuses on extreme tightness (last contraction &lt; 8%) and volume dry-up (VDU). Designed for explosive 10%+ moves within days.
+            </p>
+          </div>
+
+          <div className="glass-card rounded-3xl border border-white/8 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
+                <BarChart2 className="w-5 h-5 text-cyan-400" />
+              </div>
+              <h3 className="font-display font-bold text-white">VCP SCORE</h3>
+            </div>
+            <p className="text-xs text-white/50 leading-relaxed">
+              A composite 0-100 rating based on trend quality, volatility compression, proximity to highs, and volume characteristics. Scores &gt; 80 indicate high-probability breakout setups.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Alert dialog modal */}
+      {/* ── Drawers & Modals ─────────────────── */}
+      {selectedStock && (
+        <StockChartDrawer
+          payload={selectedStock}
+          onClose={() => setSelectedStock(null)}
+        />
+      )}
+
+      {/* Alert Threshold Modal */}
       {alertTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" }}
-          onClick={() => setAlertTarget(null)}
-        >
-          <div
-            className="glass-card rounded-2xl border border-purple-500/30 p-6 w-full max-w-sm mx-4 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <BellRing className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-semibold text-white">Set VCP Alert</span>
-              </div>
-              <button onClick={() => setAlertTarget(null)} className="text-white/30 hover:text-white/70 transition-colors">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-3xl border border-white/10 w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-display font-bold text-white">Set VCP Alert</h3>
+              <button onClick={() => setAlertTarget(null)} className="p-2 rounded-full hover:bg-white/5 transition-colors">
+                <X className="w-5 h-5 text-white/40" />
               </button>
             </div>
 
-            <div className="mb-5">
-              <p className="text-xs font-mono text-white/50 mb-1">Stock</p>
-              <p className="text-sm font-semibold text-white">{alertTarget.stockName}</p>
-              <p className="text-[11px] font-mono text-primary/60">{alertTarget.symbol?.replace(".NS","").replace(".BO","")}</p>
-            </div>
-
-            <div className="mb-5">
-              <div className="flex justify-between mb-2">
-                <p className="text-xs font-mono text-white/50">Alert when VCP Score reaches</p>
-                <span className="text-sm font-mono font-bold text-purple-400">{alertThreshold}</span>
+            <div className="space-y-6">
+              <div className="p-4 rounded-2xl bg-white/4 border border-white/8">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-1">Target Stock</div>
+                <div className="text-lg font-bold text-white">{alertTarget.symbol}</div>
+                <div className="text-xs text-white/40">{alertTarget.stockName}</div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={alertThreshold}
-                onChange={e => setAlertThreshold(Number(e.target.value))}
-                data-testid="input-alert-threshold"
-                className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
-              />
-              <div className="flex justify-between mt-1 text-[9px] font-mono text-white/20">
-                <span>0</span>
-                <span className="text-blue-400">50 (B)</span>
-                <span className="text-cyan-400">65 (A)</span>
-                <span className="text-emerald-400">80 (A+)</span>
-                <span>100</span>
-              </div>
-              <p className="text-[10px] font-mono text-white/30 mt-2">
-                Current score: <span className={`font-bold ${
-                  (alertTarget.vcpScore ?? 0) >= alertThreshold ? "text-emerald-400" : "text-white/50"
-                }`}>{alertTarget.vcpScore ?? 0}</span>
-                {(alertTarget.vcpScore ?? 0) >= alertThreshold && (
-                  <span className="ml-2 text-emerald-400">— Already triggered!</span>
-                )}
-              </p>
-            </div>
 
-            <div className="flex gap-2">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-mono text-white/60">VCP Score Threshold</label>
+                  <span className="text-sm font-bold text-primary">{alertThreshold}</span>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="95"
+                  step="1"
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                  value={alertThreshold}
+                  onChange={(e) => setAlertThreshold(parseInt(e.target.value))}
+                />
+                <div className="flex justify-between text-[10px] font-mono text-white/20">
+                  <span>50 (Broad)</span>
+                  <span>95 (Elite Only)</span>
+                </div>
+              </div>
+
               <button
-                onClick={() => setAlertTarget(null)}
-                className="flex-1 py-2 rounded-xl border border-white/8 text-xs font-mono text-white/40 hover:text-white/70 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                data-testid="button-confirm-alert"
-                disabled={createAlert.isPending}
                 onClick={() => createAlert.mutate({
                   symbol: alertTarget.symbol,
                   stockName: alertTarget.stockName,
-                  thresholdScore: alertThreshold,
+                  thresholdScore: alertThreshold
                 })}
-                className="flex-1 py-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-xs font-mono
-                  font-semibold text-purple-300 hover:bg-purple-500/30 transition-all duration-150 disabled:opacity-50"
+                disabled={createAlert.isPending}
+                className="w-full py-3.5 rounded-2xl bg-primary text-black font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                {createAlert.isPending ? "Saving…" : "Save Alert"}
+                {createAlert.isPending ? "Creating..." : "Create Alert"}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Drawer */}
-      <StockChartDrawer
-        stock={selectedStock}
-        onClose={() => setSelectedStock(null)}
-      />
     </div>
   );
 }

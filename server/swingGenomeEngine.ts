@@ -82,20 +82,19 @@ export async function runSwingScannerEvolved(): Promise<{
       await Promise.allSettled(batch.map(async (yahooSym) => {
         try {
           const candles = await getYahooHistory(yahooSym, "1y", "1d");
-          if (!candles || candles.length < 60) return;
+          if (!candles || candles.length < 210) return;
 
-          const vcp = computeVcpFeatures(candles);
+          const cleanSym = yahooSym.replace('.NS', '').replace('.BO', '');
+          const vcp = computeVcpFeatures(candles, cleanSym);
           if (!vcp) return;
 
           const quote = await getYahooStockQuote(yahooSym);
           const price = quote?.price ?? vcp.price;
 
           // ── Genome-controlled filters ──────────────────────────────
-          const tightCoilRatio = vcp.tightCoilRatio ?? (vcp.atr14 / price);
-          if (tightCoilRatio > atrTightnessMax) return; // ATR too wide
-
+          if (vcp.tightCoilRatio > atrTightnessMax) return; // ATR too wide
           if (vcp.volumeRatio > volumeDryupMax) return; // Volume not dry enough
-
+          
           const distFromHigh = 1 - (vcp.nearHighPct / 100);
           if (distFromHigh > nearHighPctMax) return; // Too far from 52w high
 
@@ -111,14 +110,12 @@ export async function runSwingScannerEvolved(): Promise<{
           // Get news score for this stock
           let newsScore = 0;
           try {
-            const cleanSym = yahooSym.replace('.NS', '').replace('.BO', '');
             newsScore = await getNewsScoreForSymbol(cleanSym);
           } catch (_) {}
 
           // Get fundamental score
           let fundamentalScore = 50;
           try {
-            const cleanSym = yahooSym.replace('.NS', '').replace('.BO', '');
             const fmp = await getFmpFundamentals(cleanSym);
             if (fmp) {
               const roe = Number((fmp as any).returnOnEquity ?? 0) * 100;
@@ -144,20 +141,30 @@ export async function runSwingScannerEvolved(): Promise<{
              newsScore100 * newsWeight) / totalW
           );
 
-          const cleanSym = yahooSym.replace('.NS', '').replace('.BO', '');
-
           results.push({
+            sr: 0,
+            stockName: cleanSym,
             symbol: cleanSym,
-            name: cleanSym,
-            price: price,
-            change: quote?.change ?? 0,
+            links: "VCP1 | EVOLVED",
             changePercent: quote?.changePercent ?? 0,
-            volume: quote?.volume ?? 0,
-            atrCompression: vcp.atrCompression,
+            price: price,
+            volume: (quote?.volume ?? 0).toLocaleString(),
+            sector: "",
+            setup: `VCP1: Tightness ${vcp.lastContractionDepth.toFixed(1)}% · Pivot ${vcp.pivotPoint.toFixed(2)} · Target +${trade.targetPct.toFixed(1)}%`,
+            atr: vcp.atr14,
+            ema9: 0,
+            ema20: 0,
+            ema50: 0,
+            ema150: 0,
+            ema200: 0,
+            weekHigh52: 0,
+            turnover: vcp.turnover,
+            vcpScore,
+            fundamentalScore,
+            atrCompression: 1 - vcp.tightCoilRatio,
             volumeRatio: vcp.volumeRatio,
             nearHighPct: vcp.nearHighPct,
             rsScore: vcp.rsScore,
-            sr: 0,
           } as any);
 
           // Record outcome tracking entry
@@ -188,8 +195,8 @@ export async function runSwingScannerEvolved(): Promise<{
       }
     }
 
-    // Sort by change% descending
-    results.sort((a, b) => b.changePercent - a.changePercent);
+    // Sort by vcpScore descending
+    results.sort((a, b) => (b.vcpScore ?? 0) - (a.vcpScore ?? 0));
     results.forEach((r, i) => { r.sr = i + 1; });
 
     const duration = Date.now() - startTime;
@@ -386,30 +393,21 @@ export async function runSwingLearningCycle(): Promise<{
       oldAvgReturn: result.oldAvgReturn,
       newAvgReturn: result.newAvgReturn,
       sampleSize: trades.length,
-      description: result.description,
+      description: result.description || "No description provided",
     };
   } catch (error: any) {
     console.error("[SwingGenome] Learning cycle failed:", error);
     await markJobFailed("swing_learning_cycle", error);
-    return { promoted: false, oldAvgReturn: 0, newAvgReturn: 0, sampleSize: 0, description: "Error" };
+    return { promoted: false, oldAvgReturn: 0, newAvgReturn: 0, sampleSize: 0, description: error.message };
   }
 }
 
-/**
- * Returns current genome status for the Swing engine.
- */
 export async function getSwingGenomeStatus() {
   const genome = await getGenome("SWING");
-  const outcomeCount = await db.select({ count: sql<number>`COUNT(*)` })
-    .from(swingOutcomes)
-    .where(sql`${swingOutcomes.return5d} IS NOT NULL`);
-
+  const outcomes = await db.select({ count: sql`count(*)` }).from(swingOutcomes);
   return {
-    engine: "SWING",
-    genomeVersion: genome.version,
+    version: genome.version,
     params: genome.params,
-    avgReturn: genome.avgReturn,
-    sampleSize: genome.sampleSize,
-    completedOutcomes: outcomeCount[0]?.count ?? 0,
+    totalOutcomes: Number(outcomes[0].count),
   };
 }
