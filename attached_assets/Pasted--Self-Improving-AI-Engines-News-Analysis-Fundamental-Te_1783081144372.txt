@@ -1,0 +1,260 @@
+# Self-Improving AI Engines: News Analysis, Fundamental+Technical Fusion & Genome Evolution
+
+## Goal
+Transform all AI engines (Signal Engine/HERMES, Swing Watch, IPO Radar, Scalp Radar/APEX) into fully **self-learning AND self-improving** systems that:
+1. **Signal Engine (HERMES)**: Integrate deep news analysis + VCP pattern + best fundamental + technical signals → composite scoring
+2. **All Engines**: Self-improving genome evolution that mutates scan parameters until achieving **5-10% avg returns**
+3. **Swing Watch / IPO Radar / Scalp Radar**: Currently lack self-improving capabilities — add genome evolution + outcome tracking + learning cycles
+
+---
+
+## Current Architecture Summary
+
+| Engine | Self-Learning (Weights) | Self-Improving (Genome) | News Integration | Fundamental Integration |
+|--------|------------------------|------------------------|------------------|------------------------|
+| **HERMES** (Signal Engine) | ✅ Full | ✅ Basic genome | ✅ Basic RSS | ✅ Basic FMP |
+| **APEX** (Scalp Radar FNO) | ✅ Full | ❌ Missing | ✅ RSS + Sentiment | ✅ F&O Features |
+| **FUGU** (Ranking) | ✅ Full | ❌ Missing | ❌ Not integrated | ✅ Basic |
+| **Swing Scanner** (stockApi) | ❌ None | ❌ None | ❌ None | ❌ None |
+| **IPO Scanner** (stockApi) | ❌ None | ❌ None | ❌ None | ❌ None |
+
+---
+
+## Proposed Changes
+
+### Component 1: Enhanced News Analysis Engine
+
+> Deep news analysis with Gemini-powered sentiment, multi-source aggregation, and impact scoring
+
+#### [MODIFY] [apexNewsEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/apexNewsEngine.ts)
+
+- **Add more RSS sources**: LiveMint, NDTV Profit, Reuters India, NSE announcements
+- **Add Gemini-powered deep sentiment analysis**: Replace simple keyword scoring with Gemini AI analysis for ambiguous headlines
+- **Add impact magnitude scoring**: Not just positive/negative, but how much it could move the stock (1-5 scale)
+- **Add news freshness decay**: Recent news weighted higher than stale news
+- **Add cross-stock correlation**: If sector peer has big news, propagate signal to related stocks
+- **Export `getDeepNewsAnalysis()` function** for all engines to consume
+
+#### [NEW] [newsImpactScorer.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/newsImpactScorer.ts)
+
+New file that provides:
+- `analyzeNewsImpact(symbol)` → Returns structured impact assessment: `{ sentiment, magnitude, catalyst, freshness, relatedStocks, geminiSummary }`
+- Uses Gemini to classify expected price impact (1-5% move, 5-10% move, >10% move)
+- Tracks which news catalysts historically led to biggest moves
+- Self-learning: Compares news predictions vs actual outcomes to improve future scoring
+
+---
+
+### Component 2: HERMES Signal Engine — Full Fundamental + Technical + News Fusion
+
+> The Signal Engine must combine ALL three pillars with genome-controlled weights
+
+#### [MODIFY] [hermesEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/hermesEngine.ts)
+
+**Changes in `runDailyScan()`**:
+- Enhance fundamental scoring with more granular metrics: Revenue CAGR, promoter holding changes, cash flow analysis
+- Integrate `getDeepNewsAnalysis()` from enhanced news engine (replace simple `getNewsScoreForSymbol`)
+- Use genome parameters to dynamically weight all three pillars (instead of hardcoded ratios)
+- Add **news catalyst detection**: If a stock has a strong positive news catalyst + VCP pattern + good fundamentals → boost priority
+- Add **sector momentum overlay**: Weight stocks higher if their entire sector has positive news flow
+
+**Changes in `runLearningCycle()`**:
+- Include news accuracy in feature win-rate calculations
+- Add news-related features to the pruning system
+- Track which combination of (technical + fundamental + news) produces best 5-10% returns
+
+---
+
+### Component 3: Self-Improving Genome for APEX (Scalp Radar / FNO)
+
+> APEX currently has self-learning weights but NO genome evolution. Add it.
+
+#### [MODIFY] [apexLearningEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/apexLearningEngine.ts)
+
+Add genome evolution call at the end of `runLearningCycle()`:
+- Gather completed APEX trade outcomes
+- Convert to `TradeOutcome[]` format
+- Call `runGenomeEvolution("APEX", trades)` from selfImprovingCore
+- Log genome changes
+
+#### [MODIFY] [apexEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/apexEngine.ts)
+
+- Load genome parameters in `runMorningScan()` to dynamically control:
+  - `max_picks_per_day` (currently hardcoded to 5)
+  - `min_confidence_threshold` (currently hardcoded)
+  - Feature group weight proportions (news vs F&O vs technical vs gap vs macro)
+- Use genome's `news_group_weight`, `fo_group_weight`, etc. to rebalance the APEX scoring
+
+#### [MODIFY] [apexScheduler.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/apexScheduler.ts)
+
+- Add a genome evolution scheduled job at 5:00 PM IST (after learning cycle)
+
+---
+
+### Component 4: Self-Improving Swing Scanner
+
+> Currently just a static filter — no learning, no genome, no outcome tracking
+
+#### [NEW] [swingGenomeEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/swingGenomeEngine.ts)
+
+New self-improving wrapper around the existing `runSwingScanner()`:
+- **Outcome Tracking**: After swing scanner produces results, record entry prices. Track 5d/10d forward returns.
+- **Genome-Controlled Filters**: The swing scanner's 12 filters currently use hardcoded thresholds. Replace with genome-driven parameters:
+  - `min_change_pct`, `min_volume_surge`, `max_atr_tightness`, `near_high_pct`, `min_rs_score`, `sl_pct_max`, `risk_reward_ratio`, `max_hold_days`
+- **Learning Cycle**: Analyze which swing picks hit 5-10% vs which failed → evolve genome
+- **News Integration**: Add news score as a filter/booster for swing picks
+- **Fundamental Filter**: Add minimum ROE/debt filter from FMP data
+
+Functions:
+- `runSwingScannerEvolved()` — genome-aware version of `runSwingScanner()`
+- `trackSwingOutcomes()` — fills forward returns for past swing picks
+- `runSwingLearningCycle()` — evolves the SWING genome
+- `getSwingGenomeStatus()` — returns current genome version + stats
+
+#### [NEW] Schema Addition: `swing_outcomes` table
+
+Track swing scanner outcomes in the database for the learning cycle.
+
+---
+
+### Component 5: Self-Improving IPO Radar
+
+> Currently a simple base-detection scanner — no learning
+
+#### [NEW] [ipoGenomeEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/ipoGenomeEngine.ts)
+
+New self-improving wrapper around `runIpoScanner()`:
+- **Genome-Controlled Parameters**:
+  - `min_days_since_listing` (currently 10)
+  - `max_days_since_listing` (currently 110)
+  - `max_base_depth_pct` (currently 0.35)
+  - `consolidation_range_pct` (currently 0.15)
+  - `min_avg_volume` (currently 5000)
+  - `min_score_threshold` (new — requires computing a score)
+- **IPO Scoring**: Compute a composite IPO score combining base tightness, volume characteristics, listing premium/discount, and news sentiment
+- **Outcome Tracking**: Track 5/10/20 day returns for IPO picks
+- **Learning Cycle**: Evolve IPO genome based on outcome data
+- **News Integration**: Check if IPO stock has positive news catalyst
+
+Functions:
+- `runIpoScannerEvolved()` — genome-aware IPO scanner
+- `trackIpoOutcomes()` — fills forward returns
+- `runIpoLearningCycle()` — evolves IPO genome
+
+#### [NEW] Schema Addition: `ipo_outcomes` table
+
+---
+
+### Component 6: Self-Improving FUGU Engine
+
+> FUGU has self-learning but no genome evolution
+
+#### [MODIFY] [fuguEngine.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/fuguEngine.ts)
+
+In `runFuguLearningCycle()`:
+- Add genome evolution call similar to HERMES
+- Evolve FUGU genome parameters: `min_elite_score`, weight proportions, scan universe size
+- Integrate news analysis into FUGU scoring (currently sentiment agent is zeroed out)
+
+---
+
+### Component 7: Unified Self-Improving Scheduler
+
+> Central scheduler that orchestrates all genome evolution cycles
+
+#### [MODIFY] [hermesScheduler.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/hermesScheduler.ts)
+
+- Add swing genome evolution job at 7:00 PM IST
+- Add IPO genome evolution job at 7:15 PM IST
+
+#### [MODIFY] [fuguScheduler.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/fuguScheduler.ts)
+
+- Add FUGU genome evolution as part of `runFuguLearningCycle()`
+
+#### [MODIFY] [apexScheduler.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/apexScheduler.ts)
+
+- Add APEX genome evolution at 5:00 PM IST (after learning cycle completes)
+
+---
+
+### Component 8: Schema Updates
+
+#### [MODIFY] [schema.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/shared/schema.ts)
+
+Add new tables:
+```
+swing_outcomes — outcome tracking for swing scanner picks
+ipo_outcomes — outcome tracking for IPO scanner picks
+news_impact_log — tracks news impact predictions vs actual moves
+```
+
+---
+
+### Component 9: Enhanced Self-Improving Core
+
+#### [MODIFY] [selfImprovingCore.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/selfImprovingCore.ts)
+
+- Add **crossover mutation**: Combine best params from two parent genomes (not just random perturbation)
+- Add **adaptive mutation strength**: Start with larger mutations, narrow down as genome matures
+- Add **multi-objective optimization**: Optimize for both avg return AND win rate simultaneously
+- Add **statistical significance test**: Only promote if improvement is statistically significant (not just random noise)
+- Add news-related genome parameters to bounds table
+
+---
+
+### Component 10: API Routes
+
+#### [MODIFY] [routes.ts](file:///c:/Users/Nileshrajput/Downloads/WEALTHY-WHALES%20(7)/WEALTHY-WHALES/server/routes.ts)
+
+Add new endpoints:
+- `GET /api/genome/status` — returns genome status for all engines
+- `GET /api/genome/:engine/history` — genome evolution history
+- `POST /api/genome/:engine/evolve` — manual trigger for genome evolution
+- `GET /api/swing/evolved` — swing scanner results with genome-aware filtering
+- `GET /api/ipo/evolved` — IPO scanner results with genome-aware filtering
+- `GET /api/news/impact/:symbol` — deep news impact analysis for a stock
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> 1. **Database migration**: Adding new tables (`swing_outcomes`, `ipo_outcomes`, `news_impact_log`) requires a database migration. Should I run `db:push` automatically after creating the schema changes?
+
+> [!IMPORTANT]  
+> 2. **News API rate limits**: Enhanced news analysis uses Gemini API for deep sentiment. The free Gemini tier has rate limits. Should we use `gemini-flash-latest` (faster, cheaper) or `gemini-pro` (more accurate) for news analysis?
+
+> [!WARNING]
+> 3. **Initial cold start**: All genome evolution requires at least 10 completed trade outcomes to begin self-improving. Until the system accumulates enough data, it will use default parameters. This is by design — it prevents premature optimization on insufficient data.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Build and typecheck: `npx tsc --noEmit`
+- Verify schema migration: `npx drizzle-kit push`
+
+### Manual Verification
+1. Start dev server and verify all existing engines still function
+2. Trigger manual scans for each engine to verify genome loading
+3. Check genome status API endpoint returns correct default genomes
+4. Verify news impact scorer produces valid sentiment + magnitude scores
+5. Confirm swing/IPO outcome tracking tables are created and writable
+
+---
+
+## Implementation Order
+
+1. **Schema changes** (new tables) → `schema.ts`
+2. **News Impact Scorer** → `newsImpactScorer.ts`
+3. **Enhanced News Engine** → `apexNewsEngine.ts`
+4. **Enhanced Self-Improving Core** → `selfImprovingCore.ts`
+5. **Swing Genome Engine** → `swingGenomeEngine.ts`
+6. **IPO Genome Engine** → `ipoGenomeEngine.ts`
+7. **APEX Genome Integration** → `apexEngine.ts` + `apexLearningEngine.ts`
+8. **FUGU Genome Integration** → `fuguEngine.ts`
+9. **HERMES Enhancement** → `hermesEngine.ts`
+10. **Scheduler Updates** → all schedulers
+11. **API Routes** → `routes.ts`
+12. **Database Migration** → `drizzle-kit push`

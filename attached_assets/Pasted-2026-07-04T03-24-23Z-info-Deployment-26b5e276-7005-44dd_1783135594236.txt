@@ -1,0 +1,187 @@
+2026-07-04T03:24:23Z info: Deployment: 26b5e276-7005-44dd-994c-6930168ae129
+2026-07-04T03:24:23Z info: Build: 6a6c18a4-4d80-4ac6-9af1-bf187b5a9c52
+2026-07-04T03:24:26Z info: Running Security Scan
+2026-07-04T03:24:29Z info: Installing packages
+--> npm install
+
+
+up to date, audited 658 packages in 5s
+
+179 packages are looking for funding
+  run `npm fund` for details
+
+2026-07-04T03:24:36Z info: Starting Build
+
+> genai-stock@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+vite v5.4.21 building for production...
+
+transforming...
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/main.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/App.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/toaster.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/StockSearchBar.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/hooks/useViewMode.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/not-found.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/Landing.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/AskAI.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/Community.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/Watchlist.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/EventsCalendar.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/SectorScope.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/OptionClock.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/FiiDii.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/SmartScreener.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/NotificationSettings.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/HermesAI.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/AIConfluence.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/ApexAI.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/input.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/separator.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/StockRecommendationCard.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/StockIQScore.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/AIResearchReport.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/tabs.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/progress.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/dialog.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/RecommendationBadge.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/accordion.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21726:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:21946:36)
+
+2026-07-04T03:24:44Z info: Security Scan Complete
+✓ 3268 modules transformed.
+
+rendering chunks...
+
+../dist/public/index.html              43.51 kB │ gzip:  13.98 kB
+
+
+  dist/index.js  551.7kb
+
+⚡ Done in 30ms
+
+2026-07-04T03:24:57Z info: Pushing pid1 binary layer...
+2026-07-04T03:25:02Z info: Pushing Repl layer...
+2026-07-04T03:25:02Z info: Pushing hosting layer...
+2026-07-04T03:25:04Z info: Created hosting layer
+2026-07-04T03:25:11Z info: Created pid1 binary layer

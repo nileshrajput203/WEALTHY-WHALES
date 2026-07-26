@@ -1,0 +1,97 @@
+Yes — to make it **perfect**, you should upgrade the scan from a loose “tight stock” filter into a full **Minervini-style VCP leader screen** that checks trend, compression, liquidity, and breakout quality together. [finermarketpoints](https://www.finermarketpoints.com/post/mark-minervini-s-stock-screener-what-indicators-and-criteria-does-he-use)
+
+## Perfect filter logic
+
+Use this structure:
+
+- Strong uptrend first.
+- Tight contraction second.
+- Volume dry-up third.
+- Breakout confirmation last. [trendspider](https://trendspider.com/trading-tools-store/collection/minervini-trend-template-vcp/)
+
+The idea is to only keep stocks that are already acting like leaders, are compressing in a controlled way, and are close enough to a pivot that a breakout can happen soon. [screener](https://www.screener.in/screens/2808965/stage-2-vcp-setup-minervini-style/)
+
+## Add these core conditions
+
+### Trend template
+
+Use these trend filters:
+- Close above 50 EMA.
+- 50 EMA above 150 EMA.
+- 150 EMA above 200 EMA.
+- Close above 200 EMA or at least above a rising 150 EMA.
+- Price near 52-week high, not near 52-week low. [scribd](https://www.scribd.com/document/352063047/The-Trend-Template-Mark-Minervini)
+
+This removes weak charts and makes sure you are only looking at stocks in a healthy stage-2 type trend. [chartink](https://chartink.com/screener/volatility-compression)
+
+### Compression rules
+
+Add these volatility filters:
+- ATR(14) lower than ATR(14) 10 days ago.
+- ATR(14) divided by close below a strict threshold.
+- Daily candles getting smaller.
+- At least 2 to 4 pullbacks, each one shallower than the last. [finermarketpoints](https://www.finermarketpoints.com/post/what-is-a-vcp-pattern-mark-minervini-s-volatility-contraction-pattern-explained)
+
+This is the real VCP heart: volatility should shrink progressively, not just be low on one random day. [arongroups](https://arongroups.co/technical-analyze/vcp-pattern-strategy/)
+
+### Volume rules
+
+Add these volume filters:
+- Volume drying up during the base.
+- Current volume below 20-day average during consolidation.
+- Breakout day volume at least 1.5x to 2x average volume.
+- Prefer stocks with accumulation signs, not repeated heavy selloff days. [sharpely](https://sharpely.in/blogs/volatility-contraction-pattern-vcp-rule-based-screener-built-high-quality/)
+
+Volume dry-up tells you supply is disappearing, while breakout volume tells you demand is returning with strength. [finermarketpoints](https://www.finermarketpoints.com/post/what-is-a-vcp-pattern-mark-minervini-s-volatility-contraction-pattern-explained)
+
+### Leadership rules
+
+Add these filters:
+- Relative strength strong.
+- Stock near 52-week high.
+- Sector/industry strength positive.
+- Earnings and sales growth healthy.
+- Avoid illiquid or thin names. [finermarketpoints](https://www.finermarketpoints.com/post/mark-minervini-vcp-patterns-why-sector-and-thematic-filters-matter-more-than-stock-selection)
+
+This is important because a perfect-looking chart in a weak stock often fails, while a strong leader in a strong group can break out cleanly. [trendspider](https://trendspider.com/trading-tools-store/collection/minervini-trend-template-vcp/)
+
+## Clean version for Chartink-style scan
+
+Here is the **ideal logic** in plain language:
+
+- Daily Close > 50 EMA.
+- 50 EMA > 150 EMA.
+- 150 EMA > 200 EMA.
+- Close near 52-week high.
+- ATR(14) falling versus 10 days ago.
+- ATR(14) / Close very low.
+- Volume below average during consolidation.
+- Price above 9 EMA and 20 EMA.
+- Price/Volume liquidity strong.
+- Daily range tightening.
+- Breakout only when volume expands strongly. [finermarketpoints](https://www.finermarketpoints.com/post/mark-minervini-s-stock-screener-what-indicators-and-criteria-does-he-use)
+
+## My exact recommendation
+
+If your goal is **accuracy over quantity**, use the scan in two stages:
+
+1. **Formation scan**: find stocks with trend + contraction + dry-up.
+2. **Breakout scan**: only trigger when price clears pivot on strong volume. [trendspider](https://trendspider.com/trading-tools-store/scanners/682f8f-vcp-breakout/)
+
+That is much better than mixing everything into one loose scan, because it helps you separate “watchlist candidates” from actual entry candidates. [youtube](https://www.youtube.com/watch?v=qLa2HpUf2zA)
+
+## Best practical setup
+
+For Indian stocks, the most reliable version usually looks like this:
+- Price above 50/150/200 EMA.
+- 50 EMA above 150 EMA, 150 EMA above 200 EMA.
+- ATR falling.
+- Volume drying up.
+- Price within 10% to 15% of recent highs.
+- Strong relative strength.
+- Good earnings/sales growth.
+- Sector in favor. [deepvue](https://deepvue.com/screener/minervini-trend-template/)
+
+That is the closest you can get to a “perfect” VCP screen without making it so strict that no stocks ever appear. [screener](https://www.screener.in/screens/2808965/stage-2-vcp-setup-minervini-style/)
+
+I can now turn this into a **ready-to-paste Chartink scanner formula** for NSE/BSE in your exact style.

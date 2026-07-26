@@ -1,0 +1,75 @@
+A good VCP on the daily chart is not just “tight price action”; it is a **stage-2 uptrend** that pauses in a series of smaller pullbacks, with volume drying up into the base and then expanding on breakout. In practice, you want a stock that is already a leader, is coiling near highs, and shows clear contraction in both price range and turnover before you care about the pivot. [chartink](https://chartink.com/screener/volatility-compression)
+
+## What VCP means
+
+VCP stands for Volatility Contraction Pattern. The core idea is that each pullback becomes smaller than the previous one, which shows selling pressure is weakening while demand is quietly absorbing supply. The pattern usually forms after a meaningful advance, not in a downtrend or random sideways chop. [arongroups](https://arongroups.co/technical-analyze/vcp-pattern-strategy/)
+
+A simple way to think about it is: strong uptrend → first pullback → smaller bounce/pullback → even tighter pause → breakout. The tighter the structure gets, the better the odds that the stock is “coiling” for expansion, but only if the broader context is strong. [finermarketpoints](https://www.finermarketpoints.com/post/what-is-a-vcp-pattern-mark-minervini-s-volatility-contraction-pattern-explained)
+
+## Daily chart structure
+
+On the daily timeframe, a clean VCP usually has three or more contractions, and each contraction should be smaller in percentage terms or in range width than the one before it. The stock should remain above key moving averages or at least stay constructive around them, because VCP works best when the trend context is still healthy. [in.tradingview](https://in.tradingview.com/chart/BSE/0ZlXMYhd-Volatility-Contraction-Pattern-VCP-Breakout-Strategy-Explained/)
+
+You also want the stock to be near a meaningful resistance or pivot area, because the breakout happens when price finally clears that level with force. If the stock is too extended, the risk is poor; if it is too loose or too deep in correction, it is often not a true VCP. [sharpely](https://sharpely.in/blogs/volatility-contraction-pattern-vcp-rule-based-screener-built-high-quality/)
+
+## Volume behavior
+
+Volume is one of the most important filters. During each contraction, volume should generally dry up, showing that supply is being exhausted and fewer participants are willing to sell lower. A quality setup often shows the lowest volume during the tightest part of the base, not during the breakout itself. [in.tradingview](https://in.tradingview.com/script/ZDW7dMhF-Minervini-VCP-Pattern-Indian-Context/)
+
+On breakout day, volume should expand meaningfully versus the stock’s recent average, confirming that buyers are stepping in with conviction. Some scanners specifically look for breakout volume above average daily volume or relative volume above 1, which is a practical way to confirm participation. [trendspider](https://trendspider.com/trading-tools-store/scanners/682f8f-vcp-breakout/)
+
+## ATR and volatility
+
+ATR, or Average True Range, helps quantify whether volatility is truly contracting. In a good VCP, ATR should trend lower across successive pullbacks, because the daily ranges are getting tighter. You do not need a perfect numerical threshold, but the visual and statistical trend should both show compression. [arongroups](https://arongroups.co/technical-analyze/vcp-pattern-strategy/)
+
+A useful framework is to compare recent ATR to earlier ATR within the base. If price is tight but ATR is still wide or expanding, the stock is usually too loose and the pattern is lower quality. In strong VCPs, ATR contraction and volume dry-up happen together, which is why they are often treated as paired evidence of supply absorption. [in.tradingview](https://in.tradingview.com/script/ZDW7dMhF-Minervini-VCP-Pattern-Indian-Context/)
+
+## Trend and moving averages
+
+VCP is a continuation pattern, so trend quality matters a lot. Many Minervini-style screens look for price above the 50-day and 200-day moving averages, with the 50-day above the 200-day as a sign of a healthy stage-2 trend. That does not mean every valid VCP must be textbook-perfect, but the stronger the trend alignment, the better. [trendspider](https://trendspider.com/trading-tools-store/collection/minervini-trend-template-vcp/)
+
+You also want the stock to have relative strength versus the market and ideally be near highs, because VCPs are best in leading stocks rather than weak laggards. In other words, the pattern should be a pause in strength, not a dead-cat bounce. [screener](https://www.screener.in/screens/2808965/stage-2-vcp-setup-minervini-style/)
+
+## Fundamental filters
+
+The best VCP stocks usually have a strong fundamental story behind them. Market leaders often have earnings growth, sales growth, improving margins, and some kind of product, sector, or business catalyst that supports institutional interest. Pure chart structure without fundamentals can still work, but it is much less reliable. [trendspider](https://trendspider.com/trading-tools-store/collection/minervini-trend-template-vcp/)
+
+A practical fundamental checklist includes:
+- Quarterly and annual earnings growth.
+- Revenue growth accelerating or at least staying healthy.
+- Strong return ratios or margin expansion.
+- Reasonable debt levels and financial stability.
+- Industry/sector strength and a clear market theme. [finermarketpoints](https://www.finermarketpoints.com/post/mark-minervini-vcp-patterns-why-sector-and-thematic-filters-matter-more-than-stock-selection)
+
+Sector leadership matters more than many traders realize. A stock with a perfect chart in a weak sector often fails because it lacks tailwinds, while a good stock in a strong thematic group can break out much more cleanly. [finermarketpoints](https://www.finermarketpoints.com/post/mark-minervini-vcp-patterns-why-sector-and-thematic-filters-matter-more-than-stock-selection)
+
+## How to screen
+
+Start with a universe of liquid stocks and narrow it to those in confirmed uptrends. Then look for a sequence of tightening bases with lower volume and lower ATR, plus a breakout pivot near a prior resistance area. After that, check the fundamental story and sector strength before deciding whether the setup deserves a watchlist spot. [chartink](https://chartink.com/screener/volatility-compression)
+
+A practical filter stack is:
+1. Strong relative strength and leadership behavior.
+2. Price above key moving averages.
+3. Contracting ATR and narrowing daily ranges.
+4. Volume dry-up during the base.
+5. Clean pivot with breakout volume confirmation.
+6. Healthy earnings, sales, and sector context. [trendspider](https://trendspider.com/trading-tools-store/scanners/682f8f-vcp-breakout/)
+
+## Common invalid setups
+
+Not every consolidation is a VCP. Wide, messy bases with erratic swings are usually not good candidates, even if price is near highs. Deep corrections, heavy supply bars, or repeated high-volume down days often invalidate the pattern because they show distribution rather than quiet absorption. [finermarketpoints](https://www.finermarketpoints.com/post/what-is-a-vcp-pattern-mark-minervini-s-volatility-contraction-pattern-explained)
+
+News spikes can also create fake “tight” patterns that look good for a few days but fail because the move is not built on real accumulation. A true VCP should look calm, controlled, and constructive, not random or emotional. [sharpely](https://sharpely.in/blogs/volatility-contraction-pattern-vcp-rule-based-screener-built-high-quality/)
+
+## Practical checklist
+
+Use this quick checklist on the daily chart:
+- Prior uptrend is already established. [chartink](https://chartink.com/screener/volatility-compression)
+- Each pullback is smaller than the last. [in.tradingview](https://in.tradingview.com/chart/BSE/0ZlXMYhd-Volatility-Contraction-Pattern-VCP-Breakout-Strategy-Explained/)
+- ATR is contracting across the base. [arongroups](https://arongroups.co/technical-analyze/vcp-pattern-strategy/)
+- Volume dries up in the tightest area. [in.tradingview](https://in.tradingview.com/script/ZDW7dMhF-Minervini-VCP-Pattern-Indian-Context/)
+- Stock is near a pivot/resistance level. [in.tradingview](https://in.tradingview.com/chart/BSE/0ZlXMYhd-Volatility-Contraction-Pattern-VCP-Breakout-Strategy-Explained/)
+- Breakout day shows volume expansion. [finermarketpoints](https://www.finermarketpoints.com/post/what-is-a-vcp-pattern-mark-minervini-s-volatility-contraction-pattern-explained)
+- Fundamentals and sector strength support the move. [screener](https://www.screener.in/screens/2808965/stage-2-vcp-setup-minervini-style/)
+
+A useful rule of thumb: the cleaner the contraction and the stronger the leader, the better the odds. Would you like me to turn this into a **Chartink-style VCP screener** for Indian stocks with exact conditions?

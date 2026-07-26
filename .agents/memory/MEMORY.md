@@ -1,0 +1,11 @@
+- [Shared types location](shared-types.md) — StockIQResult and SubScore live in shared/types.ts; client imports @shared/types, NOT server/stockiq
+- [Rate limiting setup](rate-limiting.md) — express-rate-limit applied to /api/research-report (10/15min) and /api/chat (20/min); aiRateLimit and chatRateLimit defined inside registerRoutes
+- [SSE heartbeat pattern](sse-heartbeat.md) — research-report SSE sends ":\n\n" every 15s to prevent proxy timeouts; heartbeat cleared before res.end()
+- [Memory leak fix](memory-leak-fix.md) — res.json body interceptor removed from server/index.ts; now logs only method/path/status/duration
+- [Express handler typing](express-typing.md) — all routes.ts handlers use Request/Response from express (not req:any); req.user accessed via type assertion for auth-protected routes
+- [AI JSON validation](ai-json-validation.md) — StockInsight JSON from Gemini is runtime-validated field by field; no blind "as Type" casts allowed on AI output
+- [Schema enum types](schema-enums.md) — recommendationType, role, scannerType use .$type<"BUY"|"SELL"|"HOLD">() etc for TypeScript narrowing without DB migration
+- [Zod POST validation](zod-post-validation.md) — /api/user/telegram and /api/signals/log use z.safeParse() for body validation; return 400 on invalid input
+- [Gemini token reduction](gemini-token-reduction.md) — cache TTLs (60m/15m/4h), toPromptJSON(), maxOutputTokens 4096, no thinkingBudget; mandatory for all new AI functions
+- [Security headers](security-headers.md) — headers in server/index.ts; CSP must include TradingView domains (s3.tradingview.com) or chart widgets break in production
+- [Genome API routes](genome-api-routes.md) — unified genome endpoints + EngineId allowlist validation pattern + hermesScheduler swing/IPO genome jobs at 19:00/19:15 IST
