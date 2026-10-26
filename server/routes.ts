@@ -6,7 +6,7 @@ import { createServer, type Server } from "http";
 import passport from "passport";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { storage } from "./storage";
+import { storage, memCache } from "./storage";
 import { setupGoogleAuth } from "./googleAuth";
 import {
   getFinancialAdvice,
@@ -421,6 +421,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     },
   );
+
+  // ═══ Cache Health & Diagnostics ═══════════════════════════════════════════
+  app.get("/api/cache/status", async (req, res) => {
+    try {
+      res.json({
+        ramEntries: memCache.size,
+        maxEntries: 500,
+        postgresHealthy: memCache.isPostgresHealthy,
+        mode: memCache.isPostgresHealthy ? "RAM + Postgres Write-Through" : "RAM-Only (Postgres Offline)",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch cache status" });
+    }
+  });
 
   // Stock Recommendations - Real-time data from free APIs
   app.get("/api/recommendations", async (req, res) => {
