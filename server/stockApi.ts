@@ -1,6 +1,6 @@
-// Free Stock Data APIs - Multiple providers for redundancy
 import axios from 'axios';
 import { NSE_UNIQUE, NIFTY_50, ETFS } from './nseUniverse';
+import { candleCache } from './candleCache';
 
 // Configuration for different free APIs
 const API_CONFIGS = {
@@ -175,28 +175,9 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
   }
 }
 
-// Fetch Yahoo historical candles for basic indicators
+// Fetch Yahoo historical candles with shared in-memory caching & deduplication
 export async function getYahooHistory(symbol: string, range: string = '6mo', interval: string = '1d') {
-  try {
-    const response = await axios.get(`${API_CONFIGS.yahoo.baseUrl}/${symbol}`, {
-      params: { interval, range, includePrePost: false, useYfid: true, corsDomain: 'finance.yahoo.com' },
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      timeout: 12000,
-    });
-    const r = response.data?.chart?.result?.[0];
-    if (!r?.timestamp || !r?.indicators?.quote?.[0]) return [];
-    const q = r.indicators.quote[0];
-    return r.timestamp.map((t: number, i: number) => ({
-      time: new Date(t * 1000),
-      open: q.open?.[i],
-      high: q.high?.[i],
-      low: q.low?.[i],
-      close: q.close?.[i],
-      volume: q.volume?.[i],
-    })).filter((c: any) => Number.isFinite(c.close));
-  } catch (e) {
-    return [];
-  }
+  return candleCache.getCandlesCached(symbol, range, interval);
 }
 
 export function computeSMA(values: number[], period: number): (number | null)[] {
@@ -485,16 +466,15 @@ export async function runSwingScanner(): Promise<SwingScanResult[]> {
     return true;
   });
 
-  const scanList: string[] = [];
-  for (const sym of baseList) {
-    scanList.push(`${sym}.NS`);
-    scanList.push(`${sym}.BO`);
-  }
+  const scanList = baseList.map(sym => sym.includes('.') ? sym : `${sym}.NS`);
 
   console.log(`Swing scanner: scanning ${scanList.length} stocks (excluded ${NSE_UNIQUE.length - scanList.length} Nifty50/ETFs)`);
 
+  // Pre-warm cache for faster execution
+  await candleCache.preWarm(scanList, '1y', '1d', 25, 100);
+
   const results: SwingScanResult[] = [];
-  const batchSize = 15;       // 15 parallel requests per batch
+  const batchSize = 30;       // 30 parallel requests per batch (served from cache)
   let scanned = 0;
 
   for (let b = 0; b < scanList.length; b += batchSize) {

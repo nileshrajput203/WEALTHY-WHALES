@@ -14,7 +14,8 @@ import { db } from "./db";
 import { ipoOutcomes } from "@shared/schema";
 import { and, eq, gte, isNull, lte, sql, desc } from "drizzle-orm";
 import { getGenome, runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
-import { getYahooStockQuote, getYahooHistory, computeEMA } from "./stockApi";
+import { getYahooStockQuote, computeEMA } from "./stockApi";
+import { candleCache } from "./candleCache";
 import { getNewsScoreForSymbol } from "./apexNewsEngine";
 import { getNowIST } from "./istUtils";
 import { markJobStart, markJobDone, markJobFailed } from "./jobLedger";
@@ -248,49 +249,51 @@ export async function runIpoScannerEvolved(): Promise<{
     const results: IpoRocketBaseResult[] = [];
     let scanned = 0;
 
-    // Scan curated Indian IPOs
-    for (const item of RECENT_INDIAN_IPOS) {
-      try {
-        const symbol = item.symbol;
-        const candles = await getYahooHistory(`${symbol}.NS`, "1y", "1d");
-        scanned++;
-        
-        const analyzed = evaluateIpoRocketBase(
-          symbol,
-          candles,
-          item.name,
-          item.sector,
-          genome.version
-        );
+    // Scan curated Indian IPOs in parallel with candleCache
+    await Promise.all(
+      RECENT_INDIAN_IPOS.map(async (item) => {
+        try {
+          const symbol = item.symbol;
+          const candles = await candleCache.getCandlesCached(`${symbol}.NS`, "1y", "1d");
+          scanned++;
+          
+          const analyzed = evaluateIpoRocketBase(
+            symbol,
+            candles,
+            item.name,
+            item.sector,
+            genome.version
+          );
 
-        if (analyzed) {
-          try {
-            const newsScore = await getNewsScoreForSymbol(symbol);
-            analyzed.newsScore = Math.round(newsScore);
-          } catch (_) {}
+          if (analyzed) {
+            try {
+              const newsScore = await getNewsScoreForSymbol(symbol);
+              analyzed.newsScore = Math.round(newsScore);
+            } catch (_) {}
 
-          results.push(analyzed);
+            results.push(analyzed);
 
-          // Record in outcomes table
-          try {
-            await db.insert(ipoOutcomes).values({
-              symbol,
-              entryPrice: analyzed.price,
-              listingDate: new Date(),
-              daysOld: analyzed.daysListed,
-              baseDepth: String(analyzed.baseDepthPct),
-              consolidationRange: String(analyzed.distanceFromPivotPct),
-              avgVolume: String(analyzed.volume).replace(/,/g, ""),
-              ipoScore: analyzed.rocketScore,
-              newsScore: String(analyzed.newsScore),
-              genomeVersion: genome.version,
-            });
-          } catch (_) {}
+            // Record in outcomes table
+            try {
+              await db.insert(ipoOutcomes).values({
+                symbol,
+                entryPrice: analyzed.price,
+                listingDate: new Date(),
+                daysOld: analyzed.daysListed,
+                baseDepth: String(analyzed.baseDepthPct),
+                consolidationRange: String(analyzed.distanceFromPivotPct),
+                avgVolume: String(analyzed.volume).replace(/,/g, ""),
+                ipoScore: analyzed.rocketScore,
+                newsScore: String(analyzed.newsScore),
+                genomeVersion: genome.version,
+              });
+            } catch (_) {}
+          }
+        } catch (err: any) {
+          console.warn(`[IpoGenome] Could not fetch IPO data for ${item.symbol}:`, err.message);
         }
-      } catch (err: any) {
-        console.warn(`[IpoGenome] Could not fetch IPO data for ${item.symbol}:`, err.message);
-      }
-    }
+      })
+    );
 
     // Sort by Rocket Score descending, then by proximity to breakout
     results.sort((a, b) => b.rocketScore - a.rocketScore || a.distanceFromPivotPct - b.distanceFromPivotPct);
@@ -484,9 +487,13 @@ export async function runIpoLearningCycle(): Promise<{
  */
 export async function getIpoGenomeStatus() {
   const genome = await getGenome("IPO");
-  const outcomeCount = await db.select({ count: sql<number>`COUNT(*)` })
-    .from(ipoOutcomes)
-    .where(sql`${ipoOutcomes.return5d} IS NOT NULL`);
+  let completedOutcomes = 0;
+  try {
+    const outcomeCount = await db.select({ count: sql<number>`COUNT(*)` })
+      .from(ipoOutcomes)
+      .where(sql`${ipoOutcomes.return5d} IS NOT NULL`);
+    completedOutcomes = outcomeCount[0]?.count ?? 0;
+  } catch (_) {}
 
   return {
     engine: "IPO",
@@ -494,6 +501,6 @@ export async function getIpoGenomeStatus() {
     params: genome.params,
     avgReturn: genome.avgReturn,
     sampleSize: genome.sampleSize,
-    completedOutcomes: outcomeCount[0]?.count ?? 0,
+    completedOutcomes,
   };
 }

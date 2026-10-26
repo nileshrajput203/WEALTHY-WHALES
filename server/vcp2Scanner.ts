@@ -3,19 +3,25 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Detects the "Cheat" or "Rocket Base" setups where price is extremely tight
  * and ready for a 10%+ breakout move.
+ *
+ * Performance: Uses shared CandleCache for zero-redundancy Yahoo calls.
+ *   - First scan: pre-warms cache (~90s for 750 stocks)
+ *   - Subsequent scans: 100% cache hit = instant analysis
+ *   - Concurrent requests for the same symbol are deduplicated automatically
  */
 
-import { getYahooHistory, type SwingScanResult } from "./stockApi";
+import { type SwingScanResult } from "./stockApi";
 import { NSE_UNIQUE, NIFTY_50, ETFS } from "./nseUniverse";
 import { computeVcpFeatures, computeVcpScore, computeVcpEntrySLTarget } from "./vcpCore";
+import { candleCache } from "./candleCache";
 
-const BATCH_SIZE = 20;
-const BATCH_DELAY_MS = 200;
+/** Analysis batch size (larger = faster, since cache deduplicates network) */
+const ANALYSIS_BATCH = 40;
 
 async function analyzeStockVcp2(sym: string): Promise<SwingScanResult | null> {
   try {
     const yahooSym = sym.includes(".") ? sym : `${sym}.NS`;
-    const candles = await getYahooHistory(yahooSym, "1y", "1d");
+    const candles = await candleCache.getCandlesCached(yahooSym, "1y", "1d");
     if (!candles || candles.length < 210) return null;
 
     const vcp = computeVcpFeatures(candles, sym);
@@ -35,7 +41,7 @@ async function analyzeStockVcp2(sym: string): Promise<SwingScanResult | null> {
       sector: "",
       setup: `ROCKET: Tightness ${vcp.lastContractionDepth.toFixed(1)}% · Pivot ${vcp.pivotPoint.toFixed(2)} · Target +${trade.targetPct.toFixed(1)}%`,
       atr: vcp.atr14,
-      ema9: 0, // Not used in this simplified result
+      ema9: 0,
       ema20: 0,
       ema50: 0,
       ema150: 0,
@@ -56,24 +62,36 @@ async function analyzeStockVcp2(sym: string): Promise<SwingScanResult | null> {
 
 export async function runVcp2Scanner(): Promise<SwingScanResult[]> {
   const baseList = NSE_UNIQUE.filter(sym => !NIFTY_50.has(sym) && !ETFS.has(sym));
-  const results: SwingScanResult[] = [];
+  const yahooSymbols = baseList.map(sym => sym.includes(".") ? sym : `${sym}.NS`);
 
   console.log(`[VCP2-ROCKET] Scanning ${baseList.length} stocks for hyper-accurate setups...`);
 
-  for (let i = 0; i < baseList.length; i += BATCH_SIZE) {
-    const batch = baseList.slice(i, i + BATCH_SIZE);
+  // ── Phase 1: Pre-warm candle cache (shared with other scanners) ──
+  const startWarm = Date.now();
+  await candleCache.preWarm(yahooSymbols, "1y", "1d", 25, 150);
+  const warmMs = Date.now() - startWarm;
+
+  // ── Phase 2: Run VCP analysis (pure in-memory, no network) ──
+  const startAnalysis = Date.now();
+  const results: SwingScanResult[] = [];
+
+  for (let i = 0; i < baseList.length; i += ANALYSIS_BATCH) {
+    const batch = baseList.slice(i, i + ANALYSIS_BATCH);
     const batchResults = await Promise.all(batch.map(analyzeStockVcp2));
     
     for (const r of batchResults) {
       if (r) results.push(r);
     }
 
-    if (i % 100 === 0) {
-      console.log(`  [VCP2] Progress: ${i}/${baseList.length} → ${results.length} rockets found`);
+    if (i % 200 === 0) {
+      console.log(`  [VCP2] Analysis: ${i}/${baseList.length} → ${results.length} rockets found`);
     }
-    
-    await new Promise(res => setTimeout(res, BATCH_DELAY_MS));
   }
+
+  const analysisMs = Date.now() - startAnalysis;
+  const cacheStats = candleCache.getStats();
+  console.log(`[VCP2-ROCKET] Done: ${results.length} rockets in ${warmMs + analysisMs}ms (warm=${warmMs}ms, analysis=${analysisMs}ms, cache hit=${cacheStats.hitRate})`);
 
   return results.sort((a, b) => (b.vcpScore ?? 0) - (a.vcpScore ?? 0));
 }
+

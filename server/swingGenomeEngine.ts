@@ -30,9 +30,11 @@ import { getNewsScoreForSymbol } from "./apexNewsEngine";
 import { getNowIST } from "./istUtils";
 import { markJobStart, markJobDone, markJobFailed } from "./jobLedger";
 
+import { candleCache } from "./candleCache";
+
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BATCH_SIZE = 10;
-const BATCH_DELAY_MS = 500;
+const BATCH_SIZE = 30;
+const BATCH_DELAY_MS = 50;
 const DEFAULT_WIN_THRESHOLD = 5.0;
 const DEFAULT_LOSS_THRESHOLD = -4.0;
 
@@ -71,8 +73,12 @@ export async function runSwingScannerEvolved(): Promise<{
     });
 
     const scanList = baseList.slice(0, 300).map(sym => sym.includes('.') ? sym : `${sym}.NS`);
-    console.log(`[SwingGenome] Scanning ${scanList.length} stocks...`);
+    console.log(`[SwingGenome] Pre-warming candles for ${scanList.length} stocks...`);
 
+    // ── Phase 1: Pre-warm candle cache (shared across all scanners) ──
+    await candleCache.preWarm(scanList, "1y", "1d", 25, 120);
+
+    console.log(`[SwingGenome] Analyzing ${scanList.length} stocks...`);
     const results: SwingScanResult[] = [];
     let scanned = 0;
 
@@ -81,17 +87,14 @@ export async function runSwingScannerEvolved(): Promise<{
 
       await Promise.allSettled(batch.map(async (yahooSym) => {
         try {
-          const candles = await getYahooHistory(yahooSym, "1y", "1d");
+          const candles = await candleCache.getCandlesCached(yahooSym, "1y", "1d");
           if (!candles || candles.length < 210) return;
 
           const cleanSym = yahooSym.replace('.NS', '').replace('.BO', '');
           const vcp = computeVcpFeatures(candles, cleanSym);
           if (!vcp) return;
 
-          const quote = await getYahooStockQuote(yahooSym);
-          const price = quote?.price ?? vcp.price;
-
-          // ── Genome-controlled filters ──────────────────────────────
+          // ── Fast In-Memory Genome-controlled filters ─────────────────
           if (vcp.tightCoilRatio > atrTightnessMax) return; // ATR too wide
           if (vcp.volumeRatio > volumeDryupMax) return; // Volume not dry enough
           
@@ -106,6 +109,14 @@ export async function runSwingScannerEvolved(): Promise<{
           const trade = computeVcpEntrySLTarget(vcp);
           const slPct = Math.abs(trade.entry - trade.stopLoss) / trade.entry;
           if (slPct > slPctMax) return; // SL too wide
+
+          // Only for stocks passing all filters, fetch quote / news / fundamentals
+          let quote: any = null;
+          try {
+            quote = await getYahooStockQuote(yahooSym);
+          } catch (_) {}
+
+          const price = quote?.price ?? vcp.price;
 
           // Get news score for this stock
           let newsScore = 0;
@@ -146,9 +157,9 @@ export async function runSwingScannerEvolved(): Promise<{
             stockName: cleanSym,
             symbol: cleanSym,
             links: "VCP1 | EVOLVED",
-            changePercent: quote?.changePercent ?? 0,
+            changePercent: quote?.changePercent ?? vcp.dailyChangePct,
             price: price,
-            volume: (quote?.volume ?? 0).toLocaleString(),
+            volume: (quote?.volume ?? vcp.turnover / Math.max(1, price)).toLocaleString(),
             sector: "",
             setup: `VCP1: Tightness ${vcp.lastContractionDepth.toFixed(1)}% · Pivot ${vcp.pivotPoint.toFixed(2)} · Target +${trade.targetPct.toFixed(1)}%`,
             atr: vcp.atr14,
@@ -186,7 +197,7 @@ export async function runSwingScannerEvolved(): Promise<{
       }));
 
       scanned += batch.length;
-      if (b + BATCH_SIZE < scanList.length) {
+      if (b + BATCH_SIZE < scanList.length && BATCH_DELAY_MS > 0) {
         await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
       }
 
@@ -404,10 +415,15 @@ export async function runSwingLearningCycle(): Promise<{
 
 export async function getSwingGenomeStatus() {
   const genome = await getGenome("SWING");
-  const outcomes = await db.select({ count: sql`count(*)` }).from(swingOutcomes);
+  let totalOutcomes = 0;
+  try {
+    const outcomes = await db.select({ count: sql`count(*)` }).from(swingOutcomes);
+    totalOutcomes = Number(outcomes[0]?.count ?? 0);
+  } catch (_) {}
+
   return {
     version: genome.version,
     params: genome.params,
-    totalOutcomes: Number(outcomes[0].count),
+    totalOutcomes,
   };
 }

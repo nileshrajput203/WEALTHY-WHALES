@@ -2,11 +2,30 @@ import { db } from "./db";
 import { jobLedger, jobErrorLog } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
+const hasDb = Boolean(process.env.DATABASE_URL);
+const ramLedger = new Map<string, { status: string; lastRanAt?: Date; runCount: number; lastDurationMs?: number }>();
+
 /**
  * Checks if a job has exceeded its interval since the last run.
  * If the job does not exist, registers it and returns true.
  */
 export async function shouldRunJob(name: string, intervalMinutes: number): Promise<boolean> {
+  if (!hasDb) {
+    const job = ramLedger.get(name);
+    if (!job) {
+      ramLedger.set(name, { status: "idle", runCount: 0 });
+      return true;
+    }
+    if (job.status === "running") {
+      if (job.lastRanAt && (Date.now() - job.lastRanAt.getTime() > 45 * 60 * 1000)) {
+        return true;
+      }
+      return false;
+    }
+    if (!job.lastRanAt) return true;
+    return Date.now() - job.lastRanAt.getTime() >= intervalMinutes * 60 * 1000;
+  }
+
   try {
     const [job] = await db.select().from(jobLedger).where(eq(jobLedger.jobName, name)).limit(1);
     
@@ -36,7 +55,6 @@ export async function shouldRunJob(name: string, intervalMinutes: number): Promi
     const timeSinceLastRun = Date.now() - new Date(job.lastRanAt).getTime();
     return timeSinceLastRun >= intervalMinutes * 60 * 1000;
   } catch (error) {
-    console.error(`[JobLedger] Error in shouldRunJob for ${name}:`, error);
     return true; // Fallback to running the job if there's a DB issue
   }
 }
@@ -45,8 +63,15 @@ export async function shouldRunJob(name: string, intervalMinutes: number): Promi
  * Marks a job as running in the job ledger, setting start time.
  */
 export async function markJobStart(name: string): Promise<void> {
+  const now = new Date();
+  if (!hasDb) {
+    const job = ramLedger.get(name) || { status: "running", runCount: 0 };
+    job.status = "running";
+    job.lastRanAt = now;
+    ramLedger.set(name, job);
+    return;
+  }
   try {
-    const now = new Date();
     await db.insert(jobLedger)
       .values({
         jobName: name,
@@ -61,15 +86,21 @@ export async function markJobStart(name: string): Promise<void> {
           lastRanAt: now,
         }
       });
-  } catch (error) {
-    console.error(`[JobLedger] Error in markJobStart for ${name}:`, error);
-  }
+  } catch (error) {}
 }
 
 /**
  * Marks a job as successfully done, updates statistics and duration.
  */
 export async function markJobDone(name: string, durationMs: number): Promise<void> {
+  if (!hasDb) {
+    const job = ramLedger.get(name) || { status: "completed", runCount: 0 };
+    job.status = "completed";
+    job.lastDurationMs = durationMs;
+    job.runCount = (job.runCount || 0) + 1;
+    ramLedger.set(name, job);
+    return;
+  }
   try {
     await db.update(jobLedger)
       .set({
@@ -79,9 +110,7 @@ export async function markJobDone(name: string, durationMs: number): Promise<voi
         lastError: null,
       })
       .where(eq(jobLedger.jobName, name));
-  } catch (error) {
-    console.error(`[JobLedger] Error in markJobDone for ${name}:`, error);
-  }
+  } catch (error) {}
 }
 
 /**
