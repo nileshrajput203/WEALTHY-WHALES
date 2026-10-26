@@ -7,6 +7,7 @@ import StockIQScore from "@/components/StockIQScore";
 import { StockSearchBar } from "@/components/StockSearchBar";
 import { InstitutionalVerdictCard } from "@/components/InstitutionalVerdictCard";
 import { FoundationModelCard } from "@/components/FoundationModelCard";
+import { OrderBlockCard } from "@/components/OrderBlockCard";
 import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
 import { PredictaPanel } from "@/components/PredictaPanel";
@@ -464,6 +465,11 @@ export default function CheckStock() {
             <FoundationModelCard
               symbol={selectedStock}
               currentPrice={quote?.stock?.price}
+            />
+
+            {/* ── Institutional Order Block & SMC Zones (OrderBlock.com engine) ── */}
+            <OrderBlockCard
+              symbol={selectedStock}
             />
 
             {/* ── PREDICTA V4 Dashboard ───────────────────────── */}

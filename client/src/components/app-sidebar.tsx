@@ -2,7 +2,7 @@ import {
   BarChart3, Eye, Scan, Activity, Clock, Triangle, ArrowUpDown,
   Users, BookOpen, Star, Newspaper, MessageSquare, CalendarDays,
   Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles, Bell, Brain, Zap,
-  FlaskConical, Waves, Compass, Calendar, Sliders, GraduationCap, ShieldCheck,
+  FlaskConical, Waves, Compass, Calendar, Sliders, GraduationCap, ShieldCheck, Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +38,7 @@ const menuGroups: MenuGroup[] = [
     icon: BarChart3,
     collapsible: true,
     items: [
+      { title: "Order Block Radar", url: "/order-block",     icon: Layers,     testId: "nav-order-block",      tag: "SMC" },
       { title: "Scalp Radar",      url: "/apex",             icon: Zap,        testId: "nav-apex-ai",          tag: "HOT" },
       { title: "Option Apex F&O",  url: "/option-apex",      icon: Triangle,   testId: "nav-option-apex",      tag: "NEW" },
       { title: "Strategy Builder", url: "/strategy-builder", icon: Sliders,    testId: "nav-strategy-builder", tag: "PRO" },

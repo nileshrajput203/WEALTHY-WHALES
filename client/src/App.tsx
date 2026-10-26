@@ -47,6 +47,7 @@ import ApexAI from "@/pages/ApexAI";
 import Seasonality from "@/pages/Seasonality";
 import StrategyBuilder from "@/pages/StrategyBuilder";
 import Academy from "@/pages/Academy";
+import OrderBlockRadar from "@/pages/OrderBlockRadar";
 import { AuthModal } from "@/components/AuthModal";
 
 
@@ -112,6 +113,7 @@ function Router() {
       <Route path="/seasonality" component={Seasonality} />
       <Route path="/strategy-builder" component={StrategyBuilder} />
       <Route path="/academy" component={Academy} />
+      <Route path="/order-block" component={OrderBlockRadar} />
 
       {/* 404 fallback */}
       <Route component={NotFound} />

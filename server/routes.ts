@@ -137,6 +137,8 @@ import { runIpoScannerEvolved, runIpoLearningCycle, getIpoGenomeStatus } from ".
 import { getAllGenomes, getGenomeHistory, runGenomeEvolution, type EngineId } from "./selfImprovingCore";
 import { analyzeNewsImpact } from "./newsImpactScorer";
 import { runVcp2Scanner } from "./vcp2Scanner";
+import { candleCache } from "./candleCache";
+import { computeOrderBlockAnalysis, scanOrderBlocksUniverse } from "./orderBlockEngine";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -3785,6 +3787,40 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       res.json(data);
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // ORDER BLOCK & SMART MONEY CONCEPTS (SMC) ENGINE
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/stock/:symbol/order-block", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const yahooSym = toYahooSymbol(symbol);
+      const candles = await candleCache.getCandlesCached(yahooSym, "6mo", "1d");
+      if (!candles || candles.length < 50) {
+        return res.status(404).json({ message: "Insufficient historical data for Order Block analysis" });
+      }
+      const data = computeOrderBlockAnalysis(candles, symbol);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to compute Order Block analysis", error: err.message });
+    }
+  });
+
+  let orderBlockScanCache: { data: any[]; ts: number } | null = null;
+  const OB_CACHE_TTL = 10 * 60 * 1000; // 10 min
+
+  app.get("/api/scanner/order-blocks", async (req: Request, res: Response) => {
+    try {
+      if (orderBlockScanCache && Date.now() - orderBlockScanCache.ts < OB_CACHE_TTL) {
+        return res.json({ stocks: orderBlockScanCache.data, cached: true });
+      }
+      const results = await scanOrderBlocksUniverse(30);
+      orderBlockScanCache = { data: results, ts: Date.now() };
+      res.json({ stocks: results });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to scan Order Blocks universe", error: err.message });
     }
   });
 
