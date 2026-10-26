@@ -1616,6 +1616,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newsData = getMockNewsData();
       }
 
+      if (!newsData || newsData.length === 0) {
+        newsData = getMockNewsData();
+      }
+
       // Get admin news from database
       const dbNews = await storage.getAllNews();
 

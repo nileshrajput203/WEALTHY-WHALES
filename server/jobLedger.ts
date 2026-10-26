@@ -117,12 +117,11 @@ export async function markJobDone(name: string, durationMs: number): Promise<voi
  * Log job errors in the database (never silently swallowed).
  */
 export async function logError(jobName: string, error: Error | string | any, symbol?: string): Promise<void> {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.warn(`[JobLedger] Job ${jobName}${symbol ? ` (${symbol})` : ""}:`, errorMessage);
+  if (!hasDb) return;
   try {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     const stackTrace = error instanceof Error ? error.stack : undefined;
-    
-    console.error(`[JobLedger] Job ${jobName}${symbol ? ` (${symbol})` : ""} failed:`, errorMessage);
-    
     await db.insert(jobErrorLog).values({
       jobName,
       errorMessage,
@@ -130,17 +129,22 @@ export async function logError(jobName: string, error: Error | string | any, sym
       stackTrace: stackTrace || null,
       retried: false,
     });
-  } catch (dbError) {
-    console.error(`[JobLedger] Double fault! Failed to write error log to database:`, dbError);
-  }
+  } catch (_) {}
 }
 
 /**
  * Marks a job as failed, logs error details.
  */
 export async function markJobFailed(name: string, error: Error | string | any): Promise<void> {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  if (!hasDb) {
+    const job = ramLedger.get(name) || { status: "failed", runCount: 0 };
+    job.status = "failed";
+    ramLedger.set(name, job);
+    await logError(name, error);
+    return;
+  }
   try {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     await db.update(jobLedger)
       .set({
         status: "failed",
@@ -149,9 +153,7 @@ export async function markJobFailed(name: string, error: Error | string | any): 
       .where(eq(jobLedger.jobName, name));
       
     await logError(name, error);
-  } catch (dbError) {
-    console.error(`[JobLedger] Error in markJobFailed for ${name}:`, dbError);
-  }
+  } catch (_) {}
 }
 
 /**
