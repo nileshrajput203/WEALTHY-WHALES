@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -11,8 +12,12 @@ import {
   Layers,
   ArrowRight,
   Sparkles,
+  FastForward,
+  Calculator,
 } from "lucide-react";
 import type { InstitutionalVerdictData } from "@shared/types";
+import { TradeTimeMachineModal } from "./TradeTimeMachineModal";
+import { PositionSizerModal } from "./PositionSizerModal";
 
 interface InstitutionalVerdictCardProps {
   verdictData?: InstitutionalVerdictData;
@@ -21,6 +26,9 @@ interface InstitutionalVerdictCardProps {
 }
 
 export function InstitutionalVerdictCard({ verdictData, symbol, price }: InstitutionalVerdictCardProps) {
+  const [timeMachineOpen, setTimeMachineOpen] = useState<boolean>(false);
+  const [sizerOpen, setSizerOpen] = useState<boolean>(false);
+
   if (!verdictData) return null;
 
   const {
@@ -172,9 +180,19 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
               </div>
             </div>
 
-            <div className="text-[11px] font-mono text-rose-300/85 bg-rose-950/40 border border-rose-500/20 rounded-lg p-2.5 flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-              <span>Hard-Veto Active: Fresh long positions prohibited below falling 200 DMA. Wait for Stage 1 base formation.</span>
+            <div className="text-[11px] font-mono text-rose-300/85 bg-rose-950/40 border border-rose-500/20 rounded-lg p-2.5 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span>Hard-Veto Active: Fresh long positions prohibited below falling 200 DMA. Wait for Stage 1 base formation.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimeMachineOpen(true)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-rose-900/50 hover:bg-rose-800/60 text-rose-200 border border-rose-700/60 flex items-center gap-1.5 transition-colors ml-auto"
+              >
+                <FastForward className="w-3 h-3 text-rose-300" />
+                <span>Replay Downside Odds</span>
+              </button>
             </div>
           </div>
         ) : isHoldOnly ? (
@@ -214,6 +232,25 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
                 <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget1.pct}%)</span>
               </div>
             </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-amber-500/10">
+              <button
+                type="button"
+                onClick={() => setTimeMachineOpen(true)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-indigo-950/50 hover:bg-indigo-900/50 text-indigo-300 border border-indigo-800/50 flex items-center gap-1.5 transition-colors"
+              >
+                <FastForward className="w-3 h-3 text-indigo-400" />
+                <span>Monte Carlo Replay</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSizerOpen(true)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-emerald-950/50 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/50 flex items-center gap-1.5 transition-colors"
+              >
+                <Calculator className="w-3 h-3 text-emerald-400" />
+                <span>Position Sizer</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
@@ -250,6 +287,25 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
                 <strong className="text-emerald-300 text-xs sm:text-sm">₹{tradeZones.swingTarget2.price}</strong>
                 <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget2.pct}%)</span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-800/60">
+              <button
+                type="button"
+                onClick={() => setTimeMachineOpen(true)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-indigo-950/50 hover:bg-indigo-900/50 text-indigo-300 border border-indigo-800/50 flex items-center gap-1.5 transition-colors"
+              >
+                <FastForward className="w-3 h-3 text-indigo-400" />
+                <span>Monte Carlo Replay (5,000 Paths)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSizerOpen(true)}
+                className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-emerald-950/50 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/50 flex items-center gap-1.5 transition-colors"
+              >
+                <Calculator className="w-3 h-3 text-emerald-400" />
+                <span>Size Position (1% Rule)</span>
+              </button>
             </div>
           </div>
         )}
@@ -329,6 +385,30 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
           ))}
         </div>
       </div>
+
+      {/* Trade Time Machine Modal */}
+      <TradeTimeMachineModal
+        open={timeMachineOpen}
+        onClose={() => setTimeMachineOpen(false)}
+        symbol={symbol}
+        defaultEntry={price || (tradeZones.swingEntryZone.low + tradeZones.swingEntryZone.high) / 2}
+        defaultStopLoss={tradeZones.swingStopLoss.price}
+        defaultTarget1={tradeZones.swingTarget1.price}
+        defaultTarget2={tradeZones.swingTarget2.price}
+        defaultDirection="LONG"
+      />
+
+      {/* Position Sizer Modal */}
+      <PositionSizerModal
+        open={sizerOpen}
+        onClose={() => setSizerOpen(false)}
+        symbol={symbol}
+        defaultEntry={price || (tradeZones.swingEntryZone.low + tradeZones.swingEntryZone.high) / 2}
+        defaultStopLoss={tradeZones.swingStopLoss.price}
+        defaultTarget1={tradeZones.swingTarget1.price}
+        defaultTarget2={tradeZones.swingTarget2.price}
+        onOpenTimeMachine={() => setTimeMachineOpen(true)}
+      />
     </div>
   );
 }

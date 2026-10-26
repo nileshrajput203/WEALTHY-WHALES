@@ -48,6 +48,7 @@ import Seasonality from "@/pages/Seasonality";
 import StrategyBuilder from "@/pages/StrategyBuilder";
 import Academy from "@/pages/Academy";
 import OrderBlockRadar from "@/pages/OrderBlockRadar";
+import TradeTimeMachinePage from "@/pages/TradeTimeMachinePage";
 import { AuthModal } from "@/components/AuthModal";
 
 
@@ -114,6 +115,8 @@ function Router() {
       <Route path="/strategy-builder" component={StrategyBuilder} />
       <Route path="/academy" component={Academy} />
       <Route path="/order-block" component={OrderBlockRadar} />
+      <Route path="/time-machine" component={TradeTimeMachinePage} />
+      <Route path="/time-machine/:symbol" component={TradeTimeMachinePage} />
 
       {/* 404 fallback */}
       <Route component={NotFound} />

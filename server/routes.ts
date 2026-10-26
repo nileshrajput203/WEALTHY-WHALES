@@ -139,6 +139,7 @@ import { analyzeNewsImpact } from "./newsImpactScorer";
 import { runVcp2Scanner } from "./vcp2Scanner";
 import { candleCache } from "./candleCache";
 import { computeOrderBlockAnalysis, scanOrderBlocksUniverse } from "./orderBlockEngine";
+import { runTradeTimeMachine, type TimeMachineParams } from "./tradeTimeMachineEngine";
 
 // APEX Intraday Intelligence Imports
 import { startApexScheduler } from "./apexScheduler";
@@ -3943,6 +3944,61 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       res.json({ stocks: results });
     } catch (err: any) {
       res.status(500).json({ message: "Failed to scan Order Blocks universe", error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // TRADE TIME MACHINE — MONTE CARLO OUTCOME REPLAY ENGINE
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/stock/:symbol/time-machine", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const entryPrice = req.query.entry ? Number(req.query.entry) : undefined;
+      const stopLoss = req.query.sl ? Number(req.query.sl) : undefined;
+      const target1 = req.query.t1 ? Number(req.query.t1) : undefined;
+      const target2 = req.query.t2 ? Number(req.query.t2) : undefined;
+      const direction = (req.query.dir as any) === "SHORT" ? "SHORT" : "LONG";
+      const simulations = req.query.sims ? Number(req.query.sims) : 5000;
+      const horizonDays = req.query.days ? Number(req.query.days) : 25;
+
+      const result = await runTradeTimeMachine({
+        symbol,
+        entryPrice,
+        stopLoss,
+        target1,
+        target2,
+        direction,
+        simulations,
+        horizonDays,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[TimeMachine API] Error:", err.message);
+      res.status(500).json({ message: "Failed to run Trade Time Machine simulation", error: err.message });
+    }
+  });
+
+  app.post("/api/stock/:symbol/time-machine", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const { entryPrice, stopLoss, target1, target2, direction, simulations, horizonDays } = req.body;
+
+      const result = await runTradeTimeMachine({
+        symbol,
+        entryPrice: entryPrice ? Number(entryPrice) : undefined,
+        stopLoss: stopLoss ? Number(stopLoss) : undefined,
+        target1: target1 ? Number(target1) : undefined,
+        target2: target2 ? Number(target2) : undefined,
+        direction: direction === "SHORT" ? "SHORT" : "LONG",
+        simulations: simulations ? Number(simulations) : 5000,
+        horizonDays: horizonDays ? Number(horizonDays) : 25,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("[TimeMachine POST API] Error:", err.message);
+      res.status(500).json({ message: "Failed to run Trade Time Machine simulation", error: err.message });
     }
   });
 
