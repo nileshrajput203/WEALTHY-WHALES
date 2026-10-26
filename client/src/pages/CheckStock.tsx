@@ -6,6 +6,7 @@ import { type StockIQResult } from "@shared/types";
 import StockIQScore from "@/components/StockIQScore";
 import { StockSearchBar } from "@/components/StockSearchBar";
 import { InstitutionalVerdictCard } from "@/components/InstitutionalVerdictCard";
+import { FoundationModelCard } from "@/components/FoundationModelCard";
 import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
 import { PredictaPanel } from "@/components/PredictaPanel";
@@ -458,6 +459,12 @@ export default function CheckStock() {
                 studies={[]}
               />
             </div>
+
+            {/* ── AI Foundation Model (Amazon Chronos-Bolt + Qlib Alpha158) ── */}
+            <FoundationModelCard
+              symbol={selectedStock}
+              currentPrice={quote?.stock?.price}
+            />
 
             {/* ── PREDICTA V4 Dashboard ───────────────────────── */}
             <PredictaPanel symbol={selectedStock} />

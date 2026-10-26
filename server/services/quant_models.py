@@ -296,14 +296,17 @@ class TimeSeriesEnsembleForecaster:
 
         if HAS_CHRONOS and HAS_TORCH:
             try:
-                pipeline = BaseChronosPipeline.from_pretrained(
-                    "amazon/chronos-bolt-tiny",
-                    device_map="cpu",
-                    torch_dtype=torch.float32,
-                )
-                context = torch.tensor(df["close"].tail(120).values, dtype=torch.float32)
+                global _CHRONOS_PIPELINE
+                if "_CHRONOS_PIPELINE" not in globals() or _CHRONOS_PIPELINE is None:
+                    _CHRONOS_PIPELINE = BaseChronosPipeline.from_pretrained(
+                        "amazon/chronos-bolt-tiny",
+                        device_map="cpu",
+                        torch_dtype=torch.float32,
+                    )
+                pipeline = _CHRONOS_PIPELINE
+                context = torch.tensor(df["close"].dropna().tail(120).values, dtype=torch.float32).squeeze()
                 quantiles, _ = pipeline.predict_quantiles(
-                    context=context,
+                    inputs=context,
                     prediction_length=pred_len,
                     quantile_levels=[0.1, 0.5, 0.9],
                 )
@@ -311,8 +314,8 @@ class TimeSeriesEnsembleForecaster:
                 p10_list = [round(float(x), 2) for x in q_np[:, 0]]
                 p50_list = [round(float(x), 2) for x in q_np[:, 1]]
                 p90_list = [round(float(x), 2) for x in q_np[:, 2]]
-                chronos_used = "amazon/chronos-bolt-tiny"
-            except Exception:
+                chronos_used = "amazon/chronos-bolt-tiny (Zero-Shot Foundation Model)"
+            except Exception as e:
                 pass
 
         if not p50_list:
