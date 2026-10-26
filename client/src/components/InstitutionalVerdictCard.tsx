@@ -38,6 +38,8 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
 
   const isBuy = primaryVerdict === "STRONG BUY" || primaryVerdict === "ACCUMULATE / BUY";
   const isSell = primaryVerdict === "STRONG SELL / AVOID" || primaryVerdict === "REDUCE / BOOK PROFIT";
+  const isHardVetoOrStage4 = Boolean(vetoTriggered) || weinsteinStage === "STAGE_4_DECLINING" || primaryVerdict === "STRONG SELL / AVOID";
+  const isHoldOnly = !isHardVetoOrStage4 && (primaryVerdict === "HOLD / TRAIL SL" || primaryVerdict === "REDUCE / BOOK PROFIT");
 
   // Badge Styling
   let badgeColor = "bg-amber-950/80 text-amber-300 border-amber-500/40";
@@ -131,43 +133,126 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
 
       {/* Dual Horizon Execution Plan */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Horizon 1: Swing / Positional (1–8 Weeks) */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-            <span className="text-xs font-mono font-bold text-indigo-300 flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-indigo-400" />
-              SWING / POSITIONAL PLAN (1–8 WEEKS)
-            </span>
-            <span className="text-[11px] font-mono text-slate-400">
-              R:R <strong className="text-emerald-400 font-bold">{tradeZones.riskRewardRatio}</strong>
-            </span>
+        {/* Horizon 1: Swing / Positional */}
+        {isHardVetoOrStage4 ? (
+          <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/30 space-y-3">
+            <div className="flex items-center justify-between border-b border-rose-500/20 pb-2">
+              <span className="text-xs font-mono font-bold text-rose-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                SWING / POSITIONAL PLAN: STRICT AVOID
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40 uppercase">
+                FRESH LONGS BLOCKED
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+              <div className="p-2 rounded bg-rose-950/40 border border-rose-500/30">
+                <span className="text-[10px] text-rose-300/70 block uppercase">Action</span>
+                <strong className="text-rose-400 text-xs sm:text-sm">STRICT AVOID</strong>
+                <span className="text-[9px] block text-rose-400/80">No fresh long orders</span>
+              </div>
+
+              <div className="p-2 rounded bg-slate-950/80 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block uppercase">Relief Exit Zone</span>
+                <strong className="text-slate-300 text-xs sm:text-sm">₹{tradeZones.swingEntryZone.low} - {tradeZones.swingEntryZone.high}</strong>
+                <span className="text-[9px] block text-slate-400/80">Exit on rallies</span>
+              </div>
+
+              <div className="p-2 rounded bg-slate-950/80 border border-slate-800 text-rose-300">
+                <span className="text-[10px] text-slate-400 block uppercase">Breakdown Level</span>
+                <strong className="text-rose-400 text-xs sm:text-sm">₹{tradeZones.swingStopLoss.price}</strong>
+                <span className="text-[9px] block text-rose-400/80">(-{tradeZones.swingStopLoss.pct}%)</span>
+              </div>
+
+              <div className="p-2 rounded bg-slate-950/80 border border-slate-800 text-amber-300">
+                <span className="text-[10px] text-slate-400 block uppercase">Downside Target</span>
+                <strong className="text-amber-400 text-xs sm:text-sm">₹{tradeZones.swingTarget1.price}</strong>
+                <span className="text-[9px] block text-amber-400/80">Key test zone</span>
+              </div>
+            </div>
+
+            <div className="text-[11px] font-mono text-rose-300/85 bg-rose-950/40 border border-rose-500/20 rounded-lg p-2.5 flex items-center gap-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span>Hard-Veto Active: Fresh long positions prohibited below falling 200 DMA. Wait for Stage 1 base formation.</span>
+            </div>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
-            <div className="p-2 rounded bg-slate-950/80 border border-slate-800">
-              <span className="text-[10px] text-slate-400 block uppercase">Buy Zone</span>
-              <strong className="text-indigo-300 text-sm">₹{tradeZones.swingEntryZone.low} - {tradeZones.swingEntryZone.high}</strong>
+        ) : isHoldOnly ? (
+          <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-3">
+            <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+              <span className="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-amber-400" />
+                SWING / POSITIONAL PLAN: HOLD ONLY
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40 uppercase">
+                TRAIL STOP LOSS
+              </span>
             </div>
 
-            <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300">
-              <span className="text-[10px] text-rose-400/70 block uppercase">Stop Loss</span>
-              <strong className="text-rose-400 text-sm">₹{tradeZones.swingStopLoss.price}</strong>
-              <span className="text-[9px] block text-rose-400/80">(-{tradeZones.swingStopLoss.pct}%)</span>
-            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+              <div className="p-2 rounded bg-amber-950/30 border border-amber-500/30">
+                <span className="text-[10px] text-amber-300/70 block uppercase">Action</span>
+                <strong className="text-amber-300 text-xs sm:text-sm">HOLD EXISTING</strong>
+                <span className="text-[9px] block text-amber-400/80">Do not chase</span>
+              </div>
 
-            <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
-              <span className="text-[10px] text-emerald-400/70 block uppercase">Target 1</span>
-              <strong className="text-emerald-400 text-sm">₹{tradeZones.swingTarget1.price}</strong>
-              <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget1.pct}%)</span>
-            </div>
+              <div className="p-2 rounded bg-slate-950/80 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block uppercase">Add on Breakout</span>
+                <strong className="text-slate-300 text-xs sm:text-sm">₹{tradeZones.swingEntryZone.low} - {tradeZones.swingEntryZone.high}</strong>
+                <span className="text-[9px] block text-slate-400/80">Confirm volume</span>
+              </div>
 
-            <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
-              <span className="text-[10px] text-emerald-400/70 block uppercase">Target 2</span>
-              <strong className="text-emerald-300 text-sm">₹{tradeZones.swingTarget2.price}</strong>
-              <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget2.pct}%)</span>
+              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300">
+                <span className="text-[10px] text-rose-400/70 block uppercase">Trailing SL</span>
+                <strong className="text-rose-400 text-xs sm:text-sm">₹{tradeZones.swingStopLoss.price}</strong>
+                <span className="text-[9px] block text-rose-400/80">(-{tradeZones.swingStopLoss.pct}%)</span>
+              </div>
+
+              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
+                <span className="text-[10px] text-emerald-400/70 block uppercase">Upside Target</span>
+                <strong className="text-emerald-400 text-xs sm:text-sm">₹{tradeZones.swingTarget1.price}</strong>
+                <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget1.pct}%)</span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span className="text-xs font-mono font-bold text-indigo-300 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                SWING / POSITIONAL PLAN (1–8 WEEKS)
+              </span>
+              <span className="text-[11px] font-mono text-slate-400">
+                R:R <strong className="text-emerald-400 font-bold">{tradeZones.riskRewardRatio}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+              <div className="p-2 rounded bg-slate-950/80 border border-slate-800">
+                <span className="text-[10px] text-slate-400 block uppercase">Buy Zone</span>
+                <strong className="text-indigo-300 text-xs sm:text-sm">₹{tradeZones.swingEntryZone.low} - {tradeZones.swingEntryZone.high}</strong>
+              </div>
+
+              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/40 text-rose-300">
+                <span className="text-[10px] text-rose-400/70 block uppercase">Stop Loss</span>
+                <strong className="text-rose-400 text-xs sm:text-sm">₹{tradeZones.swingStopLoss.price}</strong>
+                <span className="text-[9px] block text-rose-400/80">(-{tradeZones.swingStopLoss.pct}%)</span>
+              </div>
+
+              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
+                <span className="text-[10px] text-emerald-400/70 block uppercase">Target 1</span>
+                <strong className="text-emerald-400 text-xs sm:text-sm">₹{tradeZones.swingTarget1.price}</strong>
+                <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget1.pct}%)</span>
+              </div>
+
+              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/40 text-emerald-300">
+                <span className="text-[10px] text-emerald-400/70 block uppercase">Target 2</span>
+                <strong className="text-emerald-300 text-xs sm:text-sm">₹{tradeZones.swingTarget2.price}</strong>
+                <span className="text-[9px] block text-emerald-400/80">(+{tradeZones.swingTarget2.pct}%)</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Horizon 2: Long-Term Investor (6–24 Months) */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
@@ -192,13 +277,20 @@ export function InstitutionalVerdictCard({ verdictData, symbol, price }: Institu
             <strong className="text-white text-sm">₹{tradeZones.longTermFairValue}</strong>
           </div>
 
-          <div className="space-y-1 text-[11px] font-sans text-slate-300">
-            {tradeZones.bullThesis.slice(0, 2).map((thesis, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span className="text-emerald-400 font-bold">✓</span>
-                <span>{thesis}</span>
-              </div>
-            ))}
+          <div className="space-y-1.5 text-[11px] font-sans text-slate-300">
+            {tradeZones.bullThesis.slice(0, 2).map((thesis, i) => {
+              const isWarning = thesis.toLowerCase().includes("stage 4") || thesis.toLowerCase().includes("decline") || thesis.toLowerCase().includes("contingent") || thesis.toLowerCase().includes("strict avoid");
+              return (
+                <div key={i} className="flex items-center gap-1.5">
+                  {isWarning ? (
+                    <span className="text-amber-400 font-bold shrink-0">⚠</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  )}
+                  <span className={isWarning ? "text-amber-300/90 font-medium" : "text-slate-300"}>{thesis}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

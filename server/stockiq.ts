@@ -380,6 +380,38 @@ export async function calculateStockIQ(rawSymbol: string): Promise<StockIQResult
   const fairValue = Math.round((currClose * (pe > 40 ? 0.85 : pe < 15 ? 1.25 : 1.08)) * 100) / 100;
   const valuationStatus: InstitutionalVerdictData["tradeZones"]["valuationStatus"] = pe > 38 ? "OVERVALUED" : pe < 18 ? "UNDERVALUED" : "FAIR_VALUE";
 
+  const stageThesis = weinsteinStage === "STAGE_2_ADVANCING"
+    ? "Stage 2 Institutional Markup confirmed with rising 200 DMA"
+    : weinsteinStage === "STAGE_1_BASING"
+    ? "Stage 1 Basing: Volatility contracting near institutional support"
+    : weinsteinStage === "STAGE_3_DISTRIBUTION_OR_PULLBACK"
+    ? "Stage 3 Distribution: Rangebound consolidation testing key support"
+    : "Stage 4 Decline: Heavy institutional supply overhead below falling 200 DMA";
+
+  const bullThesis: string[] = [];
+  if (weinsteinStage === "STAGE_2_ADVANCING" || weinsteinStage === "STAGE_1_BASING") {
+    bullThesis.push(stageThesis);
+  }
+  bullThesis.push(`Healthy ROCE & clean balance sheet (Debt/Equity: ${debtToEquity.toFixed(2)}x)`);
+  if (shareholdingForensicsScore >= 60) {
+    bullThesis.push("Positive institutional smart-money absorption & delivery volume");
+  } else {
+    bullThesis.push("Long-term value creation potential if capital efficiency sustained");
+  }
+  if (weinsteinStage === "STAGE_4_DECLINING") {
+    bullThesis.push("Contrarian turnaround contingent on reclaiming 200 DMA with volume");
+  }
+
+  const bearRisks: string[] = [];
+  if (weinsteinStage === "STAGE_4_DECLINING") {
+    bearRisks.push("Weinstein Stage 4 Institutional Markdown: Severe selling pressure below declining 200 DMA");
+  }
+  if (vetoTriggered) {
+    bearRisks.push(vetoTriggered);
+  }
+  bearRisks.push("Broad market macro reversal below 50 DMA invalidates setup");
+  bearRisks.push("High beta sensitivity to broader Nifty 50 pullbacks");
+
   const institutionalVerdict: InstitutionalVerdictData = {
     primaryVerdict,
     actionableSummary,
@@ -419,16 +451,8 @@ export async function calculateStockIQ(rawSymbol: string): Promise<StockIQResult
       riskRewardRatio: rrRatio,
       longTermFairValue: fairValue,
       valuationStatus,
-      bullThesis: [
-        `${weinsteinStageName} with 200 DMA slope pointing upward`,
-        `Healthy ROCE & clean balance sheet (Debt/Equity: ${debtToEquity.toFixed(2)}x)`,
-        `Positive institutional smart-money absorption & delivery volume`,
-      ],
-      bearRisks: [
-        `Broad market macro reversal below 50 DMA invalidates setup`,
-        `Commodity input cost volatility affecting operating margin`,
-        `High beta sensitivity to Nifty 50 pullbacks`,
-      ],
+      bullThesis,
+      bearRisks,
     },
   };
 
