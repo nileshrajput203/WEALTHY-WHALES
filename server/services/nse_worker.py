@@ -262,8 +262,10 @@ def get_mock_insider_trades(error=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='NSE India Data Fetcher')
-    parser.add_argument('--action', required=True, choices=['quote', 'option-chain', 'bulk-deals', 'insider-trades'])
+    parser.add_argument('--action', required=True, choices=['quote', 'option-chain', 'bulk-deals', 'insider-trades', 'quant-forecast', 'alpha158', 'sentiment', 'chartink'])
     parser.add_argument('--symbol', help='Stock symbol')
+    parser.add_argument('--text', help='Headline text or scan clause')
+    parser.add_argument('--horizon', type=int, default=10, help='Forecast horizon')
     
     args = parser.parse_args()
     
@@ -281,5 +283,27 @@ if __name__ == "__main__":
         result = fetch_bulk_deals()
     elif args.action == 'insider-trades':
         result = fetch_insider_trades()
+    elif args.action in ['quant-forecast', 'alpha158', 'sentiment', 'chartink']:
+        import subprocess
+        import os
+        quant_script = os.path.join(os.path.dirname(__file__), 'quant_models.py')
+        py_exec = sys.executable
+        sub_act = 'full_ensemble' if args.action == 'quant-forecast' else args.action
+        cmd = [py_exec, quant_script, '--action', sub_act]
+        if args.symbol:
+            cmd.extend(['--symbol', args.symbol])
+        if args.text:
+            if args.action == 'chartink':
+                cmd.extend(['--clause', args.text])
+            else:
+                cmd.extend(['--text', args.text])
+        if args.horizon:
+            cmd.extend(['--horizon', str(args.horizon)])
+        try:
+            sub_res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            print(sub_res.stdout.strip())
+            sys.exit(0)
+        except Exception as e:
+            result = {"success": False, "error": str(e)}
         
     print(json.dumps(result))

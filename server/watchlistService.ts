@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { userWatchlists, watchlistAlerts } from "@shared/watchlist-schema";
-import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
 import { getNowIST } from "./istUtils";
 
 /**
@@ -132,7 +132,7 @@ export async function getUserWatchlistAlerts(userId: string, limit = 50) {
 }
 
 export async function getUnreadAlertsCount(userId: string) {
-  const result = await db.select({ count: db.sql<number>`count(*)` })
+  const result = await db.select({ count: sql<number>`count(*)` })
     .from(watchlistAlerts)
     .where(and(
       eq(watchlistAlerts.userId, userId),

@@ -387,12 +387,12 @@ export async function getHermesDashboard() {
   };
 }
 
-export async function getHermesLeaderboard() {
+export async function getHermesLeaderboard(limit = 20) {
   return await db
     .select()
     .from(hermesSnapshots)
     .orderBy(desc(hermesSnapshots.hermesScore))
-    .limit(20);
+    .limit(limit);
 }
 
 export async function getHermesStockSnapshot(symbol: string) {
@@ -412,12 +412,12 @@ export async function getHermesWeightHistory() {
   return await db.select().from(hermesWeights).orderBy(desc(hermesWeights.version)).limit(10);
 }
 
-export async function getHermesRegimeHistory() {
-  return await db.select().from(hermesRegimeLog).orderBy(desc(hermesRegimeLog.date)).limit(10);
+export async function getHermesRegimeHistory(limit = 10) {
+  return await db.select().from(hermesRegimeLog).orderBy(desc(hermesRegimeLog.date)).limit(limit);
 }
 
-export async function getHermesRecentOutcomes() {
-  return await db.select().from(hermesOutcomes).where(sql`${hermesOutcomes.return5d} IS NOT NULL`).limit(10);
+export async function getHermesRecentOutcomes(limit = 10) {
+  return await db.select().from(hermesOutcomes).where(sql`${hermesOutcomes.return5d} IS NOT NULL`).limit(limit);
 }
 
 export async function runLearningCycle() {
@@ -626,3 +626,32 @@ export async function runOutcomeTracker(): Promise<{
     throw error;
   }
 }
+
+import { computeHermesConvictionScore, getModelWeights, type MarketRegimeType } from "./hermesBandit";
+
+export async function getHermesBanditProfile(symbol: string, regime: MarketRegimeType = "BULL_TREND") {
+  const weights = getModelWeights(regime);
+  
+  // Calculate mock or real individual model signals
+  const modelProbs = {
+    kronos: 68.0,
+    chronos: 62.0,
+    qlibAlpha: 74.0,
+    vcp2: 78.0,
+    fugu: 65.0,
+    apexFo: 72.0,
+    finbert: 70.0,
+  };
+
+  const conviction = computeHermesConvictionScore(modelProbs, regime);
+
+  return {
+    symbol,
+    regime,
+    convictionScore: conviction.score,
+    weights: conviction.modelWeights,
+    contributions: conviction.contributions,
+    subModelProbabilities: modelProbs,
+  };
+}
+

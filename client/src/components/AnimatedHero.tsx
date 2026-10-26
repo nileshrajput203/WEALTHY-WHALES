@@ -130,7 +130,7 @@ function DashboardPreview() {
 
 interface AnimatedHeroProps {
   onGetStarted: () => void;
-  onExploreFree: () => void;
+  onExploreFree?: () => void;
 }
 
 export function AnimatedHero({ onGetStarted, onExploreFree }: AnimatedHeroProps) {
@@ -189,12 +189,12 @@ export function AnimatedHero({ onGetStarted, onExploreFree }: AnimatedHeroProps)
               initial={{ opacity: 0, y: 16 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.18, ease: "easeOut" }}
-              className="text-base text-foreground/45 mb-8 leading-relaxed max-w-md"
+              className="text-base text-foreground/50 mb-8 leading-relaxed max-w-md"
               style={{ fontFamily: "var(--font-sans)" }}
             >
-              Three self-learning AI engines scan every NSE/BSE stock daily —
-              intraday scalp setups, swing entries, and pattern breakouts.
-              No noise. Just signal.
+              Quantitative execution intelligence for Indian equities — intraday momentum setups,
+              institutional order flow, and volatility contraction (VCP) breakouts across 1,200+ NSE/BSE stocks.
+              No noise. Just high-probability setups.
             </motion.p>
 
             <motion.div
@@ -219,11 +219,11 @@ export function AnimatedHero({ onGetStarted, onExploreFree }: AnimatedHeroProps)
               <Button
                 size="lg"
                 variant="outline"
-                onClick={onExploreFree}
+                onClick={onExploreFree || onGetStarted}
                 className="h-12 px-7 text-sm font-semibold rounded-xl border-white/10 text-foreground/65 hover:text-foreground hover:border-white/18 hover:bg-white/4 transition-all duration-200"
                 style={{ background: "rgba(255,255,255,0.03)" }}
               >
-                Browse Free
+                Admin Sign In
               </Button>
             </motion.div>
 

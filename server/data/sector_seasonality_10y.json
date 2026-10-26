@@ -1,0 +1,786 @@
+{
+  "Banking": [
+    {
+      "month": 1,
+      "winRatePct": 30.0,
+      "avgReturnPct": -0.0,
+      "medianReturnPct": -1.74,
+      "maxDrawdownPct": 8.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 60.0,
+      "avgReturnPct": -3.15,
+      "medianReturnPct": 1.15,
+      "maxDrawdownPct": 35.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 70.0,
+      "avgReturnPct": 4.1,
+      "medianReturnPct": 4.79,
+      "maxDrawdownPct": 2.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 60.0,
+      "avgReturnPct": 1.99,
+      "medianReturnPct": 1.43,
+      "maxDrawdownPct": 5.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.96,
+      "medianReturnPct": 0.26,
+      "maxDrawdownPct": 5.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.59,
+      "medianReturnPct": 0.4,
+      "maxDrawdownPct": 7.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.63,
+      "medianReturnPct": 0.08,
+      "maxDrawdownPct": 4.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": -1.31,
+      "medianReturnPct": 0.44,
+      "maxDrawdownPct": 10.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 70.0,
+      "avgReturnPct": 2.9,
+      "medianReturnPct": 3.13,
+      "maxDrawdownPct": 3.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 80.0,
+      "avgReturnPct": 3.25,
+      "medianReturnPct": 3.77,
+      "maxDrawdownPct": 9.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.63,
+      "medianReturnPct": -0.2,
+      "maxDrawdownPct": 2.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.16,
+      "medianReturnPct": -1.22,
+      "maxDrawdownPct": 5.5,
+      "yearsSampled": 10
+    }
+  ],
+  "IT": [
+    {
+      "month": 1,
+      "winRatePct": 30.0,
+      "avgReturnPct": -3.18,
+      "medianReturnPct": -1.43,
+      "maxDrawdownPct": 20.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 30.0,
+      "avgReturnPct": -2.26,
+      "medianReturnPct": -1.92,
+      "maxDrawdownPct": 16.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 30.0,
+      "avgReturnPct": -0.54,
+      "medianReturnPct": -1.85,
+      "maxDrawdownPct": 12.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.94,
+      "medianReturnPct": 0.45,
+      "maxDrawdownPct": 5.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 60.0,
+      "avgReturnPct": 0.62,
+      "medianReturnPct": 1.26,
+      "maxDrawdownPct": 10.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 80.0,
+      "avgReturnPct": 6.04,
+      "medianReturnPct": 4.79,
+      "maxDrawdownPct": 9.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 70.0,
+      "avgReturnPct": 2.66,
+      "medianReturnPct": 1.78,
+      "maxDrawdownPct": 3.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 30.0,
+      "avgReturnPct": -1.16,
+      "medianReturnPct": -1.62,
+      "maxDrawdownPct": 10.6,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 50.0,
+      "avgReturnPct": 2.02,
+      "medianReturnPct": 1.44,
+      "maxDrawdownPct": 6.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 70.0,
+      "avgReturnPct": 2.35,
+      "medianReturnPct": 3.0,
+      "maxDrawdownPct": 3.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 80.0,
+      "avgReturnPct": 3.38,
+      "medianReturnPct": 3.51,
+      "maxDrawdownPct": 6.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 70.0,
+      "avgReturnPct": 1.37,
+      "medianReturnPct": 2.11,
+      "maxDrawdownPct": 10.1,
+      "yearsSampled": 10
+    }
+  ],
+  "Auto": [
+    {
+      "month": 1,
+      "winRatePct": 40.0,
+      "avgReturnPct": -2.64,
+      "medianReturnPct": -3.2,
+      "maxDrawdownPct": 12.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 30.0,
+      "avgReturnPct": -4.88,
+      "medianReturnPct": -2.36,
+      "maxDrawdownPct": 32.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 80.0,
+      "avgReturnPct": 5.81,
+      "medianReturnPct": 5.31,
+      "maxDrawdownPct": 3.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 80.0,
+      "avgReturnPct": 3.98,
+      "medianReturnPct": 4.84,
+      "maxDrawdownPct": 6.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 70.0,
+      "avgReturnPct": 1.32,
+      "medianReturnPct": 0.84,
+      "maxDrawdownPct": 3.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 70.0,
+      "avgReturnPct": 1.83,
+      "medianReturnPct": 3.8,
+      "maxDrawdownPct": 14.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.16,
+      "medianReturnPct": 0.16,
+      "maxDrawdownPct": 4.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 70.0,
+      "avgReturnPct": 0.2,
+      "medianReturnPct": 2.12,
+      "maxDrawdownPct": 13.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 50.0,
+      "avgReturnPct": -0.29,
+      "medianReturnPct": -0.75,
+      "maxDrawdownPct": 13.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.65,
+      "medianReturnPct": -1.49,
+      "maxDrawdownPct": 9.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 70.0,
+      "avgReturnPct": 1.02,
+      "medianReturnPct": 1.45,
+      "maxDrawdownPct": 5.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.25,
+      "medianReturnPct": 0.71,
+      "maxDrawdownPct": 11.1,
+      "yearsSampled": 10
+    }
+  ],
+  "Pharma": [
+    {
+      "month": 1,
+      "winRatePct": 40.0,
+      "avgReturnPct": -1.16,
+      "medianReturnPct": -2.49,
+      "maxDrawdownPct": 7.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.6,
+      "medianReturnPct": 0.94,
+      "maxDrawdownPct": 6.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 70.0,
+      "avgReturnPct": 5.27,
+      "medianReturnPct": 3.26,
+      "maxDrawdownPct": 3.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 40.0,
+      "avgReturnPct": -2.35,
+      "medianReturnPct": -1.18,
+      "maxDrawdownPct": 10.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 80.0,
+      "avgReturnPct": 2.88,
+      "medianReturnPct": 2.75,
+      "maxDrawdownPct": 4.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 70.0,
+      "avgReturnPct": 4.05,
+      "medianReturnPct": 3.72,
+      "maxDrawdownPct": 1.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.94,
+      "medianReturnPct": -0.17,
+      "maxDrawdownPct": 6.6,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": -0.07,
+      "medianReturnPct": 0.18,
+      "maxDrawdownPct": 6.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 40.0,
+      "avgReturnPct": -0.7,
+      "medianReturnPct": -2.35,
+      "maxDrawdownPct": 5.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.17,
+      "medianReturnPct": -1.45,
+      "maxDrawdownPct": 5.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.46,
+      "medianReturnPct": 0.87,
+      "maxDrawdownPct": 7.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 20.0,
+      "avgReturnPct": -2.46,
+      "medianReturnPct": -2.28,
+      "maxDrawdownPct": 8.5,
+      "yearsSampled": 10
+    }
+  ],
+  "Energy": [
+    {
+      "month": 1,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.42,
+      "medianReturnPct": -1.82,
+      "maxDrawdownPct": 9.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.32,
+      "medianReturnPct": 1.09,
+      "maxDrawdownPct": 20.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 80.0,
+      "avgReturnPct": 5.7,
+      "medianReturnPct": 3.44,
+      "maxDrawdownPct": 1.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.11,
+      "medianReturnPct": -0.07,
+      "maxDrawdownPct": 9.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 30.0,
+      "avgReturnPct": -0.06,
+      "medianReturnPct": -1.38,
+      "maxDrawdownPct": 3.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 60.0,
+      "avgReturnPct": 2.69,
+      "medianReturnPct": 4.68,
+      "maxDrawdownPct": 9.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.87,
+      "medianReturnPct": 0.54,
+      "maxDrawdownPct": 4.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.1,
+      "medianReturnPct": -0.27,
+      "maxDrawdownPct": 7.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 50.0,
+      "avgReturnPct": -0.41,
+      "medianReturnPct": 0.3,
+      "maxDrawdownPct": 12.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.73,
+      "medianReturnPct": -1.24,
+      "maxDrawdownPct": 5.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.34,
+      "medianReturnPct": -0.55,
+      "maxDrawdownPct": 6.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.1,
+      "medianReturnPct": 0.07,
+      "maxDrawdownPct": 8.6,
+      "yearsSampled": 10
+    }
+  ],
+  "FMCG": [
+    {
+      "month": 1,
+      "winRatePct": 30.0,
+      "avgReturnPct": -2.38,
+      "medianReturnPct": -2.35,
+      "maxDrawdownPct": 13.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 60.0,
+      "avgReturnPct": 0.83,
+      "medianReturnPct": 2.76,
+      "maxDrawdownPct": 8.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 80.0,
+      "avgReturnPct": 3.5,
+      "medianReturnPct": 4.33,
+      "maxDrawdownPct": 4.2,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.75,
+      "medianReturnPct": 0.88,
+      "maxDrawdownPct": 3.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 60.0,
+      "avgReturnPct": 0.59,
+      "medianReturnPct": 1.04,
+      "maxDrawdownPct": 2.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 70.0,
+      "avgReturnPct": 2.45,
+      "medianReturnPct": 1.06,
+      "maxDrawdownPct": 7.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 70.0,
+      "avgReturnPct": 1.0,
+      "medianReturnPct": 0.67,
+      "maxDrawdownPct": 6.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": -1.01,
+      "medianReturnPct": -0.84,
+      "maxDrawdownPct": 10.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 30.0,
+      "avgReturnPct": -1.66,
+      "medianReturnPct": -1.53,
+      "maxDrawdownPct": 9.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.27,
+      "medianReturnPct": -0.47,
+      "maxDrawdownPct": 4.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.11,
+      "medianReturnPct": 0.3,
+      "maxDrawdownPct": 3.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 40.0,
+      "avgReturnPct": -1.11,
+      "medianReturnPct": -1.66,
+      "maxDrawdownPct": 4.4,
+      "yearsSampled": 10
+    }
+  ],
+  "Metals": [
+    {
+      "month": 1,
+      "winRatePct": 60.0,
+      "avgReturnPct": 0.84,
+      "medianReturnPct": 0.26,
+      "maxDrawdownPct": 19.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 60.0,
+      "avgReturnPct": -1.77,
+      "medianReturnPct": 2.94,
+      "maxDrawdownPct": 31.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 70.0,
+      "avgReturnPct": 6.19,
+      "medianReturnPct": 5.76,
+      "maxDrawdownPct": 4.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 60.0,
+      "avgReturnPct": 0.22,
+      "medianReturnPct": 2.58,
+      "maxDrawdownPct": 15.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 60.0,
+      "avgReturnPct": -0.96,
+      "medianReturnPct": 0.89,
+      "maxDrawdownPct": 12.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 60.0,
+      "avgReturnPct": 3.19,
+      "medianReturnPct": 4.51,
+      "maxDrawdownPct": 13.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 50.0,
+      "avgReturnPct": 1.84,
+      "medianReturnPct": 0.62,
+      "maxDrawdownPct": 10.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.98,
+      "medianReturnPct": 0.09,
+      "maxDrawdownPct": 7.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 50.0,
+      "avgReturnPct": -0.54,
+      "medianReturnPct": 1.01,
+      "maxDrawdownPct": 8.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 50.0,
+      "avgReturnPct": 2.92,
+      "medianReturnPct": 0.33,
+      "maxDrawdownPct": 7.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 70.0,
+      "avgReturnPct": 3.73,
+      "medianReturnPct": 5.56,
+      "maxDrawdownPct": 5.7,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 30.0,
+      "avgReturnPct": -0.82,
+      "medianReturnPct": -1.99,
+      "maxDrawdownPct": 8.4,
+      "yearsSampled": 10
+    }
+  ],
+  "Capital Goods & Infra": [
+    {
+      "month": 1,
+      "winRatePct": 40.0,
+      "avgReturnPct": -0.4,
+      "medianReturnPct": -2.03,
+      "maxDrawdownPct": 6.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 2,
+      "winRatePct": 60.0,
+      "avgReturnPct": -0.41,
+      "medianReturnPct": 1.97,
+      "maxDrawdownPct": 22.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 3,
+      "winRatePct": 80.0,
+      "avgReturnPct": 4.19,
+      "medianReturnPct": 4.5,
+      "maxDrawdownPct": 3.6,
+      "yearsSampled": 10
+    },
+    {
+      "month": 4,
+      "winRatePct": 60.0,
+      "avgReturnPct": 1.28,
+      "medianReturnPct": 1.25,
+      "maxDrawdownPct": 5.5,
+      "yearsSampled": 10
+    },
+    {
+      "month": 5,
+      "winRatePct": 50.0,
+      "avgReturnPct": 0.45,
+      "medianReturnPct": 0.2,
+      "maxDrawdownPct": 6.4,
+      "yearsSampled": 10
+    },
+    {
+      "month": 6,
+      "winRatePct": 80.0,
+      "avgReturnPct": 1.61,
+      "medianReturnPct": 2.7,
+      "maxDrawdownPct": 8.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 7,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.05,
+      "medianReturnPct": -1.52,
+      "maxDrawdownPct": 3.1,
+      "yearsSampled": 10
+    },
+    {
+      "month": 8,
+      "winRatePct": 50.0,
+      "avgReturnPct": -0.25,
+      "medianReturnPct": -0.58,
+      "maxDrawdownPct": 10.3,
+      "yearsSampled": 10
+    },
+    {
+      "month": 9,
+      "winRatePct": 60.0,
+      "avgReturnPct": 1.46,
+      "medianReturnPct": 0.68,
+      "maxDrawdownPct": 7.9,
+      "yearsSampled": 10
+    },
+    {
+      "month": 10,
+      "winRatePct": 60.0,
+      "avgReturnPct": 1.55,
+      "medianReturnPct": 0.65,
+      "maxDrawdownPct": 2.8,
+      "yearsSampled": 10
+    },
+    {
+      "month": 11,
+      "winRatePct": 40.0,
+      "avgReturnPct": 0.63,
+      "medianReturnPct": -0.88,
+      "maxDrawdownPct": 4.0,
+      "yearsSampled": 10
+    },
+    {
+      "month": 12,
+      "winRatePct": 30.0,
+      "avgReturnPct": -0.21,
+      "medianReturnPct": -0.64,
+      "maxDrawdownPct": 6.6,
+      "yearsSampled": 10
+    }
+  ]
+}

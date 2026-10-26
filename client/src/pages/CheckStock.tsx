@@ -195,14 +195,28 @@ export default function CheckStock() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-center py-24 glass-card rounded-2xl border border-white/6"
+            className="text-center py-20 rounded-2xl border border-border/50 bg-card/40"
           >
-            <Search className="w-16 h-16 mx-auto text-white/15 mb-6" />
-            <h3 className="text-xl font-semibold text-white/60 mb-3">Search for a Stock</h3>
-            <p className="text-sm text-white/30 max-w-md mx-auto">
-              Enter a symbol (e.g., TCS, RELIANCE, INFY) to view the live TradingView chart,
-              AI-generated fundamentals, technical analysis, and buy/hold/sell signals.
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-primary/10 border border-primary/20 text-primary">
+              <Search className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-bold font-display text-foreground mb-2">Search Any NSE/BSE Equity</h3>
+            <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed mb-6">
+              Enter any listed symbol to inspect real-time TradingView charts, audited balance sheets & P&L ratios, technical indicators, and quantitative momentum ratings.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-md mx-auto">
+              <span className="text-xs text-muted-foreground/70 font-mono mr-1">Popular:</span>
+              {["RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "TATAMOTORS"].map((sym) => (
+                <button
+                  key={sym}
+                  type="button"
+                  onClick={() => setLocation(`/stock/${sym}`)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-muted/60 hover:bg-primary/15 hover:text-primary hover:border-primary/30 border border-border transition-all shadow-2xs"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
           </motion.div>
         ) : (
           <motion.div

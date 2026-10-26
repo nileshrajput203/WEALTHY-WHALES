@@ -1,8 +1,8 @@
 import {
   BarChart3, Eye, Scan, Activity, Clock, Triangle, ArrowUpDown,
-  Users, BookOpen, Star, Search, Newspaper, MessageSquare, CalendarDays,
+  Users, BookOpen, Star, Newspaper, MessageSquare, CalendarDays,
   Rocket, TrendingUp, ChevronDown, ChevronRight, Sparkles, Bell, Brain, Zap,
-  FlaskConical, Waves,
+  FlaskConical, Waves, Compass, Calendar, Sliders, GraduationCap, ShieldCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -15,13 +15,14 @@ import {
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MenuItem {
   title: string;
   url: string;
   icon: any;
   testId: string;
-  locked?: boolean;
+  tag?: string;
 }
 
 interface MenuGroup {
@@ -37,42 +38,45 @@ const menuGroups: MenuGroup[] = [
     icon: BarChart3,
     collapsible: true,
     items: [
-      { title: "Scalp Radar ⚡",  url: "/apex",             icon: Zap,        testId: "nav-apex-ai"          },
-      { title: "Smart Money",     url: "/insider-strategy", icon: Eye,        testId: "nav-insider-strategy" },
-      { title: "Sector Pulse",    url: "/sector-scope",     icon: Scan,       testId: "nav-sector-scope"     },
-      { title: "Swing Watch",     url: "/swing-scanner",    icon: TrendingUp, testId: "nav-swing-spectrum"    },
-      { title: "Chart Patterns",  url: "/chart-patterns",   icon: Sparkles,   testId: "nav-chart-patterns"   },
+      { title: "Scalp Radar",      url: "/apex",             icon: Zap,        testId: "nav-apex-ai",          tag: "HOT" },
+      { title: "Option Apex F&O",  url: "/option-apex",      icon: Triangle,   testId: "nav-option-apex",      tag: "NEW" },
+      { title: "Strategy Builder", url: "/strategy-builder", icon: Sliders,    testId: "nav-strategy-builder", tag: "PRO" },
+      { title: "Smart Money Flow", url: "/insider-strategy", icon: Eye,        testId: "nav-insider-strategy" },
+      { title: "Sector Pulse",     url: "/sector-scope",     icon: Scan,       testId: "nav-sector-scope"     },
+      { title: "Swing Scanner",    url: "/swing-scanner",    icon: TrendingUp, testId: "nav-swing-spectrum"    },
+      { title: "Chart Patterns",   url: "/chart-patterns",   icon: Activity,   testId: "nav-chart-patterns"   },
     ],
   },
   {
-    label: "Macro View",
-    icon: Triangle,
+    label: "Macro & Derivatives",
+    icon: Compass,
     collapsible: true,
     items: [
-      { title: "Option Clock",  url: "/option-clock",  icon: Clock,       testId: "nav-option-clock"  },
-      { title: "Option Apex",   url: "/option-apex",   icon: Triangle,    testId: "nav-option-apex"   },
-      { title: "Index Mover",   url: "/index-mover",   icon: ArrowUpDown, testId: "nav-index-mover"   },
+      { title: "Seasonality Pulse",url: "/seasonality",  icon: Calendar,    testId: "nav-seasonality",   tag: "HOT" },
+      { title: "Option Clock",     url: "/option-clock", icon: Clock,       testId: "nav-option-clock"  },
+      { title: "Index Movers",     url: "/index-mover",  icon: ArrowUpDown, testId: "nav-index-mover"   },
+      { title: "FII / DII Flow",   url: "/fii-dii",      icon: Waves,       testId: "nav-fii-dii"       },
     ],
   },
 ];
 
-const standaloneItems: MenuItem[] = [
-  { title: "Signal Engine 🧠",  url: "/hermes-fugu",           icon: Brain,        testId: "nav-hermes-fugu"      },
-  { title: "Flow Tracker",       url: "/fii-dii",               icon: Waves,        testId: "nav-fii-dii"          },
-  { title: "Watchlist",          url: "/watchlist",             icon: Star,         testId: "nav-watchlist"        },
-  { title: "Stock Lab",          url: "/check-stock",           icon: FlaskConical, testId: "nav-check-stock"      },
-  { title: "Filter Pro ✨",      url: "/smart-screener",        icon: Sparkles,     testId: "nav-smart-screener"   },
-  { title: "Events Calendar",    url: "/events-calendar",       icon: CalendarDays, testId: "nav-events-calendar"  },
-  { title: "IPO Radar",          url: "/ipo-base",              icon: Rocket,       testId: "nav-ipo-base"         },
-  { title: "Market News",        url: "/news",                  icon: Newspaper,    testId: "nav-news"             },
-  { title: "Ask AI",             url: "/ask-ai",                icon: MessageSquare,testId: "nav-ask-ai"           },
-  { title: "Trade Journal",      url: "/trading-journal",       icon: BookOpen,     testId: "nav-trading-journal"  },
-  { title: "Community",          url: "/community",             icon: Users,        testId: "nav-community"        },
-  { title: "Alerts",             url: "/settings/notifications",icon: Bell,         testId: "nav-notification-settings" },
+const coreToolItems: MenuItem[] = [
+  { title: "Signal Confluence",   url: "/ai-confluence",         icon: Brain,        testId: "nav-ai-confluence", tag: "PRO" },
+  { title: "Video Academy",       url: "/academy",               icon: GraduationCap,testId: "nav-academy",       tag: "LMS" },
+  { title: "Stock Analysis",      url: "/check-stock",           icon: FlaskConical, testId: "nav-check-stock"      },
+  { title: "Smart Screener",      url: "/smart-screener",        icon: Sparkles,     testId: "nav-smart-screener"   },
+  { title: "Watchlist",           url: "/watchlist",             icon: Star,         testId: "nav-watchlist"        },
+  { title: "Events Calendar",     url: "/events-calendar",       icon: CalendarDays, testId: "nav-events-calendar"  },
+  { title: "IPO Radar",           url: "/ipo-base",              icon: Rocket,       testId: "nav-ipo-base"         },
+  { title: "Market News",         url: "/news",                  icon: Newspaper,    testId: "nav-news"             },
+  { title: "Market Copilot",      url: "/ask-ai",                icon: MessageSquare,testId: "nav-ask-ai"           },
+  { title: "Trading Journal",     url: "/trading-journal",       icon: BookOpen,     testId: "nav-trading-journal"  },
+  { title: "Community Desk",      url: "/community",             icon: Users,        testId: "nav-community"        },
+  { title: "Alerts & Config",     url: "/settings/notifications",icon: Bell,         testId: "nav-notification-settings" },
 ];
 
 function NavItem({ item, location, indent = false }: { item: MenuItem; location: string; indent?: boolean }) {
-  const isActive = location === item.url;
+  const isActive = location === item.url || (item.url !== "/" && location.startsWith(item.url + "/"));
 
   return (
     <SidebarMenuItem>
@@ -81,21 +85,34 @@ function NavItem({ item, location, indent = false }: { item: MenuItem; location:
         className={`
           relative rounded-lg mx-1 transition-all duration-150 overflow-hidden
           ${indent ? "ml-3" : ""}
-          ${isActive ? "text-white" : "text-white/40 hover:text-white/70"}
+          ${
+            isActive
+              ? "text-primary font-semibold bg-primary/10 shadow-xs border border-primary/20"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }
         `}
-        style={
-          isActive
-            ? {
-                background: "linear-gradient(90deg, hsl(260 84% 65% / 0.14) 0%, transparent 100%)",
-                boxShadow: "inset 2px 0 0 hsl(260 84% 65%)",
-              }
-            : {}
-        }
       >
-        <Link href={item.url} data-testid={item.testId}>
-          {indent && <span className="w-2.5 h-px bg-white/10 flex-shrink-0" />}
-          <item.icon className={`w-4 h-4 relative z-10 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
-          <span className="font-medium text-[13px] relative z-10 leading-tight">{item.title}</span>
+        <Link href={item.url} data-testid={item.testId} className="flex items-center gap-2.5 py-1.5 px-2.5 w-full">
+          {indent && <span className="w-1.5 h-px bg-border flex-shrink-0" />}
+          <item.icon
+            className={`w-4 h-4 relative z-10 flex-shrink-0 transition-colors ${
+              isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+            }`}
+          />
+          <span className="text-[13px] relative z-10 leading-tight font-medium flex-1 truncate">
+            {item.title}
+          </span>
+          {item.tag && (
+            <span
+              className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                item.tag === "HOT"
+                  ? "bg-amber-500/15 text-amber-500 border border-amber-500/25"
+                  : "bg-primary/15 text-primary border border-primary/25"
+              }`}
+            >
+              {item.tag}
+            </span>
+          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -104,23 +121,26 @@ function NavItem({ item, location, indent = false }: { item: MenuItem; location:
 
 function CollapsibleGroup({ group, location }: { group: MenuGroup; location: string }) {
   const [isOpen, setIsOpen] = useState(true);
-  const hasActiveChild = group.items.some(item => location === item.url);
+  const hasActiveChild = group.items.some(
+    item => location === item.url || (item.url !== "/" && location.startsWith(item.url + "/"))
+  );
 
   return (
-    <SidebarGroup className="py-0">
+    <SidebarGroup className="py-1">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-1.5 w-full rounded-lg transition-all duration-150 group
-          ${hasActiveChild ? "text-white/60" : "text-white/30 hover:text-white/50"}`}
+          ${hasActiveChild ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"}`}
       >
-        <group.icon className={`w-3.5 h-3.5 ${hasActiveChild ? "text-primary/60" : "text-white/20"}`} />
-        <span className="text-[10px] uppercase tracking-widest font-bold font-mono flex-1 text-left">
+        <group.icon className={`w-3.5 h-3.5 ${hasActiveChild ? "text-primary" : "text-muted-foreground"}`} />
+        <span className="text-[11px] uppercase tracking-wider font-bold font-mono flex-1 text-left">
           {group.label}
         </span>
-        {isOpen
-          ? <ChevronDown className="w-3 h-3 text-white/15 transition-transform" />
-          : <ChevronRight className="w-3 h-3 text-white/15 transition-transform" />
-        }
+        {isOpen ? (
+          <ChevronDown className="w-3 h-3 text-muted-foreground/60 transition-transform" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-muted-foreground/60 transition-transform" />
+        )}
       </button>
 
       {isOpen && (
@@ -138,44 +158,79 @@ function CollapsibleGroup({ group, location }: { group: MenuGroup; location: str
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user } = useAuth();
 
   return (
     <Sidebar
-      className="border-r border-white/5"
+      className="border-r border-border/60"
       style={{
         background: "hsl(var(--sidebar))",
-        backdropFilter: "blur(24px) saturate(180%)",
-        WebkitBackdropFilter: "blur(24px) saturate(180%)",
       }}
     >
       {/* Brand header inside sidebar */}
-      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-white/5">
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border/50">
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center text-base flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, hsl(260 84% 65% / 0.35), hsl(260 84% 65% / 0.15))", border: "1px solid hsl(260 84% 65% / 0.25)" }}
+          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold font-display text-sm flex-shrink-0 bg-primary/15 text-primary border border-primary/25 shadow-xs"
         >
-          🐋
+          WW
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-[13px] font-bold font-display text-white/85 leading-none tracking-tight">Wealthy Whales</span>
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_1px_hsl(142,71%,50%,0.7)]" />
-            <span className="text-[9px] text-white/30 font-mono tracking-wide">NSE · BSE Live</span>
+          <span className="text-[14px] font-bold font-display text-foreground leading-none tracking-tight">
+            Wealthy Whales
+          </span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse" />
+            <span className="text-[10px] text-muted-foreground font-mono tracking-wide">
+              NSE · BSE Terminal
+            </span>
           </div>
         </div>
       </div>
 
-      <SidebarContent className="p-2 pt-2.5 flex flex-col">
+      <SidebarContent className="p-2 pt-2 flex flex-col no-scrollbar">
+        {user?.isAdmin && (
+          <>
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase tracking-wider font-bold font-mono text-amber-500/90">
+                Administration
+              </span>
+            </div>
+            <SidebarGroup className="py-0 mb-1">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <NavItem
+                    item={{
+                      title: "Admin Console",
+                      url: "/admin",
+                      icon: ShieldCheck,
+                      testId: "nav-admin-console",
+                      tag: "ROOT",
+                    }}
+                    location={location}
+                  />
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <div className="mx-3 my-1.5 h-px bg-border/40" />
+          </>
+        )}
+
         {menuGroups.map(group => (
           <CollapsibleGroup key={group.label} group={group} location={location} />
         ))}
 
-        <div className="mx-3 my-2 h-px bg-white/5" />
+        <div className="mx-3 my-2 h-px bg-border/40" />
+
+        <div className="px-3 py-1">
+          <span className="text-[10px] uppercase tracking-wider font-bold font-mono text-muted-foreground/70">
+            Analytics & Tools
+          </span>
+        </div>
 
         <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
-              {standaloneItems.map(item => (
+              {coreToolItems.map(item => (
                 <NavItem key={item.title} item={item} location={location} />
               ))}
             </SidebarMenu>

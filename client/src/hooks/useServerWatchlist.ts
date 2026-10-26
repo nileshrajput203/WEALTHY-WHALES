@@ -33,7 +33,7 @@ export function useServerWatchlist() {
   const queryClient = useQueryClient();
 
   // Fetch user's watchlist
-  const { data: watchlist = [], isLoading, error } = useQuery({
+  const { data: watchlist = [], isLoading, error } = useQuery<WatchlistItem[]>({
     queryKey: ['watchlist'],
     queryFn: async () => {
       const res = await fetch('/api/watchlist');
@@ -45,7 +45,7 @@ export function useServerWatchlist() {
   });
 
   // Fetch watchlist alerts
-  const { data: alerts = [] } = useQuery({
+  const { data: alerts = [] } = useQuery<WatchlistAlert[]>({
     queryKey: ['watchlist-alerts'],
     queryFn: async () => {
       const res = await fetch('/api/watchlist/alerts');

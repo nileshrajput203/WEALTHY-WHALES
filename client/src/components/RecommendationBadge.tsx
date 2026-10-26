@@ -9,35 +9,36 @@ interface RecommendationBadgeProps {
 export function RecommendationBadge({ type, size = "md" }: RecommendationBadgeProps) {
   const config = {
     BUY: {
-      color: "bg-bullish/20 text-bullish border-bullish",
+      color: "bg-emerald-950/90 text-emerald-300 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.18)] font-black",
       icon: TrendingUp,
       label: "Buy",
     },
     SELL: {
-      color: "bg-bearish/20 text-bearish border-bearish",
+      color: "bg-rose-950/90 text-rose-300 border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.18)] font-black",
       icon: TrendingDown,
       label: "Sell",
     },
     HOLD: {
-      color: "bg-accent/20 text-accent-foreground border-accent",
+      color: "bg-amber-950/90 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.18)] font-black",
       icon: Minus,
       label: "Hold",
     },
   };
 
-  const { color, icon: Icon, label } = config[type];
+  const { color, icon: Icon, label } = config[type] || config.HOLD;
   const sizeClasses = {
-    sm: "px-2 py-1 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
+    sm: "px-2 py-0.5 text-[11px] font-bold font-mono tracking-wide uppercase",
+    md: "px-3 py-1 text-xs font-bold font-mono tracking-wide uppercase",
+    lg: "px-4 py-1.5 text-sm font-bold font-mono tracking-wide uppercase",
   };
 
   return (
     <Badge
-      className={`${color} ${sizeClasses[size]} rounded-full font-semibold border inline-flex items-center gap-1.5`}
+      variant="outline"
+      className={`${color} ${sizeClasses[size]} rounded-lg border inline-flex items-center gap-1.5 shadow-2xs`}
       data-testid={`badge-recommendation-${type.toLowerCase()}`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-3.5 h-3.5" />
       {label}
     </Badge>
   );

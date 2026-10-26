@@ -40,10 +40,10 @@ function isWeekday(date: Date): boolean {
 /* ═══ Status Tracking ═══ */
 interface HermesStatus {
   lastScanAt: string | null;
-  lastScanResult: { scanned: number; inserted: number; errors: number; duration: string } | null;
+  lastScanResult: { scanned: number; inserted: number; errors?: number; duration?: string } | any | null;
   lastOutcomeAt: string | null;
   lastLearningAt: string | null;
-  lastLearningResult: { newVersion: number; accuracy: number; sampleSize: number } | null;
+  lastLearningResult: { newVersion?: number; accuracy?: number; sampleSize?: number; promoted?: boolean; oldAvgReturn?: number; newAvgReturn?: number } | any | null;
   nextScheduledScan: string | null;
   isRunning: boolean;
 }

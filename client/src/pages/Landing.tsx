@@ -13,8 +13,8 @@ const features = [
   },
   {
     icon: <Brain className="h-5 w-5 text-primary" />,
-    title: "Three self-learning AI engines",
-    description: "APEX for intraday, HERMES for swing, FUGU for multi-factor. Each evolves its own weights from live market outcomes.",
+    title: "Triple Quantitative Models",
+    description: "APEX for intraday scalp momentum, HERMES for swing structure, FUGU for multi-factor confluence. Each optimizes weights from audited market outcomes.",
     accent: "violet",
   },
   {
@@ -53,23 +53,12 @@ const accentMap: Record<string, string> = {
 
 export default function Landing() {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [hasSkipped, setHasSkipped] = useState(false);
-
-  const handleSkip = () => {
-    setHasSkipped(true);
-    setShowAuthModal(false);
-  };
-
-  if (hasSkipped) {
-    window.location.href = "/check-stock";
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-background w-full max-w-full overflow-x-hidden">
       <AnimatedHero
         onGetStarted={() => setShowAuthModal(true)}
-        onExploreFree={handleSkip}
+        onExploreFree={() => setShowAuthModal(true)}
       />
 
       {/* ── What's inside ──────────────────────────────── */}
@@ -135,17 +124,17 @@ export default function Landing() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
             <button
-              onClick={handleSkip}
+              onClick={() => setShowAuthModal(true)}
               className="text-sm text-foreground/40 hover:text-foreground/65 transition-colors underline underline-offset-4 decoration-foreground/20"
             >
-              Browse as guest
+              Admin Sign In
             </button>
           </div>
-          <p className="text-[11px] text-foreground/25 font-mono mt-4">No credit card · Sign in with Google</p>
+          <p className="text-[11px] text-foreground/25 font-mono mt-4">Administrative credentials required · Enterprise encryption</p>
         </motion.div>
       </div>
 
-      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} onSkip={handleSkip} />
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }

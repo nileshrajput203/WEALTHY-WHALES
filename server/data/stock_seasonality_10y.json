@@ -1,0 +1,2035 @@
+[
+  {
+    "symbol": "RELIANCE",
+    "companyName": "Reliance Industries",
+    "sector": "Energy",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 30.0,
+        "avgReturnPct": 1.6,
+        "medianReturnPct": -0.57,
+        "maxDrawdownPct": 5.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.3,
+        "medianReturnPct": 0.49,
+        "maxDrawdownPct": 17.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 80.0,
+        "avgReturnPct": 6.48,
+        "medianReturnPct": 3.67,
+        "maxDrawdownPct": 1.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.37,
+        "medianReturnPct": -3.2,
+        "maxDrawdownPct": 7.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.6,
+        "medianReturnPct": 3.19,
+        "maxDrawdownPct": 6.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 50.0,
+        "avgReturnPct": 4.24,
+        "medianReturnPct": -0.93,
+        "maxDrawdownPct": 7.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.5,
+        "medianReturnPct": 0.64,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.28,
+        "medianReturnPct": -0.84,
+        "maxDrawdownPct": 7.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.12,
+        "medianReturnPct": 1.6,
+        "maxDrawdownPct": 15.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.87,
+        "medianReturnPct": 0.55,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.67,
+        "medianReturnPct": -1.52,
+        "maxDrawdownPct": 7.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.81,
+        "medianReturnPct": -1.33,
+        "maxDrawdownPct": 11.3,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 53.7
+    }
+  },
+  {
+    "symbol": "TCS",
+    "companyName": "Tata Consultancy Services",
+    "sector": "IT",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 20.0,
+        "avgReturnPct": -3.44,
+        "medianReturnPct": -3.33,
+        "maxDrawdownPct": 15.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.93,
+        "medianReturnPct": -2.73,
+        "maxDrawdownPct": 10.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 40.0,
+        "avgReturnPct": 2.66,
+        "medianReturnPct": -1.08,
+        "maxDrawdownPct": 6.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.44,
+        "medianReturnPct": -1.75,
+        "maxDrawdownPct": 8.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.01,
+        "medianReturnPct": 0.77,
+        "maxDrawdownPct": 11.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.45,
+        "medianReturnPct": 4.0,
+        "maxDrawdownPct": 12.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.75,
+        "medianReturnPct": 1.23,
+        "maxDrawdownPct": 3.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 30.0,
+        "avgReturnPct": -2.2,
+        "medianReturnPct": -3.79,
+        "maxDrawdownPct": 12.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.51,
+        "medianReturnPct": 5.97,
+        "maxDrawdownPct": 11.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 80.0,
+        "avgReturnPct": 1.01,
+        "medianReturnPct": 1.96,
+        "maxDrawdownPct": 9.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.09,
+        "medianReturnPct": 3.2,
+        "maxDrawdownPct": 4.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.13,
+        "medianReturnPct": 0.56,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 84.7
+    }
+  },
+  {
+    "symbol": "HDFCBANK",
+    "companyName": "HDFC Bank Ltd",
+    "sector": "Banking",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.66,
+        "medianReturnPct": -2.49,
+        "maxDrawdownPct": 6.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": -2.29,
+        "medianReturnPct": 1.73,
+        "maxDrawdownPct": 28.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.33,
+        "medianReturnPct": 4.06,
+        "maxDrawdownPct": 6.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.0,
+        "medianReturnPct": 1.5,
+        "maxDrawdownPct": 5.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.72,
+        "medianReturnPct": 2.25,
+        "maxDrawdownPct": 2.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.08,
+        "medianReturnPct": -3.34,
+        "maxDrawdownPct": 8.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.17,
+        "medianReturnPct": -0.18,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.54,
+        "medianReturnPct": 0.33,
+        "maxDrawdownPct": 4.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.81,
+        "medianReturnPct": 0.07,
+        "maxDrawdownPct": 4.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 80.0,
+        "avgReturnPct": 4.52,
+        "medianReturnPct": 3.27,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.51,
+        "medianReturnPct": -0.23,
+        "maxDrawdownPct": 2.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 30.0,
+        "avgReturnPct": -2.24,
+        "medianReturnPct": -2.84,
+        "maxDrawdownPct": 14.3,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 42.7
+    }
+  },
+  {
+    "symbol": "ICICIBANK",
+    "companyName": "ICICI Bank Ltd",
+    "sector": "Banking",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 50.0,
+        "avgReturnPct": -1.27,
+        "medianReturnPct": -1.2,
+        "maxDrawdownPct": 9.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 40.0,
+        "avgReturnPct": -3.41,
+        "medianReturnPct": -0.97,
+        "maxDrawdownPct": 36.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 90.0,
+        "avgReturnPct": 4.8,
+        "medianReturnPct": 3.49,
+        "maxDrawdownPct": 0.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.54,
+        "medianReturnPct": 2.08,
+        "maxDrawdownPct": 12.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.27,
+        "medianReturnPct": -0.84,
+        "maxDrawdownPct": 6.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 80.0,
+        "avgReturnPct": 4.84,
+        "medianReturnPct": 4.26,
+        "maxDrawdownPct": 3.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.74,
+        "medianReturnPct": 1.1,
+        "maxDrawdownPct": 5.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 20.0,
+        "avgReturnPct": -3.66,
+        "medianReturnPct": -3.63,
+        "maxDrawdownPct": 11.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 80.0,
+        "avgReturnPct": 6.57,
+        "medianReturnPct": 6.29,
+        "maxDrawdownPct": 3.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.8,
+        "medianReturnPct": 1.91,
+        "maxDrawdownPct": 11.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.2,
+        "medianReturnPct": 0.87,
+        "maxDrawdownPct": 6.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.73,
+        "medianReturnPct": 0.82,
+        "maxDrawdownPct": 6.9,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 67.6
+    }
+  },
+  {
+    "symbol": "INFY",
+    "companyName": "Infosys Ltd",
+    "sector": "IT",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -3.11,
+        "medianReturnPct": -2.56,
+        "maxDrawdownPct": 20.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.95,
+        "medianReturnPct": -3.18,
+        "maxDrawdownPct": 13.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 30.0,
+        "avgReturnPct": -4.1,
+        "medianReturnPct": -4.7,
+        "maxDrawdownPct": 16.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.14,
+        "medianReturnPct": 0.87,
+        "maxDrawdownPct": 3.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.55,
+        "medianReturnPct": 1.83,
+        "maxDrawdownPct": 14.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 90.0,
+        "avgReturnPct": 8.69,
+        "medianReturnPct": 7.02,
+        "maxDrawdownPct": 6.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.43,
+        "medianReturnPct": 1.32,
+        "maxDrawdownPct": 9.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 30.0,
+        "avgReturnPct": -1.59,
+        "medianReturnPct": -1.88,
+        "maxDrawdownPct": 11.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.04,
+        "medianReturnPct": 1.3,
+        "maxDrawdownPct": 15.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 80.0,
+        "avgReturnPct": 2.73,
+        "medianReturnPct": 4.27,
+        "maxDrawdownPct": 3.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.68,
+        "medianReturnPct": 3.77,
+        "maxDrawdownPct": 8.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.33,
+        "medianReturnPct": 1.44,
+        "maxDrawdownPct": 8.2,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 74.3
+    }
+  },
+  {
+    "symbol": "ITC",
+    "companyName": "ITC Ltd",
+    "sector": "FMCG",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 20.0,
+        "avgReturnPct": -3.89,
+        "medianReturnPct": -2.44,
+        "maxDrawdownPct": 16.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.4,
+        "medianReturnPct": 4.12,
+        "maxDrawdownPct": 13.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.49,
+        "medianReturnPct": 3.86,
+        "maxDrawdownPct": 7.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.39,
+        "medianReturnPct": 1.43,
+        "maxDrawdownPct": 8.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 30.0,
+        "avgReturnPct": -1.17,
+        "medianReturnPct": -1.13,
+        "maxDrawdownPct": 7.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.97,
+        "medianReturnPct": 0.38,
+        "maxDrawdownPct": 17.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.19,
+        "medianReturnPct": -0.86,
+        "maxDrawdownPct": 10.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 60.0,
+        "avgReturnPct": -0.25,
+        "medianReturnPct": 0.74,
+        "maxDrawdownPct": 10.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 30.0,
+        "avgReturnPct": -1.59,
+        "medianReturnPct": -2.22,
+        "maxDrawdownPct": 6.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.44,
+        "medianReturnPct": -2.78,
+        "maxDrawdownPct": 5.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.05,
+        "medianReturnPct": 0.83,
+        "maxDrawdownPct": 3.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.78,
+        "medianReturnPct": -1.35,
+        "maxDrawdownPct": 20.0,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 41.6
+    }
+  },
+  {
+    "symbol": "SBIN",
+    "companyName": "State Bank of India",
+    "sector": "Banking",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.9,
+        "medianReturnPct": -5.79,
+        "maxDrawdownPct": 15.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": -2.67,
+        "medianReturnPct": 0.07,
+        "maxDrawdownPct": 36.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.58,
+        "medianReturnPct": -0.32,
+        "maxDrawdownPct": 3.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.77,
+        "medianReturnPct": 0.38,
+        "maxDrawdownPct": 15.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.46,
+        "medianReturnPct": -0.99,
+        "maxDrawdownPct": 5.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 70.0,
+        "avgReturnPct": 4.98,
+        "medianReturnPct": 4.71,
+        "maxDrawdownPct": 8.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": -2.81,
+        "medianReturnPct": -0.79,
+        "maxDrawdownPct": 17.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 40.0,
+        "avgReturnPct": -2.75,
+        "medianReturnPct": -2.36,
+        "maxDrawdownPct": 15.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 90.0,
+        "avgReturnPct": 6.97,
+        "medianReturnPct": 6.7,
+        "maxDrawdownPct": 5.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 80.0,
+        "avgReturnPct": 4.23,
+        "medianReturnPct": 2.78,
+        "maxDrawdownPct": 9.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 40.0,
+        "avgReturnPct": 1.3,
+        "medianReturnPct": -0.6,
+        "maxDrawdownPct": 5.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.34,
+        "medianReturnPct": 0.29,
+        "maxDrawdownPct": 10.0,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 51.1
+    }
+  },
+  {
+    "symbol": "BHARTIARTL",
+    "companyName": "Bharti Airtel",
+    "sector": "Telecom",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.95,
+        "medianReturnPct": -3.05,
+        "maxDrawdownPct": 6.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.61,
+        "medianReturnPct": -1.39,
+        "maxDrawdownPct": 17.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 90.0,
+        "avgReturnPct": 5.36,
+        "medianReturnPct": 4.33,
+        "maxDrawdownPct": 2.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.5,
+        "medianReturnPct": 2.37,
+        "maxDrawdownPct": 8.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.59,
+        "medianReturnPct": 1.59,
+        "maxDrawdownPct": 2.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.74,
+        "medianReturnPct": 1.81,
+        "maxDrawdownPct": 4.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.34,
+        "medianReturnPct": 0.24,
+        "maxDrawdownPct": 8.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 50.0,
+        "avgReturnPct": -1.03,
+        "medianReturnPct": 2.21,
+        "maxDrawdownPct": 18.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 3.33,
+        "medianReturnPct": 1.48,
+        "maxDrawdownPct": 13.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 90.0,
+        "avgReturnPct": 5.62,
+        "medianReturnPct": 4.03,
+        "maxDrawdownPct": 4.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.84,
+        "medianReturnPct": -1.84,
+        "maxDrawdownPct": 6.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.18,
+        "medianReturnPct": 4.06,
+        "maxDrawdownPct": 17.2,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 70.3
+    }
+  },
+  {
+    "symbol": "MARUTI",
+    "companyName": "Maruti Suzuki India",
+    "sector": "Auto",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.82,
+        "medianReturnPct": -3.27,
+        "maxDrawdownPct": 9.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 20.0,
+        "avgReturnPct": -5.58,
+        "medianReturnPct": -3.02,
+        "maxDrawdownPct": 33.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.75,
+        "medianReturnPct": 2.0,
+        "maxDrawdownPct": 7.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.42,
+        "medianReturnPct": 3.49,
+        "maxDrawdownPct": 3.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.1,
+        "medianReturnPct": 2.56,
+        "maxDrawdownPct": 6.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 80.0,
+        "avgReturnPct": 1.3,
+        "medianReturnPct": 2.61,
+        "maxDrawdownPct": 17.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 2.08,
+        "medianReturnPct": 0.86,
+        "maxDrawdownPct": 7.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.81,
+        "medianReturnPct": 4.55,
+        "maxDrawdownPct": 19.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": -0.6,
+        "medianReturnPct": 1.43,
+        "maxDrawdownPct": 16.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.7,
+        "medianReturnPct": -0.7,
+        "maxDrawdownPct": 11.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.4,
+        "medianReturnPct": 1.04,
+        "maxDrawdownPct": 6.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.68,
+        "medianReturnPct": -1.99,
+        "maxDrawdownPct": 12.6,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 40.4
+    }
+  },
+  {
+    "symbol": "SUNPHARMA",
+    "companyName": "Sun Pharmaceutical",
+    "sector": "Pharma",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.86,
+        "medianReturnPct": -0.32,
+        "maxDrawdownPct": 13.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.92,
+        "medianReturnPct": 2.6,
+        "maxDrawdownPct": 8.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.73,
+        "medianReturnPct": 2.11,
+        "maxDrawdownPct": 7.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 20.0,
+        "avgReturnPct": -5.68,
+        "medianReturnPct": -4.76,
+        "maxDrawdownPct": 21.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.96,
+        "medianReturnPct": 1.21,
+        "maxDrawdownPct": 5.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 90.0,
+        "avgReturnPct": 7.23,
+        "medianReturnPct": 7.37,
+        "maxDrawdownPct": 4.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.19,
+        "medianReturnPct": -1.26,
+        "maxDrawdownPct": 9.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.74,
+        "medianReturnPct": 1.31,
+        "maxDrawdownPct": 13.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.2,
+        "medianReturnPct": -3.02,
+        "maxDrawdownPct": 7.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.32,
+        "medianReturnPct": -0.01,
+        "maxDrawdownPct": 15.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.71,
+        "medianReturnPct": -0.76,
+        "maxDrawdownPct": 11.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.2,
+        "medianReturnPct": -0.65,
+        "maxDrawdownPct": 7.7,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 38.7
+    }
+  },
+  {
+    "symbol": "LT",
+    "companyName": "Larsen & Toubro",
+    "sector": "Capital Goods & Infra",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 30.0,
+        "avgReturnPct": -2.65,
+        "medianReturnPct": -1.42,
+        "maxDrawdownPct": 13.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": -1.81,
+        "medianReturnPct": 1.22,
+        "maxDrawdownPct": 32.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 50.0,
+        "avgReturnPct": 2.48,
+        "medianReturnPct": 1.85,
+        "maxDrawdownPct": 6.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.46,
+        "medianReturnPct": 1.82,
+        "maxDrawdownPct": 6.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 30.0,
+        "avgReturnPct": -1.07,
+        "medianReturnPct": -0.41,
+        "maxDrawdownPct": 8.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.72,
+        "medianReturnPct": 4.0,
+        "maxDrawdownPct": 11.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.87,
+        "medianReturnPct": 1.29,
+        "maxDrawdownPct": 5.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.19,
+        "medianReturnPct": -0.1,
+        "maxDrawdownPct": 7.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.85,
+        "medianReturnPct": 2.0,
+        "maxDrawdownPct": 3.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.12,
+        "medianReturnPct": 1.55,
+        "maxDrawdownPct": 9.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.89,
+        "medianReturnPct": 0.1,
+        "maxDrawdownPct": 2.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.45,
+        "medianReturnPct": 1.13,
+        "maxDrawdownPct": 9.0,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 43.3
+    }
+  },
+  {
+    "symbol": "TATASTEEL",
+    "companyName": "Tata Steel Ltd",
+    "sector": "Metals",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.49,
+        "medianReturnPct": 3.64,
+        "maxDrawdownPct": 13.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.93,
+        "medianReturnPct": 1.64,
+        "maxDrawdownPct": 31.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 4.22,
+        "medianReturnPct": 4.47,
+        "maxDrawdownPct": 7.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.15,
+        "medianReturnPct": -1.31,
+        "maxDrawdownPct": 16.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 70.0,
+        "avgReturnPct": 0.08,
+        "medianReturnPct": 1.82,
+        "maxDrawdownPct": 18.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 4.81,
+        "medianReturnPct": 2.3,
+        "maxDrawdownPct": 15.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.54,
+        "medianReturnPct": -1.26,
+        "maxDrawdownPct": 19.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 60.0,
+        "avgReturnPct": -0.51,
+        "medianReturnPct": 1.15,
+        "maxDrawdownPct": 13.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.65,
+        "medianReturnPct": 2.58,
+        "maxDrawdownPct": 12.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 3.37,
+        "medianReturnPct": -0.1,
+        "maxDrawdownPct": 20.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.13,
+        "medianReturnPct": 4.52,
+        "maxDrawdownPct": 6.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.09,
+        "medianReturnPct": -2.58,
+        "maxDrawdownPct": 9.0,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 34.7
+    }
+  },
+  {
+    "symbol": "BAJFINANCE",
+    "companyName": "Bajaj Finance Ltd",
+    "sector": "Banking",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.16,
+        "medianReturnPct": 2.85,
+        "maxDrawdownPct": 5.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": -3.43,
+        "medianReturnPct": 4.12,
+        "maxDrawdownPct": 51.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.96,
+        "medianReturnPct": 5.49,
+        "maxDrawdownPct": 7.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.09,
+        "medianReturnPct": 4.92,
+        "maxDrawdownPct": 15.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 90.0,
+        "avgReturnPct": 7.23,
+        "medianReturnPct": 4.66,
+        "maxDrawdownPct": 10.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 70.0,
+        "avgReturnPct": 8.8,
+        "medianReturnPct": 8.59,
+        "maxDrawdownPct": 11.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 70.0,
+        "avgReturnPct": 3.34,
+        "medianReturnPct": 3.68,
+        "maxDrawdownPct": 10.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.47,
+        "medianReturnPct": 2.29,
+        "maxDrawdownPct": 24.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 20.0,
+        "avgReturnPct": -1.21,
+        "medianReturnPct": -2.33,
+        "maxDrawdownPct": 10.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 40.0,
+        "avgReturnPct": 1.21,
+        "medianReturnPct": -4.84,
+        "maxDrawdownPct": 15.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.38,
+        "medianReturnPct": 1.74,
+        "maxDrawdownPct": 9.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.02,
+        "medianReturnPct": -3.65,
+        "maxDrawdownPct": 10.8,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 36.8
+    }
+  },
+  {
+    "symbol": "HCLTECH",
+    "companyName": "HCL Technologies",
+    "sector": "IT",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -3.17,
+        "medianReturnPct": -2.65,
+        "maxDrawdownPct": 17.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 70.0,
+        "avgReturnPct": -0.61,
+        "medianReturnPct": 1.87,
+        "maxDrawdownPct": 19.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.93,
+        "medianReturnPct": -4.62,
+        "maxDrawdownPct": 14.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.4,
+        "medianReturnPct": -0.02,
+        "maxDrawdownPct": 13.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.25,
+        "medianReturnPct": 0.88,
+        "maxDrawdownPct": 9.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 5.12,
+        "medianReturnPct": 3.98,
+        "maxDrawdownPct": 15.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 50.0,
+        "avgReturnPct": 3.1,
+        "medianReturnPct": 1.98,
+        "maxDrawdownPct": 2.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.51,
+        "medianReturnPct": 1.72,
+        "maxDrawdownPct": 6.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 3.52,
+        "medianReturnPct": 3.01,
+        "maxDrawdownPct": 10.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.45,
+        "medianReturnPct": 1.79,
+        "maxDrawdownPct": 3.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 60.0,
+        "avgReturnPct": 3.65,
+        "medianReturnPct": 3.37,
+        "maxDrawdownPct": 8.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.88,
+        "medianReturnPct": 4.17,
+        "maxDrawdownPct": 16.5,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 88.1
+    }
+  },
+  {
+    "symbol": "KOTAKBANK",
+    "companyName": "Kotak Mahindra Bank",
+    "sector": "Banking",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.13,
+        "medianReturnPct": -1.11,
+        "maxDrawdownPct": 7.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.86,
+        "medianReturnPct": -1.5,
+        "maxDrawdownPct": 20.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.72,
+        "medianReturnPct": 3.31,
+        "maxDrawdownPct": 9.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 80.0,
+        "avgReturnPct": 2.77,
+        "medianReturnPct": 4.06,
+        "maxDrawdownPct": 9.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.27,
+        "medianReturnPct": 0.59,
+        "maxDrawdownPct": 9.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.67,
+        "medianReturnPct": 0.16,
+        "maxDrawdownPct": 8.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.27,
+        "medianReturnPct": -1.25,
+        "maxDrawdownPct": 4.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.95,
+        "medianReturnPct": 0.37,
+        "maxDrawdownPct": 11.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.21,
+        "medianReturnPct": 2.47,
+        "maxDrawdownPct": 6.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.57,
+        "medianReturnPct": 1.44,
+        "maxDrawdownPct": 7.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 70.0,
+        "avgReturnPct": 0.21,
+        "medianReturnPct": 1.26,
+        "maxDrawdownPct": 9.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 60.0,
+        "avgReturnPct": -0.4,
+        "medianReturnPct": 0.15,
+        "maxDrawdownPct": 14.2,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 65.4
+    }
+  },
+  {
+    "symbol": "TITAN",
+    "companyName": "Titan Company Ltd",
+    "sector": "FMCG",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 50.0,
+        "avgReturnPct": 1.73,
+        "medianReturnPct": 0.36,
+        "maxDrawdownPct": 12.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.66,
+        "medianReturnPct": 5.18,
+        "maxDrawdownPct": 26.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.37,
+        "medianReturnPct": 3.22,
+        "maxDrawdownPct": 6.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 50.0,
+        "avgReturnPct": -1.45,
+        "medianReturnPct": -3.04,
+        "maxDrawdownPct": 9.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.72,
+        "medianReturnPct": 6.56,
+        "maxDrawdownPct": 13.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.77,
+        "medianReturnPct": 1.9,
+        "maxDrawdownPct": 20.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 90.0,
+        "avgReturnPct": 6.04,
+        "medianReturnPct": 5.07,
+        "maxDrawdownPct": 2.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 60.0,
+        "avgReturnPct": 1.21,
+        "medianReturnPct": 0.86,
+        "maxDrawdownPct": 10.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.31,
+        "medianReturnPct": 4.52,
+        "maxDrawdownPct": 14.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 3.21,
+        "medianReturnPct": 1.55,
+        "maxDrawdownPct": 14.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.24,
+        "medianReturnPct": 3.04,
+        "maxDrawdownPct": 2.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.05,
+        "medianReturnPct": -0.16,
+        "maxDrawdownPct": 9.1,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 28.7
+    }
+  },
+  {
+    "symbol": "SIEMENS",
+    "companyName": "Siemens Ltd",
+    "sector": "Capital Goods & Infra",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.28,
+        "medianReturnPct": 2.94,
+        "maxDrawdownPct": 24.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.95,
+        "medianReturnPct": 1.5,
+        "maxDrawdownPct": 15.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 80.0,
+        "avgReturnPct": 4.43,
+        "medianReturnPct": 3.33,
+        "maxDrawdownPct": 5.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 80.0,
+        "avgReturnPct": 5.69,
+        "medianReturnPct": 5.95,
+        "maxDrawdownPct": 6.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 30.0,
+        "avgReturnPct": -0.64,
+        "medianReturnPct": -1.07,
+        "maxDrawdownPct": 6.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.59,
+        "medianReturnPct": 2.43,
+        "maxDrawdownPct": 13.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.29,
+        "medianReturnPct": 1.57,
+        "maxDrawdownPct": 9.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.12,
+        "medianReturnPct": -5.09,
+        "maxDrawdownPct": 7.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.37,
+        "medianReturnPct": -0.79,
+        "maxDrawdownPct": 12.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.98,
+        "medianReturnPct": -0.63,
+        "maxDrawdownPct": 11.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 80.0,
+        "avgReturnPct": 2.07,
+        "medianReturnPct": 2.7,
+        "maxDrawdownPct": 13.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 70.0,
+        "avgReturnPct": 0.48,
+        "medianReturnPct": 0.82,
+        "maxDrawdownPct": 7.3,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 31.4
+    }
+  },
+  {
+    "symbol": "BEL",
+    "companyName": "Bharat Electronics",
+    "sector": "Capital Goods & Infra",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 20.0,
+        "avgReturnPct": -3.79,
+        "medianReturnPct": -2.23,
+        "maxDrawdownPct": 17.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.8,
+        "medianReturnPct": -0.94,
+        "maxDrawdownPct": 9.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 70.0,
+        "avgReturnPct": 4.14,
+        "medianReturnPct": 4.2,
+        "maxDrawdownPct": 8.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 50.0,
+        "avgReturnPct": 6.94,
+        "medianReturnPct": 4.23,
+        "maxDrawdownPct": 12.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 50.0,
+        "avgReturnPct": 4.75,
+        "medianReturnPct": 0.16,
+        "maxDrawdownPct": 6.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.7,
+        "medianReturnPct": 3.79,
+        "maxDrawdownPct": 9.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 70.0,
+        "avgReturnPct": 2.08,
+        "medianReturnPct": 1.6,
+        "maxDrawdownPct": 5.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 40.0,
+        "avgReturnPct": -3.35,
+        "medianReturnPct": -3.44,
+        "maxDrawdownPct": 29.7,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 60.0,
+        "avgReturnPct": 3.34,
+        "medianReturnPct": 4.37,
+        "maxDrawdownPct": 9.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 40.0,
+        "avgReturnPct": 1.93,
+        "medianReturnPct": -0.99,
+        "maxDrawdownPct": 13.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 40.0,
+        "avgReturnPct": 1.57,
+        "medianReturnPct": -2.82,
+        "maxDrawdownPct": 5.4,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 40.0,
+        "avgReturnPct": 0.35,
+        "medianReturnPct": -0.1,
+        "maxDrawdownPct": 9.6,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": false,
+      "rsi14": 31.7
+    }
+  },
+  {
+    "symbol": "CIPLA",
+    "companyName": "Cipla Ltd",
+    "sector": "Pharma",
+    "monthlyData": [
+      {
+        "month": 1,
+        "winRatePct": 40.0,
+        "avgReturnPct": -1.27,
+        "medianReturnPct": -1.4,
+        "maxDrawdownPct": 11.1,
+        "yearsSampled": 10
+      },
+      {
+        "month": 2,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.05,
+        "medianReturnPct": 0.72,
+        "maxDrawdownPct": 8.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 3,
+        "winRatePct": 60.0,
+        "avgReturnPct": 6.43,
+        "medianReturnPct": 6.05,
+        "maxDrawdownPct": 7.3,
+        "yearsSampled": 10
+      },
+      {
+        "month": 4,
+        "winRatePct": 60.0,
+        "avgReturnPct": 0.24,
+        "medianReturnPct": 2.36,
+        "maxDrawdownPct": 13.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 5,
+        "winRatePct": 60.0,
+        "avgReturnPct": 2.92,
+        "medianReturnPct": 2.34,
+        "maxDrawdownPct": 7.8,
+        "yearsSampled": 10
+      },
+      {
+        "month": 6,
+        "winRatePct": 80.0,
+        "avgReturnPct": 3.36,
+        "medianReturnPct": 3.34,
+        "maxDrawdownPct": 6.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 7,
+        "winRatePct": 70.0,
+        "avgReturnPct": 1.5,
+        "medianReturnPct": 2.52,
+        "maxDrawdownPct": 8.5,
+        "yearsSampled": 10
+      },
+      {
+        "month": 8,
+        "winRatePct": 40.0,
+        "avgReturnPct": -0.63,
+        "medianReturnPct": -1.31,
+        "maxDrawdownPct": 9.9,
+        "yearsSampled": 10
+      },
+      {
+        "month": 9,
+        "winRatePct": 50.0,
+        "avgReturnPct": 0.13,
+        "medianReturnPct": 0.1,
+        "maxDrawdownPct": 7.6,
+        "yearsSampled": 10
+      },
+      {
+        "month": 10,
+        "winRatePct": 30.0,
+        "avgReturnPct": -1.8,
+        "medianReturnPct": -1.78,
+        "maxDrawdownPct": 14.2,
+        "yearsSampled": 10
+      },
+      {
+        "month": 11,
+        "winRatePct": 50.0,
+        "avgReturnPct": -0.11,
+        "medianReturnPct": 0.06,
+        "maxDrawdownPct": 6.0,
+        "yearsSampled": 10
+      },
+      {
+        "month": 12,
+        "winRatePct": 30.0,
+        "avgReturnPct": -2.28,
+        "medianReturnPct": -1.56,
+        "maxDrawdownPct": 12.4,
+        "yearsSampled": 10
+      }
+    ],
+    "liveTechnical": {
+      "ema20Bullish": true,
+      "rsi14": 56.3
+    }
+  }
+]

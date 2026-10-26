@@ -34,10 +34,10 @@ function isWeekday(date: Date): boolean {
 
 interface FuguStatus {
   lastScanAt: string | null;
-  lastScanResult: { scanned: number; processed: number; eliteCount: number; errors: number } | null;
+  lastScanResult: { scanned: number; processed: number; eliteCount: number; errors: number } | any | null;
   lastOutcomeAt: string | null;
   lastLearningAt: string | null;
-  lastLearningResult: { insightsAdded: number; weightsOptimized: boolean } | null;
+  lastLearningResult: { insightsAdded?: number; weightsOptimized?: boolean; success?: boolean } | any | null;
   nextScheduledScan: string | null;
   isRunning: boolean;
 }

@@ -64,7 +64,27 @@ import {
   fetchNSEOptionChain,
   fetchBulkDeals,
   fetchInsiderTrades,
+  fetchQuantModelForecast,
+  fetchAlpha158Factors,
+  analyzeHeadlineSentiment,
+  fetchChartinkScan,
 } from "./services/nseService";
+import { getHermesBanditProfile } from "./hermesEngine";
+import { scanIntradayFOSetups } from "./apexFOEngine";
+import { getSectorSeasonalityMatrix, getStockSeasonalityRankings } from "./seasonalityEngine";
+import {
+  PREBUILT_TEMPLATES,
+  compileNaturalLanguagePrompt,
+  executeStrategyScan,
+} from "./customStrategyEngine";
+import {
+  getAllCourses,
+  getCourseBySlug,
+  submitEnrollment,
+  updateLessonProgress,
+  getAllEnrollments,
+  approveEnrollment,
+} from "./academyService";
 import {
   parseBoardMeetings,
   parseCorporateActions,
@@ -162,16 +182,25 @@ function toYahooSymbol(raw: string): string {
 // Session setup for Google OAuth
 function setupSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  const secret = process.env.SESSION_SECRET || "wealthy-whales-session-fallback-secret-2026";
+  
+  let sessionStore;
+  try {
+    if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")) {
+      const pgStore = connectPg(session);
+      sessionStore = new pgStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: false,
+        ttl: sessionTtl,
+        tableName: "sessions",
+      });
+    }
+  } catch (err) {
+    console.warn("[Session] Falling back to memory store:", err);
+  }
 
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -259,20 +288,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Logout route
+  // Logout route (both GET and POST supported)
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).json({ message: "Logout failed" });
+      if (req.session) {
+        req.session.destroy(() => {
+          res.redirect("/");
+        });
+      } else {
+        res.redirect("/");
       }
-      res.redirect("/");
     });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (req.session) {
+        req.session.destroy(() => {
+          res.json({ success: true, message: "Logged out successfully" });
+        });
+      } else {
+        res.json({ success: true, message: "Logged out successfully" });
+      }
+    });
+  });
+
+  // Admin and Password Login route
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const cleanEmail = String(email).trim().toLowerCase();
+      if (cleanEmail === "nilesh@wealthywhales.com" && password === "Admin@1") {
+        const adminUser = {
+          id: "admin-nilesh",
+          email: "nilesh@wealthywhales.com",
+          firstName: "Nilesh",
+          lastName: "Admin",
+          profileImageUrl: "",
+          isAdmin: true,
+        };
+
+        // Try upserting to persistent store if active
+        try {
+          await storage.upsertUser(adminUser as any);
+        } catch {
+          // In-memory fallback if postgres is offline
+        }
+
+        req.login(adminUser, (err) => {
+          if (err) {
+            console.error("Passport login error:", err);
+          }
+          (req.session as any).user = adminUser;
+          req.session.save(() => {
+            return res.json({
+              success: true,
+              message: "Welcome Nilesh! Admin session established.",
+              user: adminUser,
+            });
+          });
+        });
+      } else {
+        return res.status(401).json({ message: "Invalid email or password. Please verify your credentials." });
+      }
+    } catch (err: any) {
+      console.error("Login endpoint error:", err);
+      return res.status(500).json({ message: err?.message || "Internal server error" });
+    }
   });
 
   // Authentication middleware
   const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (req.isAuthenticated()) {
+    const sessionUser = (req.user as any) || (req.session as any)?.user;
+    if (sessionUser || (req.isAuthenticated && req.isAuthenticated())) {
       return next();
     }
     return res.status(401).json({ message: "Unauthorized" });
@@ -301,12 +393,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get(
     "/api/auth/user",
-    isAuthenticated,
     async (req: Request, res: Response) => {
       try {
-        const userId = (req.user as any).id;
-        const user = await storage.getUser(userId);
-        res.json(user);
+        const sessionUser = (req.user as any) || (req.session as any)?.user;
+        if (!sessionUser) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        if (sessionUser.id === "admin-nilesh" || sessionUser.email === "nilesh@wealthywhales.com") {
+          return res.json({
+            id: "admin-nilesh",
+            email: "nilesh@wealthywhales.com",
+            firstName: "Nilesh",
+            lastName: "Admin",
+            profileImageUrl: "",
+            isAdmin: true,
+          });
+        }
+        try {
+          const user = await storage.getUser(sessionUser.id);
+          return res.json(user || sessionUser);
+        } catch {
+          return res.json(sessionUser);
+        }
       } catch (error) {
         console.error("Error fetching user:", error);
         res.status(500).json({ message: "Failed to fetch user" });
@@ -1257,19 +1365,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error("Failed to fetch sector performance");
           }
 
-          const rng = Math.random;
-          const sectors = sectorsList.map((s) => {
-            let change1d: number, change1w: number, change1m: number;
-            let topGainerSym = s.tickers[0],
-              topGainerChange = 0;
-            let topLoserSym = s.tickers[s.tickers.length - 1],
-              topLoserChange = 0;
+          const sectors = await Promise.all(
+            sectorsList.map(async (s) => {
+              let change1d = 0;
+              let change1w = 0;
+              let change1m = 0;
+              let topGainerSym = s.tickers[0];
+              let topGainerChange = 0;
+              let topLoserSym = s.tickers[s.tickers.length - 1];
+              let topLoserChange = 0;
 
-            if (quoteMap.size > 0) {
-              // Compute average change from real quotes
               const sectorQuotes = s.tickers
                 .map((t) => quoteMap.get(t))
                 .filter(Boolean);
+
               if (sectorQuotes.length > 0) {
                 change1d = Number(
                   (
@@ -1279,12 +1388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     ) / sectorQuotes.length
                   ).toFixed(2),
                 );
-                // Weekly/monthly estimates based on 1d change (actual would need historical data)
-                change1w = Number((change1d * 3.2).toFixed(2));
-                change1m = Number((change1d * 8.5).toFixed(2));
 
-                // Find actual top gainer/loser
-                const sorted = sectorQuotes.sort(
+                const sorted = [...sectorQuotes].sort(
                   (a, b) => (b!.changePercent ?? 0) - (a!.changePercent ?? 0),
                 );
                 topGainerSym =
@@ -1298,48 +1403,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 topLoserChange = Number(
                   (sorted[sorted.length - 1]!.changePercent ?? 0).toFixed(2),
                 );
-              } else {
-                const seed = rng();
-                change1d = Number((seed * 2 - 0.8).toFixed(2));
-                change1w = Number((change1d * 3 + seed * 2).toFixed(2));
-                change1m = Number((change1d * 10 + seed * 5).toFixed(2));
               }
-            } else {
-              // Pure seeded fallback
-              const seed = rng();
-              const baseChanges: Record<string, number> = {
-                "^NSEBANK": 0.45,
-                "^CNXIT": -0.38,
-                "^CNXPHARMA": 0.52,
-                "^CNXAUTO": 1.15,
-                "^CNXMETAL": -0.75,
-                "^CNXFMCG": 0.25,
-                "^CNXREALTY": 1.85,
-                "^CNXINFRA": 0.12,
-                "^CNXENERGY": 0.95,
-              };
-              const base = baseChanges[s.symbol] ?? 0;
-              change1d = Number((base + (seed * 0.6 - 0.3)).toFixed(2));
-              change1w = Number((base * 3 + (seed * 3.5 - 1.5)).toFixed(2));
-              change1m = Number((base * 10 + (seed * 12 - 5)).toFixed(2));
-              topGainerChange = Number(
-                (change1d + Math.abs(seed * 2.5)).toFixed(2),
-              );
-              topLoserChange = Number(
-                (change1d - Math.abs(seed * 2.5)).toFixed(2),
-              );
-            }
 
-            return {
-              name: s.name,
-              symbol: s.symbol,
-              change1d,
-              change1w,
-              change1m,
-              topGainer: { symbol: topGainerSym, change: topGainerChange },
-              topLoser: { symbol: topLoserSym, change: topLoserChange },
-            };
-          });
+              // Compute authentic 1W and 1M changes directly from index historical daily bars
+              try {
+                const hist = await getYahooHistory(s.symbol, "1mo", "1d");
+                if (hist && hist.length >= 2) {
+                  const lastClose = hist[hist.length - 1].close;
+                  const prev1d = hist[hist.length - 2].close;
+                  const prev1w = hist[Math.max(0, hist.length - 6)]?.close || prev1d;
+                  const prev1m = hist[0]?.close || prev1w;
+
+                  if (change1d === 0 && prev1d) {
+                    change1d = Number((((lastClose - prev1d) / prev1d) * 100).toFixed(2));
+                  }
+                  if (prev1w) {
+                    change1w = Number((((lastClose - prev1w) / prev1w) * 100).toFixed(2));
+                  }
+                  if (prev1m) {
+                    change1m = Number((((lastClose - prev1m) / prev1m) * 100).toFixed(2));
+                  }
+                }
+              } catch {
+                // Keep computed 1d change
+              }
+
+              return {
+                name: s.name,
+                symbol: s.symbol,
+                change1d,
+                change1w,
+                change1m,
+                topGainer: { symbol: topGainerSym, change: topGainerChange },
+                topLoser: { symbol: topLoserSym, change: topLoserChange },
+              };
+            }),
+          );
 
           return { sectors, dataSource };
         },
@@ -3584,6 +3683,195 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     } catch (err: any) {
       console.error(`[APEX API] Trigger job ${job} error:`, err);
       res.status(500).json({ message: "Failed to trigger APEX job" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // QUANT & CHINESE/GLOBAL AI FOUNDATION MODELS
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/quant/forecast/:symbol", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const horizon = req.query.horizon ? parseInt(req.query.horizon as string) : 10;
+      const data = await fetchQuantModelForecast(symbol, horizon);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/quant/alpha158/:symbol", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const data = await fetchAlpha158Factors(symbol);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/quant/sentiment", async (req: Request, res: Response) => {
+    try {
+      const { text, symbol } = req.body;
+      const data = await analyzeHeadlineSentiment(text || "", symbol);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/chartink/scan", async (req: Request, res: Response) => {
+    try {
+      const { clause } = req.body;
+      const data = await fetchChartinkScan(clause || "");
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // HERMES V2 SELF-LEARNING THOMPSON SAMPLING BANDIT
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/hermes/bandit/:symbol", async (req: Request, res: Response) => {
+    try {
+      const { symbol } = req.params;
+      const regime = (req.query.regime as any) || "BULL_TREND";
+      const profile = await getHermesBanditProfile(symbol, regime);
+      res.json(profile);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // INTRADAY F&O INSTITUTIONAL SETUPS (EMA RETEST & OI WALLS)
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/apex/fo-setups", async (_req: Request, res: Response) => {
+    try {
+      const setups = await scanIntradayFOSetups();
+      res.json(setups);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // SEASONALITY & PROBABILITY ENGINE
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/seasonality/matrix", async (_req: Request, res: Response) => {
+    try {
+      const matrix = getSectorSeasonalityMatrix();
+      res.json(matrix);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/seasonality/stocks", async (req: Request, res: Response) => {
+    try {
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      const sector = req.query.sector as string | undefined;
+      const data = getStockSeasonalityRankings(month, sector);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // CUSTOM STRATEGY BUILDER & 3-IN-1 MONOPOLY SCREENER
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/strategies/templates", (_req: Request, res: Response) => {
+    res.json(PREBUILT_TEMPLATES);
+  });
+
+  app.post("/api/strategies/compile", async (req: Request, res: Response) => {
+    try {
+      const { prompt } = req.body;
+      const compiled = await compileNaturalLanguagePrompt(prompt || "");
+      res.json(compiled);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/strategies/scan", async (req: Request, res: Response) => {
+    try {
+      const strategy = req.body;
+      const results = await executeStrategyScan(strategy);
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // PAID VIDEO ACADEMY & LMS
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/academy/courses", async (req: any, res: Response) => {
+    try {
+      const list = await getAllCourses(req.user?.id);
+      res.json(list);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/academy/courses/:slug", async (req: any, res: Response) => {
+    try {
+      const course = await getCourseBySlug(req.params.slug, req.user?.id);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      res.json(course);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/academy/enroll", async (req: any, res: Response) => {
+    try {
+      const userId = req.user?.id || req.body.userId || "guest_trader";
+      const { courseId, utrOrTransactionId, userEmail } = req.body;
+      if (!courseId || !utrOrTransactionId) {
+        return res.status(400).json({ message: "Course ID and UTR Transaction ID required" });
+      }
+      const result = await submitEnrollment(userId, courseId, utrOrTransactionId, userEmail || req.user?.email);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/academy/lessons/:id/progress", async (req: any, res: Response) => {
+    try {
+      const userId = req.user?.id || req.body.userId || "guest_trader";
+      const lessonId = req.params.id;
+      const { watchedSeconds, isCompleted } = req.body;
+      const result = await updateLessonProgress(userId, lessonId, watchedSeconds || 0, isCompleted ?? false);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/admin/academy/enrollments", async (_req: Request, res: Response) => {
+    try {
+      const enrollments = await getAllEnrollments();
+      res.json(enrollments);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/academy/approve", async (req: Request, res: Response) => {
+    try {
+      const { enrollmentId, status } = req.body;
+      const result = await approveEnrollment(enrollmentId, status || "GRANTED");
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

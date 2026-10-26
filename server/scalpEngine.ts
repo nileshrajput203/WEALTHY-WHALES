@@ -259,8 +259,8 @@ async function computeScalpPatternScore(symbol: string): Promise<{ score: number
     }
     
     // Check for volume dry-up
-    const recentVol = closes.slice(n - 5).reduce((a, b, i) => a + (candles[n - 5 + i]?.volume || 0), 0) / 5;
-    const pastVol = closes.slice(n - 50, n - 5).reduce((a, b, i) => a + (candles[n - 50 + i]?.volume || 0), 0) / 45;
+    const recentVol = closes.slice(n - 5).reduce((a: number, _: number, i: number) => a + (candles[n - 5 + i]?.volume || 0), 0) / 5;
+    const pastVol = closes.slice(n - 50, n - 5).reduce((a: number, _: number, i: number) => a + (candles[n - 50 + i]?.volume || 0), 0) / 45;
     
     if (recentVol < pastVol * 0.85) {
       score += 10;
@@ -368,7 +368,7 @@ export async function runScalpEngine(): Promise<ScalpSignal[]> {
       await db.insert(confluenceSignals).values({
         symbol: sig.symbol,
         signalDate: now,
-        confluenceScore: sig.accuracy,
+        confluenceScore: String(sig.accuracy),
         recommendation: sig.direction === 'BULLISH' ? 'STRONG_BUY' : 'STRONG_SELL',
       }).onConflictDoNothing();
     } catch (err) {

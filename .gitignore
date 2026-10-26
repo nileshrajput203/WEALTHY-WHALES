@@ -14,3 +14,10 @@ node-v20.11.1-win-x64/
 # Environment variables
 .env
 .env.*
+.env.local
+
+# Scratch and test files
+scratch/
+scratch_*.ts
+scratch_*.js
+

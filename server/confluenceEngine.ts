@@ -29,7 +29,8 @@ export async function computeConfluenceScore(symbol: string): Promise<{
     getApexPrediction(symbolUpper),
   ]);
 
-  const hermesScore = snapHermes ? Number(snapHermes.hermesScore) : null;
+  const latestHermes = Array.isArray(snapHermes) ? snapHermes[0] : snapHermes;
+  const hermesScore = latestHermes ? Number(latestHermes.hermesScore) : null;
   const fuguScore = snapFugu ? Number(snapFugu.fuguScore) : null;
   const apexScore = predApex ? Number(predApex.confidenceScore) : null;
 

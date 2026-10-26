@@ -249,7 +249,7 @@ export function computeEMA(values: number[], period: number): (number | null)[] 
   return out;
 }
 
-function computeATR(highs: number[], lows: number[], closes: number[], period = 14): (number | null)[] {
+export function computeATR(highs: number[], lows: number[], closes: number[], period = 14): (number | null)[] {
   const out: (number | null)[] = [null];
   for (let i = 1; i < closes.length; i++) {
     const tr = Math.max(

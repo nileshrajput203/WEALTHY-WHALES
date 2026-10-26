@@ -397,7 +397,7 @@ export default function SwingScanner() {
       {/* ── Drawers & Modals ─────────────────── */}
       {selectedStock && (
         <StockChartDrawer
-          payload={selectedStock}
+          stock={selectedStock}
           onClose={() => setSelectedStock(null)}
         />
       )}

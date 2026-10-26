@@ -3,6 +3,13 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+process.on("unhandledRejection", (reason) => {
+  console.warn("[Process] Handled async rejection:", reason instanceof Error ? reason.message : reason);
+});
+process.on("uncaughtException", (error) => {
+  console.warn("[Process] Handled uncaught exception:", error.message);
+});
+
 const app = express();
 
 // ── Security headers — protect source, prevent framing & scraping ──────────

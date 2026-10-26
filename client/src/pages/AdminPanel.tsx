@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Upload, Save, Trash2, Eye } from "lucide-react";
+import { Upload, Save, Trash2, Eye, GraduationCap, CheckCircle, QrCode } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface StockRecommendation {
@@ -335,8 +335,100 @@ export default function AdminPanel() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Video Academy & UTR Enrollment Manager */}
+        <AcademyManagerCard queryClient={queryClient} />
       </div>
     </div>
+  );
+}
+
+function AcademyManagerCard({ queryClient }: { queryClient: any }) {
+  const { data: enrollments } = useQuery<any[]>({
+    queryKey: ["/api/admin/academy/enrollments"],
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async ({ enrollmentId, status }: { enrollmentId: string; status: string }) => {
+      const res = await fetch("/api/admin/academy/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentId, status }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/academy/enrollments"] });
+      alert("Enrollment status updated successfully!");
+    },
+  });
+
+  return (
+    <Card className="w-full mt-8">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <GraduationCap className="w-5 h-5 text-primary" />
+          <span>Academy & UTR Payment Approvals</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground font-sans">
+          Review peer-to-peer UPI transfers submitted by students with 12-digit UTR confirmation codes.
+        </p>
+
+        {enrollments && enrollments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs font-mono">
+              <thead>
+                <tr className="border-b border-white/10 text-muted-foreground uppercase text-[10px]">
+                  <th className="py-2.5 px-3">Student Email</th>
+                  <th className="py-2.5 px-3">Course</th>
+                  <th className="py-2.5 px-3">12-Digit UTR</th>
+                  <th className="py-2.5 px-3">Enrolled At</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {enrollments.map((enr: any) => (
+                  <tr key={enr.id} className="hover:bg-white/2">
+                    <td className="py-3 px-3 font-bold text-foreground">{enr.userEmail || enr.userId}</td>
+                    <td className="py-3 px-3 text-muted-foreground">{enr.courseId}</td>
+                    <td className="py-3 px-3 font-bold text-amber-400">{enr.utrOrTransactionId}</td>
+                    <td className="py-3 px-3 text-muted-foreground">{new Date(enr.enrolledAt).toLocaleDateString()}</td>
+                    <td className="py-3 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        enr.paymentStatus === "PAID" || enr.paymentStatus === "GRANTED"
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "bg-amber-500/10 text-amber-400"
+                      }`}>
+                        {enr.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      {enr.paymentStatus === "PENDING" && (
+                        <Button
+                          size="sm"
+                          onClick={() => approveMutation.mutate({ enrollmentId: enr.id, status: "GRANTED" })}
+                          disabled={approveMutation.isPending}
+                          className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                        >
+                          Approve UTR
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-white/2 border border-white/5 text-center text-xs text-muted-foreground font-mono">
+            No pending UPI enrollments. All courses up to date.
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -3,53 +3,74 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════
-   LIGHT MODE
+   INSTITUTIONAL THEME — PRO OBSIDIAN DARK
 ═══════════════════════════════════════════ */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline:  rgba(0,0,0, .05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  color-scheme: dark !important;
+  --button-outline: rgba(255,255,255, .08);
+  --badge-outline:  rgba(255,255,255, .04);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
 
-  --background:          0 0% 98%;
-  --foreground:          220 26% 14%;
-  --border:              220 8% 88%;
-  --card:                0 0% 100%;
-  --card-foreground:     220 26% 14%;
-  --card-border:         220 8% 92%;
-  --sidebar:             220 8% 96%;
-  --sidebar-foreground:  220 26% 14%;
-  --sidebar-border:      220 8% 90%;
-  --sidebar-primary:     260 84% 60%;
+  /* True near-black background — the signature of pro trading apps */
+  --background:    0 0% 4%;
+  --foreground:    0 0% 95%;
+  --border:        0 0% 14%;
+
+  /* Slightly lifted card surface */
+  --card:            0 0% 7%;
+  --card-foreground: 0 0% 95%;
+  --card-border:     0 0% 12%;
+
+  /* Sidebar */
+  --sidebar:           0 0% 5%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-border:    0 0% 10%;
+  --sidebar-primary:   260 84% 65%;
   --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent:      220 8% 92%;
-  --sidebar-accent-foreground: 220 26% 14%;
-  --sidebar-ring:        260 84% 60%;
-  --popover:             0 0% 100%;
-  --popover-foreground:  220 26% 14%;
-  --popover-border:      220 8% 92%;
-  --primary:             260 84% 60%;
-  --primary-foreground:  0 0% 98%;
-  --secondary:           220 8% 94%;
-  --secondary-foreground: 220 26% 14%;
-  --muted:               220 8% 96%;
-  --muted-foreground:    220 20% 45%;
-  --accent:              217 91% 60%;
-  --accent-foreground:   0 0% 98%;
-  --success:             142 76% 38%;
-  --success-foreground:  0 0% 98%;
-  --bullish:             142 76% 38%;
-  --bearish:             0 84% 55%;
-  --destructive:         0 84% 55%;
+  --sidebar-accent:    0 0% 10%;
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-ring:      260 84% 65%;
+
+  /* Popover */
+  --popover:           0 0% 9%;
+  --popover-foreground: 0 0% 95%;
+  --popover-border:    0 0% 15%;
+
+  /* Primary: Electric Indigo — used for CTAs, active states, glows */
+  --primary:           260 84% 65%;
+  --primary-foreground: 0 0% 98%;
+
+  /* Secondary: subtle lifted surface */
+  --secondary:           0 0% 12%;
+  --secondary-foreground: 0 0% 95%;
+
+  /* Muted */
+  --muted:              0 0% 10%;
+  --muted-foreground:   0 0% 55%;
+
+  /* Accent: Vivid Indigo glow — used for hover/interactive states */
+  --accent:             260 84% 65%;
+  --accent-foreground:  0 0% 98%;
+
+  /* Financial data colors — high contrast for legibility */
+  --success:            142 71% 50%;
+  --success-foreground: 0 0% 5%;
+  --bullish:            142 71% 50%;
+  --bearish:            0 84% 62%;
+  --destructive:        0 84% 62%;
   --destructive-foreground: 0 0% 98%;
-  --input:               220 20% 70%;
-  --ring:                260 84% 60%;
-  --chart-1:             260 84% 55%;
-  --chart-2:             142 76% 40%;
-  --chart-3:             0 84% 55%;
-  --chart-4:             217 91% 55%;
-  --chart-5:             280 65% 50%;
+
+  --input:              0 0% 18%;
+  --ring:               260 84% 65%;
+
+  /* Chart palette — vivid for financial data */
+  --chart-1: 260 84% 68%;
+  --chart-2: 142 71% 52%;
+  --chart-3: 0 84% 64%;
+  --chart-4: 217 91% 66%;
+  --chart-5: 38 96% 58%;
 
   --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -57,14 +78,14 @@
   --font-mono:    'JetBrains Mono', 'Courier New', monospace;
   --radius:       .75rem;
 
-  --shadow-2xs: 0px 1px 2px 0px hsl(220 26% 14% / 0.05);
-  --shadow-xs:  0px 1px 3px 0px hsl(220 26% 14% / 0.08);
-  --shadow-sm:  0px 2px 4px -1px hsl(220 26% 14% / 0.06), 0px 1px 2px -1px hsl(220 26% 14% / 0.08);
-  --shadow:     0px 4px 6px -1px hsl(220 26% 14% / 0.08), 0px 2px 4px -2px hsl(220 26% 14% / 0.06);
-  --shadow-md:  0px 6px 10px -2px hsl(220 26% 14% / 0.10), 0px 4px 6px -2px hsl(220 26% 14% / 0.08);
-  --shadow-lg:  0px 10px 15px -3px hsl(220 26% 14% / 0.12), 0px 4px 6px -4px hsl(220 26% 14% / 0.08);
-  --shadow-xl:  0px 20px 25px -5px hsl(220 26% 14% / 0.14), 0px 8px 10px -6px hsl(220 26% 14% / 0.08);
-  --shadow-2xl: 0px 25px 50px -12px hsl(220 26% 14% / 0.18);
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.40);
+  --shadow-xs:  0px 1px 3px 0px hsl(0 0% 0% / 0.50);
+  --shadow-sm:  0px 2px 4px -1px hsl(0 0% 0% / 0.45), 0px 1px 2px -1px hsl(0 0% 0% / 0.50);
+  --shadow:     0px 4px 6px -1px hsl(0 0% 0% / 0.50), 0px 2px 4px -2px hsl(0 0% 0% / 0.45);
+  --shadow-md:  0px 6px 10px -2px hsl(0 0% 0% / 0.55), 0px 4px 6px -2px hsl(0 0% 0% / 0.50);
+  --shadow-lg:  0px 10px 15px -3px hsl(0 0% 0% / 0.60), 0px 4px 6px -4px hsl(0 0% 0% / 0.50);
+  --shadow-xl:  0px 20px 25px -5px hsl(0 0% 0% / 0.65), 0px 8px 10px -6px hsl(0 0% 0% / 0.50);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.75);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -516,12 +537,13 @@
 
 /* Refined minimal visual improvements */
 a, button, [role="button"] {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease !important;
 }
 
 .glass-card {
-  background: hsla(var(--bg-black-dynamic-opacity) / 0.4) !important;
-  border-color: hsla(var(--border-white-dynamic-opacity) / 0.06) !important;
+  background: #0c1017 !important;
+  border: 1px solid #1e293b !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Hairline typography and spacing refinement */
@@ -532,4 +554,28 @@ a, button, [role="button"] {
 .font-sans {
   font-family: var(--font-sans) !important;
   letter-spacing: -0.01em !important;
+}
+
+/* ═══════════════════════════════════════════
+   NATIVE SELECT & OPTION FIX (Dark Theme & Windows Chrome)
+   ═══════════════════════════════════════════ */
+select, option {
+  color-scheme: dark !important;
+}
+
+select {
+  background-color: #0c1017 !important;
+  color: #f1f5f9 !important;
+}
+
+select option {
+  background-color: #0c1017 !important;
+  color: #f1f5f9 !important;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #1e293b !important;
+  color: #38bdf8 !important;
 }

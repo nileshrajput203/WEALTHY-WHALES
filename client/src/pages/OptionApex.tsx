@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { Triangle, TrendingUp, TrendingDown, Zap, Shield, Target, ChevronDown } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { Triangle, TrendingUp, TrendingDown, Zap, Shield, Target, ChevronDown, Sparkles, ArrowUpRight, ArrowDownRight, Layers } from "lucide-react";
 
 type Strategy = "bull-call" | "bear-put" | "straddle" | "strangle" | "iron-condor" | "covered-call";
 
@@ -204,17 +206,141 @@ export default function OptionApex() {
     Volatile: "text-purple-400 bg-purple-500/10 border-purple-500/20",
   };
 
+  const [filterDirection, setFilterDirection] = useState<"ALL" | "BULLISH" | "BEARISH">("ALL");
+
+  const { data: foSetups, isLoading: loadingSetups } = useQuery<any[]>({
+    queryKey: ["/api/apex/fo-setups"],
+  });
+
+  const filteredSetups = foSetups?.filter((s) => {
+    if (filterDirection === "ALL") return true;
+    return s.direction === filterDirection;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white mb-1 flex items-center gap-2">
           <Triangle className="w-6 h-6 text-primary" />
-          Option Apex
+          Option Apex: Institutional F&O Engine
         </h1>
         <p className="text-sm text-white/40 font-sans">
-          Strategy builder · Payoff analysis · Greeks calculator
+          Live Multi-EMA Ribbon Retests · OI Wall Reversals · Payoff Analysis · Greeks Calculator
         </p>
+      </div>
+
+      {/* Institutional F&O Trade Setups Grid */}
+      <div className="glass-card rounded-2xl border border-white/8 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-400" />
+              Live F&O Setups (EMA Retest & OI Reversals)
+            </h2>
+            <p className="text-xs text-white/40 font-mono">
+              Scanned across 5m, 15m, and Daily · Classified with institutional positioning matrix
+            </p>
+          </div>
+
+          <div className="flex gap-1.5">
+            {(["ALL", "BULLISH", "BEARISH"] as const).map((dir) => (
+              <button
+                key={dir}
+                onClick={() => setFilterDirection(dir)}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
+                  filterDirection === dir
+                    ? "bg-primary text-black border-primary"
+                    : "bg-white/3 text-white/50 border-white/8 hover:text-white"
+                }`}
+              >
+                {dir}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Setups Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSetups?.map((setup) => {
+            const isBull = setup.direction === "BULLISH";
+            return (
+              <div
+                key={setup.symbol}
+                className="p-4 rounded-xl border border-white/8 bg-white/2 hover:border-white/20 transition-all flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold font-mono text-base text-white">{setup.symbol}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-white/60">
+                          {setup.timeframe}
+                        </span>
+                      </div>
+                      <span className="text-xs text-white/40 font-sans">₹{setup.currentPrice}</span>
+                    </div>
+
+                    <div className="text-right">
+                      <span
+                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                          isBull
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                        }`}
+                      >
+                        {setup.setupType}
+                      </span>
+                      <p className="text-[10px] font-mono text-white/40 mt-1">
+                        Win Prob: <strong className="text-white">{setup.hermesWinProbability}%</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Recommended Option Contract */}
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-white/6 mb-3">
+                    <p className="text-[9px] font-mono uppercase text-white/40 mb-0.5">Recommended Option Strike</p>
+                    <p className="text-xs font-mono font-bold text-amber-300">{setup.recommendedOptionStrike}</p>
+                  </div>
+
+                  {/* Levels: Spot Entry, SL, Target 1, Target 2 */}
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono mb-3">
+                    <div className="p-1.5 rounded bg-white/3">
+                      <span className="text-[9px] text-white/30 block uppercase">Spot Entry</span>
+                      <span className="font-bold text-white">₹{setup.spotEntry}</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-rose-500/5 text-rose-400">
+                      <span className="text-[9px] text-rose-400/50 block uppercase">Stop Loss</span>
+                      <span className="font-bold">₹{setup.stopLoss}</span>
+                    </div>
+                    <div className="p-1.5 rounded bg-emerald-500/5 text-emerald-400">
+                      <span className="text-[9px] text-emerald-400/50 block uppercase">Target 1 (1:2)</span>
+                      <span className="font-bold">₹{setup.target1}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-white/50 font-sans line-clamp-2 mb-3">
+                    {setup.catalystNotes}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-white/40">
+                    OI: <strong className={setup.oiChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                      {setup.oiChangePct >= 0 ? "+" : ""}{setup.oiChangePct}% ({setup.oiDirection})
+                    </strong>
+                  </span>
+                  <Link
+                    href={`/stock/${setup.symbol}`}
+                    className="text-primary hover:underline font-bold"
+                  >
+                    Deploy Setup →
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Strategy Selector */}

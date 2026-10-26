@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Send, Bot, User, Trash2 } from "lucide-react";
+import { Send, User, Trash2, LineChart, FileText } from "lucide-react";
 import type { ChatMessage } from "@shared/schema";
 
 const SESSION_KEY = "ask-ai-session-id";
@@ -18,6 +18,13 @@ function getOrCreateSessionId(): string {
   localStorage.setItem(SESSION_KEY, id);
   return id;
 }
+
+const SAMPLE_PROMPTS = [
+  "Comprehensive deep dive into TCS fundamentals",
+  "Analyze RELIANCE debt-equity and margin sustainability",
+  "HDFC Bank quarterly performance & asset quality",
+  "Tata Motors EV expansion & free cash flow outlook",
+];
 
 export default function AskAI() {
   const [message, setMessage] = useState("");
@@ -48,86 +55,116 @@ export default function AskAI() {
     mutationFn: async (userMessage: string) => {
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
-        userId: null,
-        sessionId,
-        message: userMessage,
         role: "user",
-        stockContext: null,
+        message: userMessage,
         createdAt: new Date(),
-      };
-      setMessages(prev => [...prev, userMsg]);
-
-      const response = await apiRequest("POST", "/api/chat", {
-        message: userMessage,
         sessionId,
-        role: "user",
+        userId: null,
+        stockContext: null,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      const res = await apiRequest("POST", "/api/chat", {
+        sessionId,
+        message: userMessage,
       });
-      return await response.json();
+      return res.json();
     },
-    onSuccess: (aiResponse: ChatMessage & { aiModel?: string }) => {
-      setMessages(prev => {
-        const next = [...prev, aiResponse];
-        const maxMessages = MAX_TURNS_LABEL * 2;
-        if (next.length <= maxMessages) return next;
-        return next.slice(-maxMessages);
-      });
-      setMessage("");
+    onSuccess: (data: ChatMessage) => {
+      setMessages((prev) => [...prev, data]);
     },
-    onError: (error) => {
-      console.error("Chat error:", error);
-      setMessages(prev => prev.slice(0, -1));
+    onError: () => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: "assistant",
+          message: "Unable to generate research report. Please verify your connection and try again.",
+          createdAt: new Date(),
+          sessionId,
+          userId: null,
+          stockContext: null,
+        },
+      ]);
     },
   });
 
-  const handleSend = () => {
-    if (message.trim()) {
-      sendMessageMutation.mutate(message);
-    }
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!message.trim() || sendMessageMutation.isPending) return;
+    const msg = message;
+    setMessage("");
+    sendMessageMutation.mutate(msg);
   };
 
-  const handleClear = () => {
-    localStorage.removeItem(SESSION_KEY);
+  const handleClear = async () => {
+    try {
+      await fetch(`/api/chat/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+    } catch {
+      /* ignore */
+    }
     setMessages([]);
-    window.location.reload();
+  };
+
+  const handlePromptClick = (prompt: string) => {
+    if (sendMessageMutation.isPending) return;
+    sendMessageMutation.mutate(prompt);
   };
 
   return (
-    <div className="h-[calc(100vh-200px)] flex flex-col">
-      <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="h-[calc(100vh-180px)] flex flex-col">
+      <div className="mb-5 flex items-start justify-between gap-4 border-b border-border/40 pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-            <Sparkles className="w-8 h-8 text-primary" />
-            Ask AI
+          <h1 className="text-2xl sm:text-3xl font-bold font-display text-foreground tracking-tight flex items-center gap-2.5">
+            <FileText className="w-6 h-6 text-primary" />
+            Market Research Copilot
           </h1>
-          <p className="text-muted-foreground">
-            Institutional equity research reports for any NSE/BSE stock (Gokul Agro report format)
-          </p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Powered by Google Gemini Flash API · Remembers your last {MAX_TURNS_LABEL} conversations
+          <p className="text-sm text-muted-foreground mt-1">
+            Institutional equity dossiers, audited financial metrics, peer comparisons, and quantitative valuation checks.
           </p>
         </div>
         {messages.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleClear} className="shrink-0">
-            <Trash2 className="w-4 h-4 mr-1" />
-            New chat
+          <Button variant="outline" size="sm" onClick={handleClear} className="shrink-0 text-xs">
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            New Dossier
           </Button>
         )}
       </div>
 
-      <div className="flex-1 bg-card rounded-xl border border-card-border p-6 overflow-y-auto mb-4 space-y-4">
-        {!historyLoaded && messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-            Loading conversation…
+      <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4 rounded-2xl bg-card/40 border border-border/50">
+        {!historyLoaded ? (
+          <div className="h-full flex items-center justify-center text-xs text-muted-foreground font-mono">
+            Loading research dossier history…
           </div>
         ) : messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <Bot className="w-16 h-16 mx-auto text-primary mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">Start a Conversation</h3>
-              <p className="text-muted-foreground max-w-md">
-                Ask about any stock (e.g. &quot;Analyze TCS&quot;, &quot;Research RELIANCE&quot;) for a full
-                institutional report: business overview, management, financials, valuation, and final verdict.
+          <div className="h-full flex items-center justify-center py-10">
+            <div className="text-center max-w-lg">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-primary/10 border border-primary/20 text-primary">
+                <LineChart className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold font-display text-foreground mb-1.5">
+                Institutional Equity Research
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+                Query any listed stock for institutional-grade breakdowns: business moats, capital allocation, P&L trends, ROCE/ROE metrics, and technical key levels.
               </p>
+              <div className="space-y-2 text-left">
+                <span className="text-[11px] font-mono text-muted-foreground uppercase font-bold tracking-wider block text-center mb-2">
+                  Recommended Inquiries
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {SAMPLE_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => handlePromptClick(prompt)}
+                      className="text-left p-3 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/80 hover:border-primary/40 text-xs text-foreground font-medium transition-all shadow-2xs"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -138,27 +175,35 @@ export default function AskAI() {
               data-testid={`message-${msg.role}-${msg.id}`}
             >
               <div className={`flex gap-3 max-w-4xl ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  msg.role === "user" ? "bg-primary" : "bg-secondary"
-                }`}>
-                  {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                <div
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : "RC"}
                 </div>
-                <div className={`rounded-lg p-4 ${
-                  msg.role === "user" ? "bg-primary/20" : "bg-secondary"
-                }`}>
+                <div
+                  className={`rounded-xl p-4 shadow-2xs ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 border border-border text-foreground"
+                  }`}
+                >
                   {msg.role === "assistant" ? (
                     <>
-                      <div className="prose prose-invert max-w-none prose-p:my-2 prose-headings:text-foreground prose-h2:text-lg prose-h2:mt-6 prose-h2:mb-2 prose-table:w-full prose-th:font-semibold prose-th:px-3 prose-td:px-3 prose-th:py-2 prose-td:py-2 prose-thead:border-b prose-tr:border-b prose-blockquote:border-primary/40">
+                      <div className="prose dark:prose-invert max-w-none text-sm prose-p:my-2 prose-headings:text-foreground prose-h2:text-base prose-h2:font-bold prose-h2:mt-4 prose-h2:mb-2 prose-table:w-full prose-th:font-semibold prose-th:px-3 prose-td:px-3 prose-th:py-1.5 prose-td:py-1.5 prose-thead:border-b prose-tr:border-b prose-blockquote:border-primary/50">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.message}</ReactMarkdown>
                       </div>
                       {(msg as ChatMessage & { aiModel?: string }).aiModel && (
-                        <p className="text-[10px] text-muted-foreground/50 mt-2 font-mono">
-                          via {(msg as ChatMessage & { aiModel?: string }).aiModel}
+                        <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+                          Source: Research Engine ({(msg as ChatMessage & { aiModel?: string }).aiModel})
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                   )}
                 </div>
               </div>
@@ -168,15 +213,15 @@ export default function AskAI() {
         {sendMessageMutation.isPending && (
           <div className="flex gap-3 justify-start">
             <div className="flex gap-3 max-w-3xl">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary">
-                <Bot className="w-4 h-4" />
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted text-muted-foreground border border-border text-xs font-bold">
+                RC
               </div>
-              <div className="rounded-lg p-4 bg-secondary">
-                <p className="text-xs text-muted-foreground mb-2">Generating institutional research report…</p>
-                <div className="flex gap-2">
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse" />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse delay-75" />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse delay-150" />
+              <div className="rounded-xl p-3.5 bg-muted/50 border border-border">
+                <p className="text-xs text-muted-foreground font-mono mb-2">Analyzing financial data & compiling report…</p>
+                <div className="flex gap-1.5">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
                 </div>
               </div>
             </div>
@@ -184,30 +229,30 @@ export default function AskAI() {
         )}
       </div>
 
-      <div className="flex gap-3">
+      <form onSubmit={handleSubmit} className="flex gap-2.5">
         <Textarea
-          placeholder="e.g. Analyze GOKULAGRO, Research TCS fundamentals, Is RELIANCE a buy?"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          placeholder="Ask for an equity research dossier (e.g. 'Analyze Reliance', 'Evaluate TCS vs Infosys')..."
+          className="min-h-[50px] max-h-[120px] resize-none bg-card border-border/80 text-sm focus-visible:ring-primary/40 rounded-xl"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              handleSend();
+              handleSubmit();
             }
           }}
-          className="resize-none bg-card border-card-border"
-          rows={3}
-          data-testid="input-ai-message"
+          data-testid="input-chat-message"
         />
         <Button
-          onClick={handleSend}
+          type="submit"
           disabled={!message.trim() || sendMessageMutation.isPending}
-          className="bg-primary hover:bg-primary/90"
+          className="self-end h-[50px] px-5 rounded-xl font-semibold"
           data-testid="button-send-message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-4 h-4 mr-1.5" />
+          Send
         </Button>
-      </div>
+      </form>
     </div>
   );
 }

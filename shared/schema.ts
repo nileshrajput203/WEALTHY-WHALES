@@ -920,3 +920,135 @@ export const newsImpactLog = pgTable("news_impact_log", {
 export type NewsImpactLog = typeof newsImpactLog.$inferSelect;
 export type InsertNewsImpactLog = typeof newsImpactLog.$inferInsert;
 
+// ══════════════════════════════════════════════════════════════
+// CONTEXTUAL THOMPSON SAMPLING BANDIT (HERMES V2 META-ENGINE)
+// ══════════════════════════════════════════════════════════════
+
+export const modelWeightsBandit = pgTable("model_weights_bandit", {
+  id: serial("id").primaryKey(),
+  modelName: varchar("model_name", { length: 50 }).notNull(), // kronos | chronos | qlibAlpha | vcp2 | fugu | apexFo | finbert
+  marketRegime: varchar("market_regime", { length: 30 }).notNull(), // BULL_TREND | BEAR_TREND | HIGH_VOL_CHOP | RANGE_BOUND
+  alpha: numeric("alpha", { precision: 12, scale: 4 }).notNull().default("1.0"),
+  beta: numeric("beta", { precision: 12, scale: 4 }).notNull().default("1.0"),
+  pulls: integer("pulls").notNull().default(0),
+  rewards: integer("rewards").notNull().default(0),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+}, (table) => [
+  index("idx_bandit_model_regime").on(table.modelName, table.marketRegime),
+]);
+
+export type ModelWeightsBandit = typeof modelWeightsBandit.$inferSelect;
+export type InsertModelWeightsBandit = typeof modelWeightsBandit.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════
+// SEASONALITY ENGINE CACHE
+// ══════════════════════════════════════════════════════════════
+
+export const seasonalityCache = pgTable("seasonality_cache", {
+  id: serial("id").primaryKey(),
+  targetType: varchar("target_type", { length: 20 }).notNull(), // SECTOR | STOCK
+  identifier: varchar("identifier", { length: 50 }).notNull(), // e.g. NIFTY_AUTO, RELIANCE
+  month: integer("month").notNull(), // 1 - 12
+  winRatePct: numeric("win_rate_pct", { precision: 6, scale: 2 }).notNull().default("0"),
+  avgReturnPct: numeric("avg_return_pct", { precision: 8, scale: 2 }).notNull().default("0"),
+  medianReturnPct: numeric("median_return_pct", { precision: 8, scale: 2 }).notNull().default("0"),
+  maxDrawdownPct: numeric("max_drawdown_pct", { precision: 8, scale: 2 }).notNull().default("0"),
+  positiveYears: integer("positive_years").notNull().default(0),
+  totalYears: integer("total_years").notNull().default(0),
+  sharpeRatio: numeric("sharpe_ratio", { precision: 6, scale: 2 }).notNull().default("0"),
+  seasonalityScore: numeric("seasonality_score", { precision: 6, scale: 2 }).notNull().default("0"),
+  lastCalculated: timestamp("last_calculated").notNull().defaultNow(),
+}, (table) => [
+  index("idx_seasonality_target_month").on(table.targetType, table.identifier, table.month),
+]);
+
+export type SeasonalityCache = typeof seasonalityCache.$inferSelect;
+export type InsertSeasonalityCache = typeof seasonalityCache.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════
+// CUSTOM STRATEGY BUILDER
+// ══════════════════════════════════════════════════════════════
+
+export const customStrategies = pgTable("custom_strategies", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }),
+  name: varchar("name", { length: 150 }).notNull(),
+  description: text("description"),
+  rulesJson: jsonb("rules_json").notNull().default({}),
+  dslFormula: text("dsl_formula"),
+  timeframe: varchar("timeframe", { length: 10 }).notNull().default("D"),
+  backtestResults: jsonb("backtest_results").default({}),
+  isPublic: boolean("is_public").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type CustomStrategy = typeof customStrategies.$inferSelect;
+export type InsertCustomStrategy = typeof customStrategies.$inferInsert;
+
+// ══════════════════════════════════════════════════════════════
+// ACADEMY & VIDEO LMS PLATFORM
+// ══════════════════════════════════════════════════════════════
+
+export const courses = pgTable("courses", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 200 }).notNull(),
+  slug: varchar("slug", { length: 200 }).notNull().unique(),
+  description: text("description").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  priceInr: numeric("price_inr", { precision: 10, scale: 2 }).notNull().default("0"),
+  isPublished: boolean("is_published").notNull().default(true),
+  level: varchar("level", { length: 30 }).notNull().default("Beginner"), // Beginner | Intermediate | Institutional
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type Course = typeof courses.$inferSelect;
+export type InsertCourse = typeof courses.$inferInsert;
+
+export const courseLessons = pgTable("course_lessons", {
+  id: serial("id").primaryKey(),
+  courseId: integer("course_id").notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  title: varchar("title", { length: 250 }).notNull(),
+  description: text("description"),
+  videoUrl: text("video_url").notNull(),
+  durationSeconds: integer("duration_seconds").notNull().default(0),
+  orderIndex: integer("order_index").notNull().default(0),
+  isFreePreview: boolean("is_free_preview").notNull().default(false),
+  strategyTemplateJson: jsonb("strategy_template_json"),
+  pdfNotesUrl: text("pdf_notes_url"),
+}, (table) => [
+  index("idx_lessons_course_order").on(table.courseId, table.orderIndex),
+]);
+
+export type CourseLesson = typeof courseLessons.$inferSelect;
+export type InsertCourseLesson = typeof courseLessons.$inferInsert;
+
+export const courseEnrollments = pgTable("course_enrollments", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull(),
+  courseId: integer("course_id").notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  paymentStatus: varchar("payment_status", { length: 20 }).notNull().default("PENDING"), // PENDING | PAID | GRANTED
+  utrOrTransactionId: varchar("utr_or_transaction_id", { length: 100 }),
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_enrollments_user_course").on(table.userId, table.courseId),
+]);
+
+export type CourseEnrollment = typeof courseEnrollments.$inferSelect;
+export type InsertCourseEnrollment = typeof courseEnrollments.$inferInsert;
+
+export const lessonProgress = pgTable("lesson_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull(),
+  lessonId: integer("lesson_id").notNull().references(() => courseLessons.id, { onDelete: 'cascade' }),
+  watchedSeconds: integer("watched_seconds").notNull().default(0),
+  isCompleted: boolean("is_completed").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_lesson_progress_user").on(table.userId, table.lessonId),
+]);
+
+export type LessonProgress = typeof lessonProgress.$inferSelect;
+export type InsertLessonProgress = typeof lessonProgress.$inferInsert;
+
+

@@ -100,7 +100,7 @@ export function StockSearchBar({ onSearch }: StockSearchBarProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden z-50 max-h-[300px] overflow-y-auto"
+            className="absolute top-full left-0 right-0 mt-2 bg-popover/95 backdrop-blur-xl border border-border rounded-xl shadow-xl overflow-hidden z-50 max-h-[300px] overflow-y-auto"
           >
             {isLoading ? (
               <div className="p-4 text-center text-sm text-muted-foreground">Searching...</div>
@@ -111,22 +111,22 @@ export function StockSearchBar({ onSearch }: StockSearchBarProps) {
                     key={`${s.symbol}-${i}`}
                     type="button"
                     onClick={() => handleSelect(s.symbol)}
-                    className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-center justify-between group"
+                    className="w-full text-left px-4 py-3 hover:bg-muted/70 transition-colors border-b border-border/40 last:border-0 flex items-center justify-between group"
                   >
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold font-mono text-white group-hover:text-primary transition-colors">
+                      <span className="text-sm font-bold font-mono text-foreground group-hover:text-primary transition-colors">
                         {s.symbol.replace(/\.(NS|BO)$/i, "")}
                       </span>
-                      <span className="text-xs text-white/50 truncate max-w-[280px]">
+                      <span className="text-xs text-muted-foreground truncate max-w-[280px]">
                         {s.name}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/40 font-mono flex items-center gap-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-muted border border-border text-muted-foreground font-mono flex items-center gap-1 font-semibold">
                         <Building2 className="w-3 h-3" />
                         {s.exchange || (s.symbol.endsWith(".NS") ? "NSE" : s.symbol.endsWith(".BO") ? "BSE" : "IND")}
                       </span>
-                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400/50 group-hover:text-emerald-400 transition-colors" />
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500/70 group-hover:text-emerald-500 transition-colors" />
                     </div>
                   </button>
                 ))}

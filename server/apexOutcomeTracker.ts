@@ -4,6 +4,7 @@ import { apexPredictions } from "@shared/schema";
 import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import { getNowIST } from "./istUtils";
 import { markJobStart, markJobDone, markJobFailed, logError } from "./jobLedger";
+import { updateBanditOutcome } from "./hermesBandit";
 
 /**
  * Fetches intraday 5-min candles from Yahoo and extracts 9:30 AM and 3:15 PM prices.
@@ -145,6 +146,10 @@ export async function fillTodayOutcomes(): Promise<void> {
             filledAt: now
           })
           .where(eq(apexPredictions.id, pred.id));
+
+        // Self-learning feedback loop to Hermes Contextual Thompson Sampling Bandit
+        const regime = actualReturnPct > 0.5 ? "BULL_TREND" : (actualReturnPct < -0.5 ? "BEAR_TREND" : "RANGE_BOUND");
+        await updateBanditOutcome(["apexFo", "finbert", "kronos", "chronos"], regime, isCorrect).catch(() => {});
           
         processed++;
       } catch (err: any) {

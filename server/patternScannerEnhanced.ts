@@ -51,6 +51,8 @@ function detectVCPEnhanced(
   const e200 = ema200[n - 1];
   const currentRsi = rsi14[n - 1] || 50;
 
+  if (e50 == null || e150 == null || e200 == null) return null;
+
   // Trend template check
   if (!(currentPrice > e50 && e50 > e150 && e150 > e200)) return null;
 
@@ -300,7 +302,7 @@ export async function runPatternScannerEnhanced(): Promise<PatternMatch[]> {
       await db.insert(confluenceSignals).values({
         symbol: result.symbol,
         signalDate: now,
-        confluenceScore: result.probability,
+        confluenceScore: String(result.probability),
         recommendation: result.probability > 70 ? 'STRONG_BUY' : result.probability > 50 ? 'BUY' : 'HOLD',
       }).onConflictDoNothing();
     } catch (err) {

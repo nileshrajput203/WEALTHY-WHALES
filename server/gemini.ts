@@ -205,11 +205,28 @@ export async function generateWithRetry(
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         await checkRateLimitAndDelay();
-        const response = await withTimeout(
-          ai.models.generateContent(params),
-          60000,
-          "Gemini API request timed out after 60s"
-        );
+        let response;
+        try {
+          const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+          response = await withTimeout(
+            genAI.models.generateContent(params),
+            60000,
+            "Gemini API request timed out after 60s"
+          );
+        } catch (innerErr: any) {
+          const status = innerErr?.status || innerErr?.code;
+          if (status === 503 || status === 404) {
+            console.warn(`[Gemini] Model ${params.model} returned ${status}. Attempting fallback to gemini-3.5-flash...`);
+            const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+            response = await withTimeout(
+              genAI.models.generateContent({ ...params, model: "gemini-3.5-flash" }),
+              60000,
+              "Gemini 3.5 fallback request timed out after 60s"
+            );
+          } else {
+            throw innerErr;
+          }
+        }
         return response;
       } catch (err: any) {
         lastErr = err;
@@ -273,33 +290,50 @@ async function callGeminiFlashApi(
     throw new Error("GEMINI_API_KEY is missing. Add it to .env for Ask AI chat.");
   }
 
-  const url = `${GEMINI_FLASH_API_BASE}/models/${CHAT_MODEL}:generateContent`;
-  console.log(`[Ask AI Chat] Gemini Flash REST API → ${CHAT_MODEL}`);
+  const candidateModels = Array.from(new Set([CHAT_MODEL, "gemini-3.5-flash", "gemini-flash-lite-latest"]));
+  let lastError: any;
 
-  const { data } = await axios.post(
-    url,
-    {
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      contents: [{ role: "user", parts: [{ text: userContents }] }],
-      generationConfig: {
-        temperature: 0.25,
-        maxOutputTokens: 4096,
-        responseMimeType: "text/plain",
-      },
-    },
-    {
-      params: { key: apiKey },
-      headers: { "Content-Type": "application/json" },
-      timeout: 120_000,
-    },
-  );
+  for (const modelName of candidateModels) {
+    const url = `${GEMINI_FLASH_API_BASE}/models/${modelName}:generateContent`;
+    console.log(`[Ask AI Chat] Gemini Flash REST API → ${modelName}`);
 
-  const text = extractFlashApiText(data);
-  if (!text) {
-    const blockReason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason;
-    throw new Error(blockReason ? `Gemini Flash blocked response: ${blockReason}` : "Empty response from Gemini Flash API");
+    try {
+      const { data } = await axios.post(
+        url,
+        {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: "user", parts: [{ text: userContents }] }],
+          generationConfig: {
+            temperature: 0.25,
+            maxOutputTokens: 4096,
+            responseMimeType: "text/plain",
+          },
+        },
+        {
+          params: { key: apiKey },
+          headers: { "Content-Type": "application/json" },
+          timeout: 60_000,
+        },
+      );
+
+      const text = extractFlashApiText(data);
+      if (text) {
+        return text;
+      }
+      const blockReason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason;
+      throw new Error(blockReason ? `Gemini Flash blocked response: ${blockReason}` : "Empty response from Gemini Flash API");
+    } catch (err: any) {
+      lastError = err;
+      const status = err?.response?.status;
+      console.warn(`[Ask AI Chat] ${modelName} returned status ${status}: ${err?.response?.data?.error?.message || err.message}`);
+      if (status === 503 || status === 404) {
+        continue; // try next candidate model in list
+      }
+      throw err;
+    }
   }
-  return text;
+
+  throw lastError || new Error("All Gemini Flash candidate models failed");
 }
 
 async function generateChatWithFlash(

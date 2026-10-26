@@ -9,8 +9,7 @@ import { db } from "./db";
 import {
   fuguSnapshots,
   fuguOutcomes,
-  fuguWeights,
-  fuguRegime,
+  fuguFactorWeights,
 } from "@shared/schema";
 import { eq, and, desc, sql, gte, isNull, lte } from "drizzle-orm";
 import {
@@ -75,7 +74,7 @@ class FuguLangGraph {
   async run(initialState: FuguState): Promise<FuguState> {
     let state = { ...initialState };
     // Sequential execution for simplicity
-    for (const [name, node] of this.nodes.entries()) {
+    for (const [, node] of Array.from(this.nodes.entries())) {
       const update = await node(state);
       state = { ...state, ...update };
     }
@@ -315,17 +314,17 @@ export async function runFuguScanner(
     // Load weights
     const [weightRow] = await db
       .select()
-      .from(fuguWeights)
-      .orderBy(desc(fuguWeights.version))
+      .from(fuguFactorWeights)
+      .orderBy(desc(fuguFactorWeights.version))
       .limit(1);
-    const weights = weightRow || {
+    const weights = weightRow?.weights || {
       wTechnical: 0.35,
       wPattern: 0.25,
       wCandlestick: 0.1,
       wFundamental: 0.2,
       wSimilarity: 0.1,
     };
-    const weightVersion = weightRow?.version || DEFAULT_WEIGHT_VERSION;
+    const weightVersion = weightRow?.version || 1;
 
     // Filter candidates to top 30 to save resources
     const limitedCandidates = candidates.slice(0, 30);
@@ -468,19 +467,19 @@ export async function getFuguDashboard() {
     .select()
     .from(fuguOutcomes)
     .where(sql`${fuguOutcomes.return5d} IS NOT NULL`)
-    .orderBy(desc(fuguOutcomes.updatedAt))
+    .orderBy(desc(fuguOutcomes.id))
     .limit(20);
 
-  const [weights] = await db
+  const [weightRow] = await db
     .select()
-    .from(fuguWeights)
-    .orderBy(desc(fuguWeights.version))
+    .from(fuguFactorWeights)
+    .orderBy(desc(fuguFactorWeights.version))
     .limit(1);
 
   return {
     latestSnapshots,
     outcomes,
-    weights: weights || {
+    weights: weightRow?.weights || {
       wTechnical: 0.35,
       wPattern: 0.25,
       wCandlestick: 0.1,
@@ -490,23 +489,34 @@ export async function getFuguDashboard() {
   };
 }
 
+export async function getFuguStockSnapshot(symbol: string) {
+  const snaps = await db
+    .select()
+    .from(fuguSnapshots)
+    .where(eq(fuguSnapshots.symbol, symbol))
+    .orderBy(desc(fuguSnapshots.scanDate))
+    .limit(1);
+  return snaps[0] || null;
+}
+
 export async function runFuguLearningCycle() {
   console.log("[Fugu Engine] Running learning cycle...");
-  // Logic to adjust weights based on outcomes would go here
-  return { success: true };
+  return { success: true, insightsAdded: 0, weightsOptimized: false };
 }
 
 export async function initializeFugu(): Promise<void> {
-  const existing = await db.select().from(fuguWeights).limit(1);
+  const existing = await db.select().from(fuguFactorWeights).limit(1);
   if (existing.length > 0) return;
 
-  await db.insert(fuguWeights).values({
-    version: DEFAULT_WEIGHT_VERSION,
-    wTechnical: "0.35",
-    wPattern: "0.25",
-    wCandlestick: "0.10",
-    wFundamental: "0.20",
-    wSimilarity: "0.10",
+  await db.insert(fuguFactorWeights).values({
+    version: 1,
+    weights: {
+      technical: 0.35,
+      pattern: 0.25,
+      candlestick: 0.10,
+      fundamental: 0.20,
+      similarity: 0.10,
+    },
     isActive: true,
     notes: "Initial default weights",
   });

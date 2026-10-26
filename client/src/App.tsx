@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 import { ThemeProvider, useTheme } from "next-themes";
 import { ViewModeProvider } from "@/hooks/useViewMode";
 import ViewModeToggle from "@/components/ViewModeToggle";
+import DataFreshnessBadge from "@/components/DataFreshnessBadge";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
@@ -41,28 +42,25 @@ import ChartPatterns from "@/pages/ChartPatterns";
 import NotificationSettings from "@/pages/NotificationSettings";
 import HermesAI from "@/pages/HermesAI";
 import FuguAI from "@/pages/FuguAI";
-import HermesFuguAI from "@/pages/HermesFuguAI";
 import AIConfluence from "@/pages/AIConfluence";
 import ApexAI from "@/pages/ApexAI";
+import Seasonality from "@/pages/Seasonality";
+import StrategyBuilder from "@/pages/StrategyBuilder";
+import Academy from "@/pages/Academy";
+import { AuthModal } from "@/components/AuthModal";
 
 
 
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="hover-elevate rounded-full flex"
-      data-testid="button-theme-toggle"
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 font-mono shadow-xs"
+      title="Institutional Dark Terminal Active"
     >
-      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
-      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
-      <span className="sr-only">Toggle theme</span>
-    </Button>
+      <Moon className="h-3.5 w-3.5 text-indigo-400" />
+      <span className="hidden sm:inline text-[10px] font-bold tracking-wider text-slate-400 uppercase">Pro Dark</span>
+    </div>
   );
 }
 
@@ -109,9 +107,11 @@ function Router() {
       <Route path="/settings/notifications" component={NotificationSettings} />
       <Route path="/hermes" component={HermesAI} />
       <Route path="/fugu" component={FuguAI} />
-      <Route path="/hermes-fugu" component={HermesFuguAI} />
       <Route path="/ai-confluence" component={AIConfluence} />
       <Route path="/apex" component={ApexAI} />
+      <Route path="/seasonality" component={Seasonality} />
+      <Route path="/strategy-builder" component={StrategyBuilder} />
+      <Route path="/academy" component={Academy} />
 
       {/* 404 fallback */}
       <Route component={NotFound} />
@@ -120,8 +120,9 @@ function Router() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [location] = useLocation();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const style = {
     "--sidebar-width": "280px",
@@ -134,6 +135,7 @@ function AppContent() {
       <>
         <Router />
         <Toaster />
+        <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </>
     );
   }
@@ -146,40 +148,56 @@ function AppContent() {
         <div className="flex flex-col flex-1 min-w-0 overflow-x-hidden">
           <MarqueeTicker />
           <header
-            className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 sticky top-0 z-50 min-w-0"
+            className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 sticky top-0 z-50 min-w-0"
             style={{
-              background: "hsl(var(--background) / 0.90)",
+              background: "hsl(var(--background) / 0.85)",
               backdropFilter: "blur(20px) saturate(160%)",
               WebkitBackdropFilter: "blur(20px) saturate(160%)",
-              borderBottom: "1px solid rgba(255,255,255,0.05)",
+              borderBottom: "1px solid hsl(var(--border) / 0.6)",
             }}
           >
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:hidden" />
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="text-base font-bold font-display text-foreground/80 leading-none tracking-tight">Wealthy Whales</span>
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
-                  style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_1px_rgba(34,197,94,0.6)]" />
-                  <span className="text-[9px] text-emerald-400 font-mono tracking-wide leading-none">Live</span>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <span className="text-base font-bold font-display text-foreground leading-none tracking-tight">
+                  Wealthy Whales
+                </span>
+                <div
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse" />
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold tracking-wider uppercase leading-none">
+                    Terminal Live
+                  </span>
                 </div>
               </div>
             </div>
-            <div className="flex-1 max-w-xl mx-1.5 sm:mx-3 min-w-0">
+            <div className="flex-1 max-w-xl mx-2 sm:mx-4 min-w-0">
               <StockSearchBar />
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="hidden md:flex">
+                <DataFreshnessBadge />
+              </div>
               <ViewModeToggle />
               <ThemeToggle />
               {isAuthenticated ? (
                 <>
+                  {user?.isAdmin && (
+                    <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-[11px] font-mono font-bold text-amber-400">
+                        Admin: Nilesh
+                      </span>
+                    </div>
+                  )}
                   {/* Desktop: text button */}
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => window.location.href = "/api/logout"}
                     data-testid="button-logout"
-                    className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
+                    className="hidden sm:inline-flex h-8 px-3 text-xs font-semibold rounded-lg border-border text-foreground/80 hover:text-foreground"
                   >
                     Sign out
                   </Button>
@@ -188,7 +206,7 @@ function AppContent() {
                     variant="ghost"
                     size="icon"
                     onClick={() => window.location.href = "/api/logout"}
-                    className="flex sm:hidden h-8 w-8 text-foreground/40"
+                    className="flex sm:hidden h-8 w-8 text-muted-foreground"
                     title="Sign out"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -197,19 +215,19 @@ function AppContent() {
               ) : (
                 <>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => window.location.href = "/api/auth/google"}
+                    onClick={() => setShowAuthModal(true)}
                     data-testid="button-login"
-                    className="hidden sm:flex h-8 px-3 text-xs text-foreground/40 hover:text-foreground/70"
+                    className="hidden sm:inline-flex h-8 px-3 text-xs font-semibold rounded-lg border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
                   >
                     Sign in
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => window.location.href = "/api/auth/google"}
-                    className="flex sm:hidden h-8 w-8 text-primary/70"
+                    onClick={() => setShowAuthModal(true)}
+                    className="flex sm:hidden h-8 w-8 text-primary"
                     title="Sign in"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -226,13 +244,14 @@ function AppContent() {
         </div>
       </div>
       <Toaster />
+      <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </SidebarProvider>
   );
 }
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ViewModeProvider>
