@@ -98,13 +98,20 @@ export default function StockIQScore({ data, onGenerateReport, reportLoading }: 
               ) : (
                 <ShieldAlert className="h-5 w-5 text-rose-500 mt-0.5 flex-shrink-0" />
               )}
-              <div>
+              <div className="w-full">
                 <p className="text-sm font-semibold text-foreground leading-snug">
                   {simpleVerdict}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Overall rating grade is <span className="font-bold text-foreground">{grade}</span>. Based on underlying fundamentals, momentum trends, tech setups, and cap size stability.
+                  Overall rating grade is <span className="font-bold text-foreground">{grade}</span>. Based on 5-pillar institutional forensics, Weinstein Stage 2 template, and cash flow efficiency.
                 </p>
+                {data.institutionalVerdict && (
+                  <div className="mt-2.5 pt-2 border-t border-border/50 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                    <span className="text-muted-foreground">Stage: <strong className="text-foreground">{data.institutionalVerdict.weinsteinStageName}</strong></span>
+                    <span className="text-muted-foreground">Swing Buy: <strong className="text-emerald-400">₹{data.institutionalVerdict.tradeZones.swingEntryZone.low} - ₹{data.institutionalVerdict.tradeZones.swingEntryZone.high}</strong></span>
+                    <span className="text-muted-foreground">SL: <strong className="text-rose-400">₹{data.institutionalVerdict.tradeZones.swingStopLoss.price}</strong></span>
+                  </div>
+                )}
               </div>
             </div>
 

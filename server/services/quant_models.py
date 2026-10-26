@@ -679,7 +679,211 @@ class ChartinkReverseEngine:
 
 
 # ============================================================================
-# 7. UNIFIED DISPATCHER (SUPPORTS POSITIONAL ARGS & CLI FLAGS)
+# 7. INDIAN IPO "ROCKET BASE" & ANCHOR LOCK-IN ABSORPTION ENGINE
+# ============================================================================
+
+class IPORocketBaseEngine:
+    """
+    Detects Indian IPO Rocket Bases (<500 trading days since listing),
+    SEBI 30/90-day Anchor Lock-in supply absorption, Volume Dry-Up (VDU),
+    and High-Tight / VCP Breakout Booms.
+    """
+
+    @staticmethod
+    def analyze_ipo_base(df: pd.DataFrame) -> Dict[str, Any]:
+        bars = len(df)
+        c = df["close"]
+        h = df["high"]
+        l = df["low"]
+        v = df["volume"].replace(0, np.nan).ffill().fillna(1.0)
+
+        curr_c = float(c.iloc[-1])
+        post_listing_high = float(h.max())
+        listing_open = float(df["open"].iloc[0])
+        listing_gain_pct = ((curr_c - listing_open) / (listing_open + 1e-8)) * 100.0
+
+        # Base Window: last 25 trading days (or half of history for very new IPOs)
+        base_window = min(30, max(10, bars // 2))
+        base_df = df.tail(base_window)
+        pivot_high = float(base_df["high"].max())
+        base_low = float(base_df["low"].min())
+        base_depth_pct = ((pivot_high - base_low) / (pivot_high + 1e-8)) * 100.0
+        dist_from_pivot_pct = ((pivot_high - curr_c) / (pivot_high + 1e-8)) * 100.0
+
+        # Volume Dry-Up (VDU) on right side of base (last 5 bars vs 20D avg)
+        vol_sma20 = float(v.tail(20).mean()) + 1e-8
+        min_recent_vol_ratio = float(v.tail(5).min() / vol_sma20)
+        curr_rvol = float(v.iloc[-1] / vol_sma20)
+        has_vdu = min_recent_vol_ratio <= 0.58
+
+        # Anchor Lock-in Absorption Check (30-day ~21 bars, 90-day ~63 trading bars)
+        ema20 = float(c.ewm(span=min(20, bars), adjust=False).mean().iloc[-1])
+        anchor_status = "PRE_30D_LOCKIN" if bars < 20 else (
+            "30D_ANCHOR_ABSORBED" if (20 <= bars < 62 and curr_c > ema20) else (
+                "90D_ANCHOR_ABSORBED" if (bars >= 62 and curr_c > ema20) else "SUPPLY_OVERHANG"
+            )
+        )
+
+        # Classify Rocket Base Setup
+        is_tight_base = base_depth_pct <= 24.0 and dist_from_pivot_pct <= 12.0
+        is_breakout_boom = (curr_c >= pivot_high * 0.995) and (curr_rvol >= 1.8) and (base_depth_pct <= 28.0)
+        is_coiling_near_pivot = is_tight_base and (0.0 <= dist_from_pivot_pct <= 4.0) and has_vdu
+
+        if is_breakout_boom:
+            status = "ROCKET_BREAKOUT_BOOM"
+            score = 94
+        elif is_coiling_near_pivot:
+            status = "COILING_AT_PIVOT_READY"
+            score = 86
+        elif is_tight_base:
+            status = "FORMING_ROCKET_BASE"
+            score = 74
+        else:
+            status = "LOOSE_OR_EXTENDED"
+            score = 42
+
+        atr14 = float((h - l).tail(14).mean()) if len(h) >= 14 else float(curr_c * 0.02)
+        stop_loss = round(max(base_low, curr_c - 1.5 * atr14), 2)
+        target_1 = round(pivot_high * 1.20, 2)
+        target_2 = round(pivot_high * 1.35, 2)
+
+        return {
+            "daysListed": bars,
+            "status": status,
+            "rocketScore": score,
+            "anchorLockinStatus": anchor_status,
+            "baseMetrics": {
+                "pivotTriggerPrice": round(pivot_high, 2),
+                "postListingHigh": round(post_listing_high, 2),
+                "baseDepthPct": round(base_depth_pct, 2),
+                "distanceFromPivotPct": round(dist_from_pivot_pct, 2),
+                "hasVolumeDryUp": has_vdu,
+                "currentRvol": round(curr_rvol, 2),
+                "totalGainSinceListingPct": round(listing_gain_pct, 2),
+            },
+            "tradePlan": {
+                "buyPivot": round(pivot_high, 2),
+                "stopLoss": stop_loss,
+                "target1": target_1,
+                "target2": target_2,
+            },
+        }
+
+
+# ============================================================================
+# 8. 5-PILLAR INSTITUTIONAL VERDICT & WEINSTEIN STAGE ENGINE
+# ============================================================================
+
+class InstitutionalVerdictEngine:
+    """
+    Produces a definitive BUY / SELL / HOLD verdict with Stan Weinstein Stage (1-4),
+    Narrow CPR Intraday levels, and Hard-Veto Disqualifiers.
+    """
+
+    @staticmethod
+    def compute_verdict(
+        df: pd.DataFrame,
+        alpha: Dict[str, Any],
+        forecast: Dict[str, Any],
+        seasonality: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        c = df["close"]
+        h = df["high"]
+        l = df["low"]
+        curr_c = float(c.iloc[-1])
+
+        sma50 = float(c.tail(50).mean())
+        sma150 = float(c.tail(150).mean()) if len(c) >= 150 else sma50
+        sma200_series = c.rolling(min(200, len(c))).mean()
+        sma200 = float(sma200_series.iloc[-1])
+        sma200_prev20 = float(sma200_series.iloc[-min(21, len(c))]) if len(c) > 25 else sma200
+        sma200_rising = sma200 >= sma200_prev20
+
+        high_52w = float(h.tail(252).max())
+        low_52w = float(l.tail(252).min())
+        pct_below_52w_high = ((high_52w - curr_c) / (high_52w + 1e-8)) * 100.0
+
+        # 1. Stan Weinstein Stage Classification
+        if curr_c > sma50 and sma50 > sma150 and sma150 >= sma200 and sma200_rising:
+            weinstein_stage = "STAGE_2_ADVANCING"
+            stage_score = 90
+        elif curr_c < sma50 and curr_c < sma200 and not sma200_rising:
+            weinstein_stage = "STAGE_4_DECLINING"
+            stage_score = 15
+        elif curr_c >= sma200 and curr_c < sma50:
+            weinstein_stage = "STAGE_3_DISTRIBUTION_OR_PULLBACK"
+            stage_score = 52
+        else:
+            weinstein_stage = "STAGE_1_BASING"
+            stage_score = 60
+
+        # 2. Narrow CPR Calculation for Intraday / Swing Precision
+        prev_h, prev_l, prev_c = float(h.iloc[-2]), float(l.iloc[-2]), float(c.iloc[-2])
+        pivot = (prev_h + prev_l + prev_c) / 3.0
+        bc = (prev_h + prev_l) / 2.0
+        tc = (pivot - bc) + pivot
+        cpr_width_pct = (abs(tc - bc) / (pivot + 1e-8)) * 100.0
+        is_narrow_cpr = cpr_width_pct < 0.25
+
+        # 3. Weighted Composite Score + Hard-Veto Logic
+        composite = int(round(
+            0.35 * stage_score
+            + 0.25 * alpha.get("alphaScore", 50)
+            + 0.25 * forecast.get("bullishProbability", 50)
+            + 0.15 * seasonality.get("currentMonthWinRatePct", 50)
+        ))
+
+        veto_reason = None
+        if weinstein_stage == "STAGE_4_DECLINING":
+            composite = min(composite, 34)
+            veto_reason = "Hard Veto: Stock is in Weinstein Stage 4 Decline (below falling 200 DMA)."
+        elif ((curr_c - sma50) / (sma50 + 1e-8)) * 100.0 > 25.0:
+            composite = min(composite, 66)
+            veto_reason = "Climax Extension Warning: Price is >25% above 50 DMA. Wait for pullback."
+
+        if composite >= 80:
+            verdict = "STRONG BUY"
+            action = "Accumulate immediately in Buy Zone; Stage 2 institutional uptrend confirmed."
+        elif composite >= 67:
+            verdict = "BUY / ACCUMULATE"
+            action = "Buy on minor dips toward 20 EMA / Central Pivot Range."
+        elif composite >= 48:
+            verdict = "HOLD"
+            action = "Hold existing position with trailing stop at 50 DMA; wait for volume breakout to add."
+        elif composite >= 35:
+            verdict = "REDUCE / SELL ON RISE"
+            action = "Momentum weakening; trim position on rallies toward resistance."
+        else:
+            verdict = "STRONG SELL / AVOID"
+            action = veto_reason or "Institutional distribution active; avoid fresh longs."
+
+        atr14 = float((h - l).tail(14).mean()) if len(h) >= 14 else float(curr_c * 0.02)
+        return {
+            "verdict": verdict,
+            "compositeScore": composite,
+            "actionableSummary": action,
+            "vetoTriggered": veto_reason,
+            "weinsteinStage": weinstein_stage,
+            "pctBelow52WHigh": round(pct_below_52w_high, 2),
+            "cpr": {
+                "pivot": round(pivot, 2),
+                "topCentral": round(max(tc, bc), 2),
+                "bottomCentral": round(min(tc, bc), 2),
+                "cprWidthPct": round(cpr_width_pct, 3),
+                "isNarrowTrendingCPR": is_narrow_cpr,
+            },
+            "tradeZones": {
+                "idealBuyZoneLow": round(curr_c - 0.5 * atr14, 2),
+                "idealBuyZoneHigh": round(curr_c + 0.25 * atr14, 2),
+                "invalidationStopLoss": round(curr_c - 1.8 * atr14, 2),
+                "swingTarget1": round(curr_c + 3.0 * atr14, 2),
+                "positionalTarget2": round(curr_c + 5.5 * atr14, 2),
+            },
+        }
+
+
+# ============================================================================
+# 9. UNIFIED DISPATCHER (SUPPORTS POSITIONAL ARGS & CLI FLAGS)
 # ============================================================================
 
 def run_full_quant_analysis(symbol: str, oi_change_pct: float = 0.0, pcr: float = 1.0) -> Dict[str, Any]:
@@ -688,6 +892,7 @@ def run_full_quant_analysis(symbol: str, oi_change_pct: float = 0.0, pcr: float 
     forecast = TimeSeriesEnsembleForecaster.forecast_kline(df_daily, pred_len=5)
     intraday = IntradayFOEmaEngine.analyze_intraday_setup(df_daily, oi_change_pct=oi_change_pct, pcr=pcr)
     seasonality = SeasonalityEngine.compute_10y_seasonality(symbol)
+    verdict = InstitutionalVerdictEngine.compute_verdict(df_daily, alpha, forecast, seasonality)
 
     hermes_conviction = int(round(
         0.30 * forecast["bullishProbability"]
@@ -705,9 +910,12 @@ def run_full_quant_analysis(symbol: str, oi_change_pct: float = 0.0, pcr: float 
         "forecast": forecast,
         "intradayFO": intraday,
         "seasonality": seasonality,
+        "institutionalVerdict": verdict,
         "consensus": {
+            "verdict": verdict["verdict"],
             "bias": intraday["direction"],
             "rsRating": alpha["rsRating"],
+            "weinsteinStage": verdict["weinsteinStage"],
             "breakoutProbability": forecast["bullishProbability"],
             "p50Target": forecast["predictedCloseT5"]
         }
@@ -740,6 +948,25 @@ if __name__ == "__main__":
     try:
         if action in ["full_analysis", "full_ensemble", "quant-forecast"]:
             result = run_full_quant_analysis(symbol, oi_pct, pcr_val)
+
+        elif action in ["verdict", "institutional_verdict"]:
+            df_d = fetch_ohlcv(symbol, period="1y", interval="1d")
+            alpha = QlibAlpha158Engine.compute_factors(df_d)
+            forecast = TimeSeriesEnsembleForecaster.forecast_kline(df_d, pred_len=5)
+            seasonality = SeasonalityEngine.compute_10y_seasonality(symbol)
+            result = {
+                "status": "ok",
+                "symbol": symbol.upper(),
+                "verdict": InstitutionalVerdictEngine.compute_verdict(df_d, alpha, forecast, seasonality),
+            }
+
+        elif action in ["ipo_base", "ipo_rocket"]:
+            df_ipo = fetch_ohlcv(symbol, period="1y", interval="1d")
+            result = {
+                "status": "ok",
+                "symbol": symbol.upper(),
+                "ipoBase": IPORocketBaseEngine.analyze_ipo_base(df_ipo),
+            }
 
         elif action in ["intraday_fo", "intraday"]:
             df_intraday = fetch_ohlcv(symbol, period="5d", interval="15m")

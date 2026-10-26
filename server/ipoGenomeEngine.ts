@@ -1,216 +1,300 @@
 /**
- * IPO GENOME ENGINE — Self-Improving IPO Radar
+ * IPO GENOME ENGINE — Institutional Indian IPO Rocket Base & Anchor Lock-In Model
  * ─────────────────────────────────────────────────────────────────────────────
- * Wraps the existing runIpoScanner() with:
- *  1. Genome-controlled filter parameters
- *  2. IPO scoring (base quality + volume + news)
- *  3. Outcome tracking (5d/10d/20d forward returns)
- *  4. Learning cycle with genome evolution toward 5-10% returns
- *
- * Uses the selfImprovingCore genome system with engine ID "IPO".
+ * Tracks Indian IPOs listed within the last 10 to 500 trading days.
+ * Evaluates:
+ *  1. SEBI Anchor Lock-In supply absorption (30-day & 90-day unlock windows)
+ *  2. High-Tight "Rocket Base" geometry near Post-Listing Highs (PLH)
+ *  3. Right-side Volume Dry-Up (VDU)
+ *  4. Boom Breakout triggers & measured targets (+20% / +35%)
+ *  5. Self-improving learning cycle with genome parameter evolution
  */
 
 import { db } from "./db";
 import { ipoOutcomes } from "@shared/schema";
 import { and, eq, gte, isNull, lte, sql, desc } from "drizzle-orm";
 import { getGenome, runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
-import { getYahooStockQuote, getYahooHistory } from "./stockApi";
-import { NSE_UNIQUE } from "./nseUniverse";
+import { getYahooStockQuote, getYahooHistory, computeEMA } from "./stockApi";
 import { getNewsScoreForSymbol } from "./apexNewsEngine";
 import { getNowIST } from "./istUtils";
 import { markJobStart, markJobDone, markJobFailed } from "./jobLedger";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const BATCH_SIZE = 20;
-const BATCH_DELAY_MS = 200;
+// ─── High-Conviction Indian IPO Universe (Listed < 24 Months) ─────────────────
+export const RECENT_INDIAN_IPOS: { symbol: string; name: string; sector: string; issuePrice?: number }[] = [
+  { symbol: "IREDA", name: "Indian Renewable Energy Dev Agency", sector: "Power Financing", issuePrice: 32 },
+  { symbol: "DOMS", name: "DOMS Industries Ltd", sector: "Consumer Stationery", issuePrice: 790 },
+  { symbol: "INOXINDIA", name: "INOX India Ltd", sector: "Cryogenic Equipment", issuePrice: 660 },
+  { symbol: "MOTISONS", name: "Motisons Jewellers Ltd", sector: "Gems & Jewellery", issuePrice: 55 },
+  { symbol: "JYOTICNC", name: "Jyoti CNC Automation Ltd", sector: "Industrial Machinery", issuePrice: 331 },
+  { symbol: "TBOPEK", name: "TBO Tek Ltd", sector: "Travel Tech", issuePrice: 920 },
+  { symbol: "AADHARHFC", name: "Aadhar Housing Finance Ltd", sector: "Housing Finance", issuePrice: 315 },
+  { symbol: "PREMIERENE", name: "Premier Energies Ltd", sector: "Solar Energy & Cells", issuePrice: 450 },
+  { symbol: "HYUNDAI", name: "Hyundai Motor India Ltd", sector: "Automobile OEM", issuePrice: 1960 },
+  { symbol: "BAJAJHFL", name: "Bajaj Housing Finance Ltd", sector: "Housing Finance", issuePrice: 70 },
+  { symbol: "SWIGGY", name: "Swiggy Ltd", sector: "Hyperlocal & Quick Commerce", issuePrice: 390 },
+  { symbol: "NTPCGREEN", name: "NTPC Green Energy Ltd", sector: "Renewable Utilities", issuePrice: 108 },
+  { symbol: "MANKIND", name: "Mankind Pharma Ltd", sector: "Pharmaceuticals", issuePrice: 1080 },
+  { symbol: "NETWEB", name: "Netweb Technologies India Ltd", sector: "AI & Supercomputing", issuePrice: 500 },
+  { symbol: "CYIENTDLM", name: "Cyient DLM Ltd", sector: "Electronics Manufacturing", issuePrice: 265 },
+  { symbol: "SBFC", name: "SBFC Finance Ltd", sector: "MSME Finance", issuePrice: 57 },
+  { symbol: "JSWINFRA", name: "JSW Infrastructure Ltd", sector: "Ports & Logistics", issuePrice: 119 },
+  { symbol: "HONASA", name: "Honasa Consumer (Mamaearth)", sector: "Personal Care", issuePrice: 324 },
+  { symbol: "HAPPYFORGE", name: "Happy Forgings Ltd", sector: "Auto Ancillaries", issuePrice: 850 },
+  { symbol: "RRKABEL", name: "R R Kabel Ltd", sector: "Cables & Wires", issuePrice: 1035 },
+  { symbol: "SAMHI", name: "SAMHI Hotels Ltd", sector: "Hospitality", issuePrice: 126 },
+  { symbol: "YATHARTH", name: "Yatharth Hospital & Trauma Care", sector: "Healthcare", issuePrice: 300 },
+  { symbol: "KFINTECH", name: "KFin Technologies Ltd", sector: "Financial Services", issuePrice: 366 },
+  { symbol: "KAYNES", name: "Kaynes Technology India Ltd", sector: "Electronics Manufacturing", issuePrice: 587 },
+  { symbol: "IDEAFORGE", name: "ideaForge Technology Ltd", sector: "Defence & Drones", issuePrice: 672 },
+  { symbol: "SENCO", name: "Senco Gold Ltd", sector: "Gems & Jewellery", issuePrice: 317 },
+  { symbol: "UTKARSHSFB", name: "Utkarsh Small Finance Bank", sector: "Banking", issuePrice: 25 },
+  { symbol: "AVALON", name: "Avalon Technologies Ltd", sector: "EMS & Aerospace", issuePrice: 436 },
+];
+
 const DEFAULT_WIN_THRESHOLD = 5.0;
 const DEFAULT_LOSS_THRESHOLD = -4.0;
 
-/**
- * Compute an IPO quality score (0-100).
- * Combines base tightness, volume, consolidation quality, and relative position.
- */
-function computeIpoScore(
-  baseDepth: number,         // 0-1 (fraction from peak)
-  consolidationRange: number, // 0-1 (last 10d range fraction)
-  avgVolume: number,
-  daysOld: number,
-  lastClose: number,
-  maxHigh: number,
-): number {
-  let score = 50;
-
-  // Base depth: shallower is better (ideal: 10-20%)
-  if (baseDepth <= 0.15) score += 15;
-  else if (baseDepth <= 0.25) score += 8;
-  else if (baseDepth > 0.30) score -= 10;
-
-  // Consolidation tightness: tighter is better
-  if (consolidationRange <= 0.08) score += 15;
-  else if (consolidationRange <= 0.12) score += 8;
-  else if (consolidationRange > 0.20) score -= 5;
-
-  // Volume: moderate volume is ideal
-  if (avgVolume >= 50000) score += 10;
-  else if (avgVolume >= 10000) score += 5;
-  else if (avgVolume < 3000) score -= 10;
-
-  // Proximity to high: closer is bullish
-  const nearHighPct = lastClose / maxHigh;
-  if (nearHighPct >= 0.95) score += 10;
-  else if (nearHighPct >= 0.85) score += 5;
-  else if (nearHighPct < 0.70) score -= 10;
-
-  // Days since listing: sweet spot is 30-90 days
-  if (daysOld >= 30 && daysOld <= 80) score += 5;
-  else if (daysOld < 15) score -= 5;
-
-  return Math.max(0, Math.min(100, score));
+export interface IpoRocketBaseResult {
+  id: string;
+  scannerType: "ipo";
+  stockSymbol: string;
+  stockName: string;
+  sector: string;
+  exchange: "NSE";
+  price: string;
+  change: string;
+  changePercent: string;
+  volume: string;
+  marketCap: string;
+  daysListed: number;
+  setupClassification: "HYPER_ROCKET_BASE" | "READY_TO_BOOM" | "ROCKET_BREAKOUT_ACTIVE" | "INSTITUTIONAL_VCP" | "FORMING_BASE";
+  anchorLockinStatus: "30D_ANCHOR_ABSORBED" | "90D_ANCHOR_ABSORBED" | "30D_WINDOW_ACTIVE" | "90D_WINDOW_ACTIVE" | "PRE_30D_LOCKIN" | "SUPPLY_OVERHANG";
+  rocketScore: number;
+  baseDepthPct: number;
+  distanceFromPivotPct: number;
+  hasVolumeDryUp: boolean;
+  currentRvol: number;
+  tradePlan: {
+    pivotTriggerPrice: number;
+    postListingHigh: number;
+    stopLoss: number;
+    target1: number;
+    target2: number;
+    riskRewardRatio: string;
+  };
+  totalGainSinceListingPct: number;
+  newsScore: number;
+  genomeVersion: number;
+  createdAt: string;
 }
 
 /**
- * Genome-evolved IPO Scanner.
- * Uses genome parameters for dynamic filtering.
+ * Analyzes candle history for Indian IPO Rocket Base & Anchor Lock-In Absorption.
+ */
+export function evaluateIpoRocketBase(
+  symbol: string,
+  candles: any[],
+  companyName: string = symbol,
+  sector: string = "IPO Growth",
+  genomeVersion: number = 1
+): IpoRocketBaseResult | null {
+  if (!candles || candles.length < 10) return null;
+
+  const closes = candles.map((c: any) => Number(c.close));
+  const highs = candles.map((c: any) => Number(c.high));
+  const lows = candles.map((c: any) => Number(c.low));
+  const vols = candles.map((c: any) => Number(c.volume) || 1);
+
+  const n = closes.length;
+  const currClose = closes[n - 1];
+  const prevClose = closes[n - 2] || currClose;
+  const listingOpen = Number(candles[0].open) || closes[0];
+
+  const daysListed = n;
+  if (daysListed > 500) return null; // Over 24 months not classified as active IPO base
+
+  const postListingHigh = Math.max(...highs);
+  const totalGainSinceListingPct = ((currClose - listingOpen) / (listingOpen + 1e-8)) * 100;
+
+  // Base Window: last 15-40 bars (or half of history)
+  const baseWindow = Math.min(40, Math.max(12, Math.floor(n * 0.6)));
+  const baseHighs = highs.slice(n - baseWindow);
+  const baseLows = lows.slice(n - baseWindow);
+  const pivotHigh = Math.max(...baseHighs);
+  const baseLow = Math.min(...baseLows);
+
+  const baseDepthPct = ((pivotHigh - baseLow) / (pivotHigh + 1e-8)) * 100;
+  const distanceFromPivotPct = ((pivotHigh - currClose) / (pivotHigh + 1e-8)) * 100;
+
+  // Volume Dry-Up (VDU) in last 5 bars vs 20-day average
+  const recent20Vols = vols.slice(Math.max(0, n - 20));
+  const smaVol20 = recent20Vols.reduce((sum, v) => sum + v, 0) / (recent20Vols.length || 1);
+  const recent5Vols = vols.slice(Math.max(0, n - 5));
+  const minVolRatio = Math.min(...recent5Vols) / (smaVol20 + 1e-8);
+  const currRvol = vols[n - 1] / (smaVol20 + 1e-8);
+  const hasVolumeDryUp = minVolRatio <= 0.58;
+
+  // 20 EMA & 50 EMA
+  const ema20Arr = computeEMA(closes, Math.min(20, n));
+  const currEma20 = ema20Arr[n - 1] || currClose;
+
+  // SEBI Anchor Lock-in Window & Supply Absorption
+  let anchorLockinStatus: IpoRocketBaseResult["anchorLockinStatus"] = "PRE_30D_LOCKIN";
+  if (daysListed >= 85 && daysListed <= 100) {
+    anchorLockinStatus = "90D_WINDOW_ACTIVE";
+  } else if (daysListed >= 28 && daysListed <= 38) {
+    anchorLockinStatus = "30D_WINDOW_ACTIVE";
+  } else if (daysListed > 100 && currClose >= currEma20) {
+    anchorLockinStatus = "90D_ANCHOR_ABSORBED";
+  } else if (daysListed > 38 && currClose >= currEma20) {
+    anchorLockinStatus = "30D_ANCHOR_ABSORBED";
+  } else if (currClose < currEma20 && daysListed > 38) {
+    anchorLockinStatus = "SUPPLY_OVERHANG";
+  }
+
+  // Volatility & ATR
+  const recentRanges = highs.slice(Math.max(0, n - 14)).map((h, i) => h - lows[Math.max(0, n - 14) + i]);
+  const atr14 = recentRanges.reduce((a, b) => a + b, 0) / (recentRanges.length || 1);
+
+  // Setup Classification
+  let setupClassification: IpoRocketBaseResult["setupClassification"] = "FORMING_BASE";
+  let rocketScore = 65;
+
+  const isNearHigh = distanceFromPivotPct <= 15.0;
+  const isTight = baseDepthPct <= 22.0;
+
+  if (currClose >= pivotHigh * 0.995 && currRvol >= 1.8 && baseDepthPct <= 26.0) {
+    setupClassification = "ROCKET_BREAKOUT_ACTIVE";
+    rocketScore = 95;
+  } else if (isTight && distanceFromPivotPct <= 3.5 && hasVolumeDryUp) {
+    setupClassification = "READY_TO_BOOM";
+    rocketScore = 88;
+  } else if (baseDepthPct <= 18.0 && totalGainSinceListingPct >= 30.0) {
+    setupClassification = "HYPER_ROCKET_BASE";
+    rocketScore = 84;
+  } else if (baseDepthPct <= 28.0 && isNearHigh) {
+    setupClassification = "INSTITUTIONAL_VCP";
+    rocketScore = 76;
+  } else {
+    setupClassification = "FORMING_BASE";
+    rocketScore = 62;
+  }
+
+  // Anchor bonus
+  if (anchorLockinStatus === "30D_ANCHOR_ABSORBED" || anchorLockinStatus === "90D_ANCHOR_ABSORBED") {
+    rocketScore = Math.min(99, rocketScore + 6);
+  }
+
+  const stopLoss = Math.round(Math.max(baseLow, currClose - 1.5 * atr14) * 100) / 100;
+  const target1 = Math.round((pivotHigh * 1.20) * 100) / 100;
+  const target2 = Math.round((pivotHigh * 1.35) * 100) / 100;
+  const risk = Math.max(1, currClose - stopLoss);
+  const reward = target1 - currClose;
+  const rr = (reward / risk).toFixed(1);
+
+  const dailyChange = currClose - prevClose;
+  const dailyChangePercent = (dailyChange / prevClose) * 100;
+
+  return {
+    id: `ipo_${symbol}`,
+    scannerType: "ipo",
+    stockSymbol: symbol,
+    stockName: companyName,
+    sector,
+    exchange: "NSE",
+    price: currClose.toFixed(2),
+    change: dailyChange.toFixed(2),
+    changePercent: dailyChangePercent.toFixed(2),
+    volume: vols[n - 1].toLocaleString("en-IN"),
+    marketCap: "N/A",
+    daysListed,
+    setupClassification,
+    anchorLockinStatus,
+    rocketScore,
+    baseDepthPct: Math.round(baseDepthPct * 10) / 10,
+    distanceFromPivotPct: Math.round(distanceFromPivotPct * 10) / 10,
+    hasVolumeDryUp,
+    currentRvol: Math.round(currRvol * 100) / 100,
+    tradePlan: {
+      pivotTriggerPrice: Math.round(pivotHigh * 100) / 100,
+      postListingHigh: Math.round(postListingHigh * 100) / 100,
+      stopLoss,
+      target1,
+      target2,
+      riskRewardRatio: `1:${rr}`,
+    },
+    totalGainSinceListingPct: Math.round(totalGainSinceListingPct * 10) / 10,
+    newsScore: 75,
+    genomeVersion,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Genome-evolved IPO Scanner using the Institutional Indian IPO Rocket Base Engine.
  */
 export async function runIpoScannerEvolved(): Promise<{
-  results: any[];
+  results: IpoRocketBaseResult[];
   genomeVersion: number;
   scanned: number;
   passed: number;
 }> {
-  console.log("[IpoGenome] ═══ Starting genome-aware IPO scan ═══");
+  console.log("[IpoGenome] ═══ Starting Indian IPO Rocket Base & Anchor Lock-In Scan ═══");
   const startTime = Date.now();
   await markJobStart("ipo_evolved_scan");
 
   try {
-    // Load current genome
     const genome = await getGenome("IPO");
-    const gp = genome.params;
-    const minDaysSinceListing = Math.round(gp.min_days_since_listing ?? 10);
-    const maxDaysSinceListing = Math.round(gp.max_days_since_listing ?? 110);
-    const maxBaseDepthPct = gp.max_base_depth_pct ?? 0.35;
-    const consolidationRangePct = gp.consolidation_range_pct ?? 0.15;
-    const minAvgVolume = Math.round(gp.min_avg_volume ?? 5000);
-    const minScoreThreshold = Math.round(gp.min_score_threshold ?? 50);
-    const targetReturnGoal = gp.target_return_goal ?? 7.5;
-
-    console.log(`[IpoGenome] Genome v${genome.version}: days=${minDaysSinceListing}-${maxDaysSinceListing} baseMax=${maxBaseDepthPct} consolMax=${consolidationRangePct} vol=${minAvgVolume} minScore=${minScoreThreshold}`);
-
-    const scanList = NSE_UNIQUE.map(sym => sym.includes('.') ? sym : `${sym}.NS`);
-    console.log(`[IpoGenome] Scanning ${scanList.length} stocks...`);
-
-    const results: any[] = [];
+    const results: IpoRocketBaseResult[] = [];
     let scanned = 0;
 
-    for (let b = 0; b < scanList.length; b += BATCH_SIZE) {
-      const batch = scanList.slice(b, b + BATCH_SIZE);
+    // Scan curated Indian IPOs
+    for (const item of RECENT_INDIAN_IPOS) {
+      try {
+        const symbol = item.symbol;
+        const candles = await getYahooHistory(`${symbol}.NS`, "1y", "1d");
+        scanned++;
+        
+        const analyzed = evaluateIpoRocketBase(
+          symbol,
+          candles,
+          item.name,
+          item.sector,
+          genome.version
+        );
 
-      await Promise.allSettled(batch.map(async (sym) => {
-        try {
-          const candles = await getYahooHistory(sym, '1y', '1d');
-          // Short history = potential IPO
-          if (!candles || candles.length < 10 || candles.length > 80) return;
-
-          const firstCandle = candles[0];
-          const listingDate = new Date(firstCandle.time);
-          const ageInDays = (Date.now() - listingDate.getTime()) / (1000 * 60 * 60 * 24);
-
-          // Genome-controlled age filter
-          if (ageInDays < minDaysSinceListing || ageInDays > maxDaysSinceListing) return;
-
-          const closes = candles.map((c: any) => c.close as number);
-          const highs = candles.map((c: any) => c.high as number);
-          const lows = candles.map((c: any) => c.low as number);
-          const vols = candles.map((c: any) => c.volume as number);
-
-          const n = closes.length;
-          const lastClose = closes[n - 1];
-          const prevClose = closes[n - 2];
-
-          // Total base depth filter (genome-controlled)
-          const maxHighAll = Math.max(...highs);
-          const minLowAll = Math.min(...lows);
-          const totalDepth = (maxHighAll - minLowAll) / maxHighAll;
-          if (totalDepth > maxBaseDepthPct) return;
-
-          // Consolidation range filter (genome-controlled)
-          const lookback = Math.min(n, 10);
-          const recentHighs = highs.slice(n - lookback);
-          const recentLows = lows.slice(n - lookback);
-          const maxRecent = Math.max(...recentHighs);
-          const minRecent = Math.min(...recentLows);
-          const recentDepth = (maxRecent - minRecent) / maxRecent;
-          if (recentDepth > consolidationRangePct) return;
-
-          // Volume filter (genome-controlled)
-          const recentVols = vols.slice(n - Math.min(n, 5));
-          const avgVol = recentVols.reduce((sum: number, v: number) => sum + (v || 0), 0) / recentVols.length;
-          if (avgVol < minAvgVolume) return;
-
-          // Compute IPO score
-          const ipoScore = computeIpoScore(totalDepth, recentDepth, avgVol, ageInDays, lastClose, maxHighAll);
-          if (ipoScore < minScoreThreshold) return;
-
-          // Get news score
-          const cleanSym = sym.replace('.NS', '').replace('.BO', '');
-          let newsScore = 0;
+        if (analyzed) {
           try {
-            newsScore = await getNewsScoreForSymbol(cleanSym);
+            const newsScore = await getNewsScoreForSymbol(symbol);
+            analyzed.newsScore = Math.round(newsScore);
           } catch (_) {}
 
-          const dailyChange = lastClose - prevClose;
-          const dailyChangePercent = (dailyChange / prevClose) * 100;
+          results.push(analyzed);
 
-          const result = {
-            id: `ipo_${cleanSym}`,
-            scannerType: 'ipo',
-            stockSymbol: cleanSym,
-            stockName: cleanSym,
-            exchange: 'NSE',
-            price: lastClose.toFixed(2),
-            change: dailyChange.toFixed(2),
-            changePercent: dailyChangePercent.toFixed(2),
-            volume: vols[n - 1] ? vols[n - 1].toLocaleString('en-IN') : '0',
-            marketCap: 'N/A',
-            ipoScore,
-            newsScore: Math.round(newsScore),
-            daysOld: Math.round(ageInDays),
-            baseDepth: (totalDepth * 100).toFixed(1) + '%',
-            consolidation: (recentDepth * 100).toFixed(1) + '%',
-            genomeVersion: genome.version,
-            createdAt: new Date().toISOString(),
-          };
-
-          results.push(result);
-
-          // Record outcome tracking
+          // Record in outcomes table
           try {
             await db.insert(ipoOutcomes).values({
-              symbol: cleanSym,
-              entryPrice: String(lastClose.toFixed(2)),
-              listingDate,
-              daysOld: Math.round(ageInDays),
-              baseDepth: String(totalDepth.toFixed(4)),
-              consolidationRange: String(recentDepth.toFixed(4)),
-              avgVolume: String(Math.round(avgVol)),
-              ipoScore,
-              newsScore: String(newsScore.toFixed(2)),
+              symbol,
+              entryPrice: analyzed.price,
+              listingDate: new Date(),
+              daysOld: analyzed.daysListed,
+              baseDepth: String(analyzed.baseDepthPct),
+              consolidationRange: String(analyzed.distanceFromPivotPct),
+              avgVolume: String(analyzed.volume).replace(/,/g, ""),
+              ipoScore: analyzed.rocketScore,
+              newsScore: String(analyzed.newsScore),
               genomeVersion: genome.version,
             });
           } catch (_) {}
-
-        } catch (_) {}
-      }));
-
-      scanned += batch.length;
-      if (b + BATCH_SIZE < scanList.length) {
-        await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+        }
+      } catch (err: any) {
+        console.warn(`[IpoGenome] Could not fetch IPO data for ${item.symbol}:`, err.message);
       }
     }
 
-    // Sort by IPO score descending, then by change%
-    results.sort((a, b) => (b.ipoScore || 0) - (a.ipoScore || 0));
-    console.log(`[IpoGenome] ═══ Scan complete: ${results.length} IPO picks from ${scanned} stocks (genome v${genome.version}) ═══`);
+    // Sort by Rocket Score descending, then by proximity to breakout
+    results.sort((a, b) => b.rocketScore - a.rocketScore || a.distanceFromPivotPct - b.distanceFromPivotPct);
+    console.log(`[IpoGenome] ═══ Scan complete: ${results.length} IPO Rocket Bases detected ═══`);
 
     const duration = Date.now() - startTime;
     await markJobDone("ipo_evolved_scan", duration);
@@ -238,7 +322,9 @@ export async function trackIpoOutcomes(): Promise<{
 }> {
   console.log("[IpoGenome] Running outcome tracker...");
   const now = new Date();
-  let filled5d = 0, filled10d = 0, filled20d = 0;
+  let filled5d = 0;
+  let filled10d = 0;
+  let filled20d = 0;
 
   // 5-day outcomes
   const fiveDayAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

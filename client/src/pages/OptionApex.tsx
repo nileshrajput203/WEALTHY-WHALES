@@ -206,15 +206,16 @@ export default function OptionApex() {
     Volatile: "text-purple-400 bg-purple-500/10 border-purple-500/20",
   };
 
-  const [filterDirection, setFilterDirection] = useState<"ALL" | "BULLISH" | "BEARISH">("ALL");
+  const [filterStrategy, setFilterStrategy] = useState<string>("ALL");
 
   const { data: foSetups, isLoading: loadingSetups } = useQuery<any[]>({
     queryKey: ["/api/apex/fo-setups"],
   });
 
   const filteredSetups = foSetups?.filter((s) => {
-    if (filterDirection === "ALL") return true;
-    return s.direction === filterDirection;
+    if (filterStrategy === "ALL") return true;
+    if (filterStrategy === "BULLISH" || filterStrategy === "BEARISH") return s.direction === filterStrategy;
+    return s.strategyCategory === filterStrategy;
   });
 
   return (
@@ -225,8 +226,8 @@ export default function OptionApex() {
           <Triangle className="w-6 h-6 text-primary" />
           Option Apex: Institutional F&O Engine
         </h1>
-        <p className="text-sm text-white/40 font-sans">
-          Live Multi-EMA Ribbon Retests · OI Wall Reversals · Payoff Analysis · Greeks Calculator
+        <p className="text-sm text-white/50 font-sans">
+          Narrow CPR (&lt;0.25%) + 15m ORB · Trapped Option Writer Gamma Squeeze · Nifty 50 Relative Strength Decoupling · PDH/PDL Liquidity Sweeps
         </p>
       </div>
 
@@ -236,25 +237,33 @@ export default function OptionApex() {
           <div>
             <h2 className="text-lg font-display font-bold text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-400" />
-              Live F&O Setups (EMA Retest & OI Reversals)
+              Live F&O Setups (Proven Institutional Playbook)
             </h2>
             <p className="text-xs text-white/40 font-mono">
-              Scanned across 5m, 15m, and Daily · Classified with institutional positioning matrix
+              Real-time NSE/BSE microstructure · Order flow delta OI & gamma imbalance scans
             </p>
           </div>
 
-          <div className="flex gap-1.5">
-            {(["ALL", "BULLISH", "BEARISH"] as const).map((dir) => (
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { label: "ALL", value: "ALL" },
+              { label: "NARROW CPR", value: "NARROW_CPR" },
+              { label: "GAMMA SQUEEZE", value: "GAMMA_SQUEEZE" },
+              { label: "RS DECOUPLING", value: "RS_DECOUPLING" },
+              { label: "LIQUIDITY SWEEP", value: "LIQUIDITY_SWEEP" },
+              { label: "BULLISH", value: "BULLISH" },
+              { label: "BEARISH", value: "BEARISH" },
+            ].map((f) => (
               <button
-                key={dir}
-                onClick={() => setFilterDirection(dir)}
+                key={f.value}
+                onClick={() => setFilterStrategy(f.value)}
                 className={`px-3 py-1 rounded-lg text-xs font-mono font-bold border transition-all ${
-                  filterDirection === dir
-                    ? "bg-primary text-black border-primary"
+                  filterStrategy === f.value
+                    ? "bg-primary text-black border-primary shadow-[0_0_10px_rgba(124,58,237,0.3)]"
                     : "bg-white/3 text-white/50 border-white/8 hover:text-white"
                 }`}
               >
-                {dir}
+                {f.label}
               </button>
             ))}
           </div>
@@ -277,6 +286,11 @@ export default function OptionApex() {
                         <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-white/60">
                           {setup.timeframe}
                         </span>
+                        {setup.cprMetrics?.isNarrowCPR && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                            CPR {setup.cprMetrics.cprWidthPct}%
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-white/40 font-sans">₹{setup.currentPrice}</span>
                     </div>
@@ -319,7 +333,7 @@ export default function OptionApex() {
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-white/50 font-sans line-clamp-2 mb-3">
+                  <p className="text-[11px] text-white/60 font-sans line-clamp-3 mb-3 leading-relaxed">
                     {setup.catalystNotes}
                   </p>
                 </div>

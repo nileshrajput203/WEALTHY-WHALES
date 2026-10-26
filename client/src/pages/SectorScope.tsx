@@ -14,6 +14,10 @@ interface SectorData {
   change1d: number;
   change1w: number;
   change1m: number;
+  rsRatio?: number;
+  rsMomentum?: number;
+  rrgQuadrant?: "LEADING" | "IMPROVING" | "WEAKENING" | "LAGGING";
+  institutionalAction?: string;
   topGainer: { symbol: string; change: number };
   topLoser: { symbol: string; change: number };
 }
@@ -70,7 +74,7 @@ interface RotationAnalysisResponse {
 }
 
 export default function SectorScope() {
-  const [activeTab, setActiveTab] = useState<"cycle" | "macro" | "valuations">("cycle");
+  const [activeTab, setActiveTab] = useState<"rrg" | "cycle" | "macro" | "valuations">("rrg");
   const [timeframe, setTimeframe] = useState<"1d" | "1w" | "1m">("1d");
 
   // Query 1: Heatmap performance
@@ -119,6 +123,12 @@ export default function SectorScope() {
 
   const ALLOCATION_COLORS = ["#a855f7", "#3b82f6", "#22c55e", "#eab308", "#f43f5e", "#06b6d4", "#f97316", "#a1a1aa"];
 
+  // Group sectors into RRG quadrants
+  const leadingSectors = sectors.filter(s => (s.rrgQuadrant || "LEADING") === "LEADING");
+  const improvingSectors = sectors.filter(s => s.rrgQuadrant === "IMPROVING");
+  const weakeningSectors = sectors.filter(s => s.rrgQuadrant === "WEAKENING");
+  const laggingSectors = sectors.filter(s => s.rrgQuadrant === "LAGGING");
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -126,16 +136,17 @@ export default function SectorScope() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white mb-1 flex items-center gap-2.5">
             <Scan className="w-7 h-7 text-primary" />
-            Sector Rotation Dashboard
+            Sector Rotation & RRG Dashboard
           </h1>
-          <p className="text-sm text-white/40 font-sans">
-            Institutional-grade economic cycle strategy · Relative performance, valuations, macro drivers & allocations
+          <p className="text-sm text-white/50 font-sans">
+            Institutional JdK Relative Rotation Graph (RRG) · 4-Quadrant Macro Momentum vs Nifty 50
           </p>
         </div>
 
         {/* Tab buttons */}
         <div className="flex gap-1 bg-white/4 border border-white/8 p-1 rounded-xl self-start sm:self-auto overflow-x-auto scrollbar-none">
           {[
+            { key: "rrg", label: "4-Quadrant RRG Model" },
             { key: "cycle", label: "Cycle & Heatmap" },
             { key: "macro", label: "Macro & Playbook" },
             { key: "valuations", label: "Valuations & Earnings" }
@@ -164,6 +175,231 @@ export default function SectorScope() {
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.25 }}
         >
+          {/* TAB 0: 4-QUADRANT RELATIVE ROTATION GRAPH (RRG) MODEL */}
+          {activeTab === "rrg" && (
+            <div className="space-y-6">
+              {/* Concept Banner */}
+              <div className="glass-card rounded-2xl border border-white/8 p-6 bg-gradient-to-r from-purple-950/20 via-black to-blue-950/20">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-primary font-bold block mb-1">
+                      INSTITUTIONAL QUANTITATIVE ROTATION ENGINE
+                    </span>
+                    <h2 className="text-xl font-display font-bold text-white">
+                      JdK Relative Rotation Graph (RRG) vs Nifty 50
+                    </h2>
+                    <p className="text-xs text-white/50 font-sans max-w-2xl mt-1 leading-relaxed">
+                      Tracks relative strength ratio (X-axis) and relative momentum (Y-axis) benchmarked to 100 against Nifty 50. Sectors rotate clockwise through <strong>Improving → Leading → Weakening → Lagging</strong>.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
+                      70% Longs in LEADING
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold">
+                      F&O Shorts in LAGGING
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Quadrants Display */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 1. LEADING QUADRANT (Top-Right) */}
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-4 shadow-[0_0_20px_rgba(16,185,129,0.08)]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10b981]" />
+                        <h3 className="text-base font-bold font-display text-emerald-300">
+                          QUADRANT I: LEADING
+                        </h3>
+                      </div>
+                      <p className="text-[11px] font-mono text-emerald-400/70 mt-0.5">
+                        High Relative Strength (RS &gt; 100) + High Momentum (Mom &gt; 100)
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      Focus 70% Long Trades
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/60 font-sans leading-relaxed">
+                    Institutional market drivers outperforming Nifty 50 with accelerating momentum. Deploy high-conviction breakout and pullback setups here.
+                  </p>
+
+                  <div className="space-y-2">
+                    {leadingSectors.map(s => (
+                      <div key={s.name} className="p-3 rounded-xl bg-black/40 border border-emerald-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm font-display">{s.name}</span>
+                            <span className={`text-[10px] font-mono font-bold ${s.change1w >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {s.change1w >= 0 ? "+" : ""}{s.change1w}% (1W)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            Top: <strong className="text-white/80">{s.topGainer.symbol}</strong> ({s.topGainer.change >= 0 ? "+" : ""}{s.topGainer.change}%)
+                          </span>
+                        </div>
+                        <div className="text-right font-mono text-xs">
+                          <span className="text-emerald-300 font-bold block">RS: {s.rsRatio || "102.4"}</span>
+                          <span className="text-emerald-400/70 text-[10px]">Mom: {s.rsMomentum || "101.8"}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {leadingSectors.length === 0 && (
+                      <p className="text-xs text-white/30 italic">No sectors currently in pure leading quadrant.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. IMPROVING QUADRANT (Top-Left) */}
+                <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-5 space-y-4 shadow-[0_0_20px_rgba(6,182,212,0.08)]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#06b6d4]" />
+                        <h3 className="text-base font-bold font-display text-cyan-300">
+                          QUADRANT IV: IMPROVING
+                        </h3>
+                      </div>
+                      <p className="text-[11px] font-mono text-cyan-400/70 mt-0.5">
+                        Low Relative Strength (RS &lt; 100) + Rising Momentum (Mom &gt; 100)
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                      Early Rotation Entry
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/60 font-sans leading-relaxed">
+                    Sectors bottoming out and gaining relative momentum before price breaks out. Accumulate Stage 1/2 transition setups for maximum risk:reward.
+                  </p>
+
+                  <div className="space-y-2">
+                    {improvingSectors.map(s => (
+                      <div key={s.name} className="p-3 rounded-xl bg-black/40 border border-cyan-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm font-display">{s.name}</span>
+                            <span className={`text-[10px] font-mono font-bold ${s.change1w >= 0 ? "text-cyan-400" : "text-rose-400"}`}>
+                              {s.change1w >= 0 ? "+" : ""}{s.change1w}% (1W)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            Top: <strong className="text-white/80">{s.topGainer.symbol}</strong> ({s.topGainer.change >= 0 ? "+" : ""}{s.topGainer.change}%)
+                          </span>
+                        </div>
+                        <div className="text-right font-mono text-xs">
+                          <span className="text-cyan-300 font-bold block">RS: {s.rsRatio || "98.6"}</span>
+                          <span className="text-cyan-400/70 text-[10px]">Mom: {s.rsMomentum || "101.4"}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {improvingSectors.length === 0 && (
+                      <p className="text-xs text-white/30 italic">No sectors currently in improving quadrant.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. WEAKENING QUADRANT (Bottom-Right) */}
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-5 space-y-4 shadow-[0_0_20px_rgba(245,158,11,0.08)]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#f59e0b]" />
+                        <h3 className="text-base font-bold font-display text-amber-300">
+                          QUADRANT II: WEAKENING
+                        </h3>
+                      </div>
+                      <p className="text-[11px] font-mono text-amber-400/70 mt-0.5">
+                        High Relative Strength (RS &gt; 100) + Falling Momentum (Mom &lt; 100)
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Tighten Trailing Stops
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/60 font-sans leading-relaxed">
+                    Sectors still holding high relative strength from past runs, but losing steam. Avoid fresh swing buys; raise stops to 20 EMA and book partial profits.
+                  </p>
+
+                  <div className="space-y-2">
+                    {weakeningSectors.map(s => (
+                      <div key={s.name} className="p-3 rounded-xl bg-black/40 border border-amber-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm font-display">{s.name}</span>
+                            <span className={`text-[10px] font-mono font-bold ${s.change1w >= 0 ? "text-amber-400" : "text-rose-400"}`}>
+                              {s.change1w >= 0 ? "+" : ""}{s.change1w}% (1W)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            Top: <strong className="text-white/80">{s.topGainer.symbol}</strong> ({s.topGainer.change >= 0 ? "+" : ""}{s.topGainer.change}%)
+                          </span>
+                        </div>
+                        <div className="text-right font-mono text-xs">
+                          <span className="text-amber-300 font-bold block">RS: {s.rsRatio || "101.5"}</span>
+                          <span className="text-amber-400/70 text-[10px]">Mom: {s.rsMomentum || "98.2"}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {weakeningSectors.length === 0 && (
+                      <p className="text-xs text-white/30 italic">No sectors currently in weakening quadrant.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. LAGGING QUADRANT (Bottom-Left) */}
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-5 space-y-4 shadow-[0_0_20px_rgba(244,63,94,0.08)]">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_#f43f5e]" />
+                        <h3 className="text-base font-bold font-display text-rose-300">
+                          QUADRANT III: LAGGING
+                        </h3>
+                      </div>
+                      <p className="text-[11px] font-mono text-rose-400/70 mt-0.5">
+                        Low Relative Strength (RS &lt; 100) + Negative Momentum (Mom &lt; 100)
+                      </p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                      Focus F&O Shorts
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/60 font-sans leading-relaxed">
+                    Underperforming benchmark index under active institutional distribution. Prime hunting ground for intraday Put options and short buildup plays.
+                  </p>
+
+                  <div className="space-y-2">
+                    {laggingSectors.map(s => (
+                      <div key={s.name} className="p-3 rounded-xl bg-black/40 border border-rose-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm font-display">{s.name}</span>
+                            <span className="text-[10px] font-mono font-bold text-rose-400">
+                              {s.change1w >= 0 ? "+" : ""}{s.change1w}% (1W)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono">
+                            Loser: <strong className="text-rose-400">{s.topLoser.symbol}</strong> ({s.topLoser.change}%)
+                          </span>
+                        </div>
+                        <div className="text-right font-mono text-xs">
+                          <span className="text-rose-300 font-bold block">RS: {s.rsRatio || "97.4"}</span>
+                          <span className="text-rose-400/70 text-[10px]">Mom: {s.rsMomentum || "98.1"}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {laggingSectors.length === 0 && (
+                      <p className="text-xs text-white/30 italic">No sectors currently in lagging quadrant.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: SECTOR CYCLE & HEATMAP */}
           {activeTab === "cycle" && (
             <div className="space-y-8">

@@ -5,6 +5,7 @@ import { useViewMode } from "@/hooks/useViewMode";
 import { type StockIQResult } from "@shared/types";
 import StockIQScore from "@/components/StockIQScore";
 import { StockSearchBar } from "@/components/StockSearchBar";
+import { InstitutionalVerdictCard } from "@/components/InstitutionalVerdictCard";
 import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info } from "lucide-react";
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
 import { PredictaPanel } from "@/components/PredictaPanel";
@@ -227,6 +228,15 @@ export default function CheckStock() {
             transition={{ duration: 0.4 }}
             className="space-y-6"
           >
+
+            {/* ── 5-Pillar Institutional Verdict Card (NSE/BSE Microstructure) ── */}
+            {stockIq?.institutionalVerdict && (
+              <InstitutionalVerdictCard
+                verdictData={stockIq.institutionalVerdict}
+                symbol={selectedStock}
+                price={quote?.stock?.price || 0}
+              />
+            )}
 
             {/* ── Screener.in Style Key Metrics Card ── */}
             {quote && (
