@@ -3137,14 +3137,18 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
       // Ensure every requested symbol (e.g. from user watchlist) has active scheduled events
       if (requestedSymbols.length > 0) {
-        requestedSymbols.forEach((rawSym: string) => {
-          const clean = rawSym.replace(/\.NS$|\.BO$/i, "").toUpperCase();
+        const cleanRequested = new Set(requestedSymbols.map(s => s.replace(/\.NS$|\.BO$/i, "").toUpperCase()));
+
+        cleanRequested.forEach((clean) => {
           const hasEvents = allEvents.some((e: any) => e.symbol === clean);
           if (!hasEvents) {
             const seeded = generateEventsForSymbol(clean);
             allEvents = [...allEvents, ...seeded];
           }
         });
+
+        // Strictly filter to only requested watchlist symbols
+        allEvents = allEvents.filter(e => cleanRequested.has(e.symbol.toUpperCase()));
       }
 
       // Deduplicate by id and symbol+date+type
