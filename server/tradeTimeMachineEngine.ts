@@ -1,13 +1,12 @@
 /**
- * TRADE TIME MACHINE — Monte Carlo Replay & Statistical Outcome Simulator
+ * TRADE TIME MACHINE — Deterministic Monte Carlo Replay & Outcome Engine
  * ─────────────────────────────────────────────────────────────────────────────
- * Inspired by institutional risk modeling and quant trade replay systems:
- *  1. Empirical Bootstrapped Return Sampling (with fat-tail kurtosis adjustment)
- *  2. Multi-Path Monte Carlo Simulation (5,000 to 10,000 iterations)
- *  3. Dynamic Target vs. Stop Barrier Resolution with Intraday ATR Range
- *  4. Maximum Adverse Excursion (MAE) Calculation (drawdown tolerance)
- *  5. Expected Value (EV) per ₹1,000 Risk & Statistical Edge Verdict
- *  6. Quantile Path Envelopes (p5, p25, median, p75, p95) for visual replay
+ * Designed for institutional quantitative reliability:
+ *  1. Seeded Mulberry32 PRNG — Eliminates jitter & random drift on page refreshes.
+ *  2. Empirical Bootstrapping from actual historical candle residuals.
+ *  3. In-Memory Result Caching (15-min TTL) ensuring exact stability on reload.
+ *  4. Dynamic ATR-based barrier resolution (Target 1, Stop Loss, Target 2).
+ *  5. Maximum Adverse Excursion (MAE) & Expected Value (EV) per ₹1,000 risk.
  */
 
 import { candleCache } from "./candleCache";
@@ -55,13 +54,13 @@ export interface TimeMachineSimulationResult {
   timestamp: string;
 
   // Probabilistic Outcome Metrics
-  winRatePct: number; // Reached Target 1 before Stop Loss
-  stopOutPct: number; // Breached Stop Loss before Target 1
-  expiredPct: number; // Reached horizon without hitting either
-  target2Pct: number; // Continued to reach Target 2
+  winRatePct: number;
+  stopOutPct: number;
+  expiredPct: number;
+  target2Pct: number;
 
   // Expected Value & Edge
-  expectedValuePer1000Risk: number; // ₹ EV per ₹1,000 risked
+  expectedValuePer1000Risk: number;
   profitFactor: number;
   riskPerShare: number;
   rewardPerShare: number;
@@ -75,8 +74,8 @@ export interface TimeMachineSimulationResult {
   annualizedVolatilityPct: number;
   dailyVolatilityPct: number;
   averageTrueRange: number;
-  maxAdverseExcursionPct: number; // Median drawdown on winning paths
-  p95AdverseExcursionPct: number; // 95th percentile worst drawdown on winners
+  maxAdverseExcursionPct: number;
+  p95AdverseExcursionPct: number;
 
   // Visual Replay Quantile Paths & Histogram
   quantilePaths: QuantilePathPoint[];
@@ -96,15 +95,45 @@ export function toYahooSymbol(raw: string): string {
 }
 
 /**
- * Standard Normal Box-Muller random number generator
+ * Deterministic Mulberry32 32-bit PRNG
+ * Guarantees identical simulation sequence for a given seed across all refreshes.
  */
-function randomGaussian(): number {
+function createMulberry32(seed: number) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Deterministic Box-Muller Gaussian generator with seeded PRNG
+ */
+function seededGaussian(rng: () => number): number {
   let u = 0;
   let v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
+
+/**
+ * String to 32-bit integer hash for stable seed derivation
+ */
+function hashStringToSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  }
+  return h >>> 0;
+}
+
+// ── In-Memory Simulation Cache (15-min TTL) ──────────────────────────
+const timeMachineCache = new Map<string, { result: TimeMachineSimulationResult; expiresAt: number }>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
 
 export async function runTradeTimeMachine(
   params: TimeMachineParams
@@ -115,7 +144,7 @@ export async function runTradeTimeMachine(
   const numSims = Math.min(10000, Math.max(1000, params.simulations || 5000));
   const horizonDays = Math.min(60, Math.max(5, params.horizonDays || 25));
 
-  // 1. Fetch 1 year of daily historical candles from cache
+  // 1. Fetch 1 year of daily historical candles
   const candles = await candleCache.getCandlesCached(yahooSym, "1y", "1d");
   if (!candles || candles.length < 40) {
     throw new Error(`Insufficient historical market data for ${symbol} to run Monte Carlo replay.`);
@@ -125,7 +154,7 @@ export async function runTradeTimeMachine(
   const lastCandle = validCandles[validCandles.length - 1];
   const lastClose = Number(lastCandle.close);
 
-  // 2. Resolve Trade Geometry (Entry, Stop Loss, Target 1, Target 2)
+  // 2. Resolve Trade Geometry
   const entryPrice = Number(params.entryPrice) > 0 ? Number(params.entryPrice) : lastClose;
   
   // Calculate 14-period Average True Range (ATR)
@@ -164,11 +193,18 @@ export async function runTradeTimeMachine(
       : Math.round((entryPrice - 3.5 * risk) * 100) / 100;
   }
 
+  // Check cache for identical parameters
+  const cacheKey = `${symbol}|${direction}|${entryPrice}|${stopLoss}|${target1}|${target2}|${horizonDays}|${numSims}`;
+  const cached = timeMachineCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.result;
+  }
+
   const riskPerShare = Math.abs(entryPrice - stopLoss);
   const rewardPerShare = Math.abs(target1 - entryPrice);
   const rrRatio = riskPerShare > 0 ? Math.round((rewardPerShare / riskPerShare) * 100) / 100 : 1;
 
-  // 3. Extract Log Returns & Empirical Distribution
+  // 3. Extract Log Returns
   const logReturns: number[] = [];
   for (let i = 1; i < validCandles.length; i++) {
     const prev = Number(validCandles[i - 1].close);
@@ -184,7 +220,14 @@ export async function runTradeTimeMachine(
   const annualVolPct = Math.round(dailyVol * Math.sqrt(252) * 10000) / 100;
   const dailyVolPct = Math.round(dailyVol * 10000) / 100;
 
-  // 4. Run Multi-Path Monte Carlo Simulation
+  // 4. Initialize Deterministic Seeded PRNG
+  // Combines symbol, entry, SL, target, and last candle date to produce 100% reproducible outcomes
+  const candleDateStr = lastCandle.time || String(lastCandle.timestamp || "");
+  const seedString = `${symbol}_${entryPrice}_${stopLoss}_${target1}_${target2}_${horizonDays}_${candleDateStr}`;
+  const seed = hashStringToSeed(seedString);
+  const rng = createMulberry32(seed);
+
+  // 5. Run Deterministic Multi-Path Monte Carlo Simulation
   let target1Hits = 0;
   let target2Hits = 0;
   let stopOuts = 0;
@@ -193,10 +236,9 @@ export async function runTradeTimeMachine(
   const daysToResolution: number[] = [];
   const daysToWin: number[] = [];
   const daysToLoss: number[] = [];
-  const winningAdverseExcursions: number[] = []; // % dip on winners
+  const winningAdverseExcursions: number[] = [];
   const finalReturns: number[] = [];
 
-  // Track all simulated price matrices for quantile ribbons (Day 0 to Horizon)
   const dayPrices: number[][] = Array.from({ length: horizonDays + 1 }, () => []);
   dayPrices[0] = Array(numSims).fill(entryPrice);
 
@@ -210,15 +252,15 @@ export async function runTradeTimeMachine(
     for (let day = 1; day <= horizonDays; day++) {
       if (!resolved) {
         // Hybrid Bootstrapping: 80% empirical historical jump + 20% random Gaussian shock
-        const randomIndex = Math.floor(Math.random() * logReturns.length);
+        const randomIndex = Math.floor(rng() * logReturns.length);
         const empiricalJump = logReturns[randomIndex];
-        const gaussianShock = randomGaussian() * dailyVol;
+        const gaussianShock = seededGaussian(rng) * dailyVol;
         const sampledReturn = 0.80 * empiricalJump + 0.20 * gaussianShock;
 
         // Daily Intraday High/Low simulation based on ATR ratio
         const prevPrice = price;
         price = prevPrice * Math.exp(sampledReturn);
-        const intradayWiggle = (atr / entryPrice) * (0.4 + Math.random() * 0.4);
+        const intradayWiggle = (atr / entryPrice) * (0.4 + rng() * 0.4);
         const simHigh = Math.max(prevPrice, price) * (1 + intradayWiggle * 0.5);
         const simLow = Math.min(prevPrice, price) * (1 - intradayWiggle * 0.5);
 
@@ -226,7 +268,6 @@ export async function runTradeTimeMachine(
           minPriceDuring = Math.min(minPriceDuring, simLow);
           maxPriceDuring = Math.max(maxPriceDuring, simHigh);
 
-          // Check barrier hits (Stop Loss vs Target)
           if (simLow <= stopLoss) {
             resolved = true;
             stopOuts++;
@@ -249,7 +290,6 @@ export async function runTradeTimeMachine(
             }
           }
         } else {
-          // SHORT DIRECTION
           maxPriceDuring = Math.max(maxPriceDuring, simHigh);
           minPriceDuring = Math.min(minPriceDuring, simLow);
 
@@ -289,7 +329,7 @@ export async function runTradeTimeMachine(
     }
   }
 
-  // 5. Compute Percentiles & Quantile Paths
+  // 6. Compute Quantile Paths
   const quantilePaths: QuantilePathPoint[] = [];
   for (let day = 0; day <= horizonDays; day++) {
     const sorted = [...dayPrices[day]].sort((a, b) => a - b);
@@ -306,26 +346,22 @@ export async function runTradeTimeMachine(
     });
   }
 
-  // 6. Probabilities & Expected Value (EV)
+  // 7. Probabilities & Expected Value (EV)
   const winRatePct = Math.round((target1Hits / numSims) * 1000) / 10;
   const stopOutPct = Math.round((stopOuts / numSims) * 1000) / 10;
   const expiredPct = Math.round((expiredCount / numSims) * 1000) / 10;
   const target2Pct = Math.round((target2Hits / numSims) * 1000) / 10;
 
-  // Expected Value per ₹1,000 risked
-  // Formula: (WinRate * Reward/Risk - StopRate * 1.0) * 1000
   const winProb = winRatePct / 100;
   const stopProb = stopOutPct / 100;
   const ev = Math.round((winProb * rrRatio - stopProb * 1.0) * 1000);
 
-  // Profit Factor = Total Win $ / Total Loss $
   const totalWinDollars = target1Hits * rewardPerShare;
   const totalLossDollars = stopOuts * riskPerShare;
   const profitFactor = totalLossDollars > 0
     ? Math.round((totalWinDollars / totalLossDollars) * 100) / 100
     : 99.9;
 
-  // Median days to outcome
   const medianDaysToOutcome = daysToResolution.length > 0
     ? [...daysToResolution].sort((a, b) => a - b)[Math.floor(daysToResolution.length / 2)]
     : Math.round(horizonDays / 2);
@@ -336,7 +372,6 @@ export async function runTradeTimeMachine(
     ? [...daysToLoss].sort((a, b) => a - b)[Math.floor(daysToLoss.length / 2)]
     : 0;
 
-  // Maximum Adverse Excursion on Winning Trades
   winningAdverseExcursions.sort((a, b) => a - b);
   const maeMedian = winningAdverseExcursions.length > 0
     ? Math.round(winningAdverseExcursions[Math.floor(winningAdverseExcursions.length * 0.5)] * 10) / 10
@@ -345,7 +380,6 @@ export async function runTradeTimeMachine(
     ? Math.round(winningAdverseExcursions[Math.floor(winningAdverseExcursions.length * 0.95)] * 10) / 10
     : Math.round((atrPct * 1.6) * 10) / 10;
 
-  // Edge Verdict
   let confidenceRating: TimeMachineSimulationResult["confidenceRating"] = "NEUTRAL_EDGE";
   let edgeSummary = "";
 
@@ -363,7 +397,7 @@ export async function runTradeTimeMachine(
     edgeSummary = `Negative expectancy (-₹${Math.abs(ev)} EV per ₹1k risked). High risk of premature stop-out (${stopOutPct}%). Long entries discouraged.`;
   }
 
-  // 7. Outcome Histogram (10 bins)
+  // 8. Outcome Histogram
   const numBins = 10;
   const minReturn = -Math.max(0.10, riskPerShare / entryPrice * 1.5);
   const maxReturn = Math.max(0.15, (target2 - entryPrice) / entryPrice * 1.2);
@@ -385,7 +419,7 @@ export async function runTradeTimeMachine(
     });
   }
 
-  return {
+  const result: TimeMachineSimulationResult = {
     symbol,
     direction,
     entryPrice,
@@ -417,4 +451,9 @@ export async function runTradeTimeMachine(
     quantilePaths,
     distributionHistogram,
   };
+
+  // Cache result for 15 minutes
+  timeMachineCache.set(cacheKey, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+
+  return result;
 }

@@ -61,13 +61,13 @@ const METRICS_POOL: Record<string, (q: any, f: any, iq: any, sym: string) => str
   bookValue: (q: any, f: any, iq: any, sym: string) => {
     const pb = f?.ratios?.yearly?.at(-1)?.pb;
     const price = q?.stock?.price;
-    if (pb && price) return `₹ ${(price / pb).toFixed(1)}`;
-    const hash = ((sym ? sym.charCodeAt(0) : 65) % 50) + 20;
-    return `₹ ${hash}.5`;
+    if (pb && price && pb > 0) return `₹ ${(price / pb).toFixed(1)}`;
+    const bv = f?.ratios?.yearly?.at(-1)?.bookValue || iq?.fundamentals?.metrics?.find((m: any) => m.name === "Book Value")?.value;
+    return bv ? `₹ ${bv}` : "—";
   },
   divYield: (q: any, f: any, iq: any, sym: string) => {
-    const hash = ((sym ? sym.charCodeAt(0) : 65) % 200) / 100;
-    return `${hash.toFixed(2)} %`;
+    const dy = f?.ratios?.yearly?.at(-1)?.dividendYield || iq?.fundamentals?.metrics?.find((m: any) => m.name === "Dividend Yield")?.value || q?.stock?.dividendYield;
+    return dy != null ? `${Number(dy).toFixed(2)} %` : "—";
   },
   roce: (q: any, f: any, iq: any, sym: string) => {
     const val = f?.ratios?.yearly?.at(-1)?.roce || iq?.fundamentals?.metrics?.find((m: any) => m.name === "ROCE")?.value;
@@ -78,8 +78,8 @@ const METRICS_POOL: Record<string, (q: any, f: any, iq: any, sym: string) => str
     return val ? `${val} %` : "—";
   },
   faceValue: (q: any, f: any, iq: any, sym: string) => {
-    const values = [1, 2, 5, 10];
-    return `₹ ${values[(sym ? sym.charCodeAt(0) : 65) % 4]}.00`;
+    const fv = f?.ratios?.yearly?.at(-1)?.faceValue || q?.stock?.faceValue;
+    return fv ? `₹ ${fv}.00` : "—";
   },
   debtEquity: (q: any, f: any, iq: any, sym: string) => {
     const val = f?.ratios?.yearly?.at(-1)?.debtEquity || iq?.fundamentals?.metrics?.find((m: any) => m.name === "Debt/Equity")?.value;
@@ -98,12 +98,12 @@ const METRICS_POOL: Record<string, (q: any, f: any, iq: any, sym: string) => str
     return val ? `${val.toFixed(1)} %` : "—";
   },
   salesGrowth: (q: any, f: any, iq: any, sym: string) => {
-    const hash = 8 + ((sym ? sym.charCodeAt(0) : 65) % 15);
-    return `${hash.toFixed(1)} %`;
+    const sg = f?.ratios?.yearly?.at(-1)?.salesGrowth || f?.profitAndLoss?.salesGrowth3Y;
+    return sg != null ? `${Number(sg).toFixed(1)} %` : "—";
   },
   profitGrowth: (q: any, f: any, iq: any, sym: string) => {
-    const hash = 10 + ((sym ? sym.charCodeAt(0) : 65) % 25);
-    return `${hash.toFixed(1)} %`;
+    const pg = f?.ratios?.yearly?.at(-1)?.profitGrowth || f?.profitAndLoss?.profitGrowth3Y;
+    return pg != null ? `${Number(pg).toFixed(1)} %` : "—";
   },
   pegRatio: (q: any, f: any, iq: any, sym: string) => {
     const val = iq?.fundamentals?.metrics?.find((m: any) => m.name === "PEG Ratio")?.value;

@@ -1666,15 +1666,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get specific stock quote
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
-      const symbol = req.params.symbol;
-      const stockData = await getStockQuotes([symbol]);
+      const rawSymbol = req.params.symbol;
+      const yahooSym = toYahooSymbol(rawSymbol);
+      const stockData = await getStockQuotes([yahooSym]);
 
       if (stockData.length === 0) {
         return res.status(404).json({ message: "Stock not found" });
       }
 
       res.json({
-        stock: stockData[0],
+        stock: {
+          ...stockData[0],
+          symbol: rawSymbol.toUpperCase(),
+        },
         lastUpdated: new Date().toISOString(),
         dataSource: "Live API",
       });
