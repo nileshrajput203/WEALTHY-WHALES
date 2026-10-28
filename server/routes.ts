@@ -39,6 +39,7 @@ import {
   getMockStockData,
   getMockNewsData,
   getStockQuotes,
+  getYahooStockQuote,
   searchStocksYahoo,
   getYahooHistory,
   getYahooStockNews,
@@ -161,6 +162,10 @@ import {
   jobLedger,
   jobErrorLog,
 } from "@shared/schema";
+import { registerWatchlistRoutes } from "./watchlistRoutes";
+import { runPatternScannerEnhanced } from "./patternScannerEnhanced";
+import { getScalpSignals } from "./scalpEngine";
+import { getScalpPerformanceHistory } from "./scalpMonitor";
 
 /**
  * Normalize a symbol for Yahoo Finance API calls.
@@ -235,36 +240,122 @@ function getDailySeedKey(prefix: string): string {
   return `${prefix}_${year}-${month}-${date}`;
 }
 
+// Single-Flight Request Coalescing map for cache operations
+const inflightCacheGenerations = new Map<string, Promise<any>>();
+
+// Admin authorization middleware
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = req.user as any;
+  if (!user?.isAdmin) {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}
+
+// SSE Live Market Broadcast Hub
+const sseMarketClients = new Set<Response>();
+let sseMarketInterval: NodeJS.Timeout | null = null;
+let lastMarketBroadcastData: any = null;
+
+function broadcastMarketIndices(data: any) {
+  lastMarketBroadcastData = data;
+  const payload = `data: ${JSON.stringify({ type: "indices", data })}\n\n`;
+  for (const client of sseMarketClients) {
+    try {
+      client.write(payload);
+    } catch {
+      sseMarketClients.delete(client);
+    }
+  }
+}
+
+function startSseBroadcastIfNeeded() {
+  if (sseMarketInterval || sseMarketClients.size === 0) return;
+  sseMarketInterval = setInterval(async () => {
+    if (sseMarketClients.size === 0) {
+      if (sseMarketInterval) {
+        clearInterval(sseMarketInterval);
+        sseMarketInterval = null;
+      }
+      return;
+    }
+    try {
+      const indices = await getMarketIndices();
+      if (indices && indices.length > 0) {
+        broadcastMarketIndices(indices);
+      }
+    } catch (err) {
+      console.warn("[SSE Market Broadcast Error]:", err);
+    }
+  }, 15000);
+}
+
+// Multi-Tier Cache with Stale-While-Revalidate (SWR) and Single-Flight Request Coalescing
 async function getCachedOrGenerate<T>(
   key: string,
   ttlMs: number,
   generateFn: () => Promise<T>,
 ): Promise<T> {
+  let cached: any = null;
   try {
-    const cached = await storage.getMarketDataCache(key);
+    cached = await storage.getMarketDataCache(key);
     if (cached) {
       const age = Date.now() - new Date(cached.updatedAt).getTime();
+      // Fresh hit (<0.2ms)
       if (age < ttlMs) {
-        console.log(`[Cache Hit] Key: ${key}, age: ${Math.round(age / 1000)}s`);
         return cached.data as T;
       }
-      console.log(`[Cache Stale] Key: ${key}, age: ${Math.round(age / 1000)}s`);
-    } else {
-      console.log(`[Cache Miss] Key: ${key}`);
+      // Stale-While-Revalidate window (up to 5x TTL): return stale immediately, refresh in background
+      if (age < ttlMs * 5) {
+        if (!inflightCacheGenerations.has(key)) {
+          const bgRefresh = (async () => {
+            try {
+              const fresh = await generateFn();
+              await storage.setMarketDataCache(key, fresh);
+            } catch (bgErr) {
+              console.warn(`[Cache SWR Refresh Error] Key: ${key}:`, bgErr);
+            } finally {
+              inflightCacheGenerations.delete(key);
+            }
+          })();
+          inflightCacheGenerations.set(key, bgRefresh);
+        }
+        return cached.data as T;
+      }
     }
   } catch (err) {
     console.error(`Error reading cache for ${key}:`, err);
   }
 
-  const freshData = await generateFn();
-
-  try {
-    await storage.setMarketDataCache(key, freshData);
-  } catch (err) {
-    console.error(`Error writing cache for ${key}:`, err);
+  // Cold cache or expired past SWR window: Single-Flight deduplication
+  const existingInflight = inflightCacheGenerations.get(key);
+  if (existingInflight) {
+    return existingInflight;
   }
 
-  return freshData;
+  const executionPromise = (async (): Promise<T> => {
+    try {
+      const freshData = await generateFn();
+      try {
+        await storage.setMarketDataCache(key, freshData);
+      } catch (err) {
+        console.error(`Error writing cache for ${key}:`, err);
+      }
+      return freshData;
+    } catch (err) {
+      // Graceful fallback to stale cache if upstream generation failed
+      if (cached?.data) {
+        console.warn(`[Cache Recovery] generateFn failed for ${key}, falling back to stale cache`);
+        return cached.data as T;
+      }
+      throw err;
+    } finally {
+      inflightCacheGenerations.delete(key);
+    }
+  })();
+
+  inflightCacheGenerations.set(key, executionPromise);
+  return executionPromise;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -441,29 +532,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stock Recommendations - Real-time data from free APIs
+  // Mount watchlist routes
+  registerWatchlistRoutes(app);
+
+  // ═══ Live Market Server-Sent Events (SSE) Stream ══════════════════════════
+  app.get("/api/stream/market", (req: Request, res: Response) => {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.write(": connected\n\n");
+
+    // Immediately push latest known market indices
+    if (lastMarketBroadcastData) {
+      res.write(`data: ${JSON.stringify({ type: "indices", data: lastMarketBroadcastData })}\n\n`);
+    } else {
+      getMarketIndices()
+        .then((indices) => {
+          if (indices && indices.length > 0) {
+            lastMarketBroadcastData = indices;
+            res.write(`data: ${JSON.stringify({ type: "indices", data: indices })}\n\n`);
+          }
+        })
+        .catch(() => {});
+    }
+
+    sseMarketClients.add(res);
+    startSseBroadcastIfNeeded();
+
+    req.on("close", () => {
+      sseMarketClients.delete(res);
+      if (sseMarketClients.size === 0 && sseMarketInterval) {
+        clearInterval(sseMarketInterval);
+        sseMarketInterval = null;
+      }
+    });
+  });
+
+  // ═══ Batch Stock Quotes Endpoint (1 HTTP call for up to 50 tickers) ═══════
+  app.get("/api/quotes/batch", async (req: Request, res: Response) => {
+    try {
+      const rawParam = (req.query.symbols as string) || "";
+      if (!rawParam.trim()) {
+        return res.json({ quotes: {} });
+      }
+      const rawList = rawParam.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+      const symbols = rawList.slice(0, 50);
+      const quotesMap: Record<string, any> = {};
+
+      await Promise.all(
+        symbols.map(async (rawSym) => {
+          try {
+            const yfSym = rawSym.includes(".") ? rawSym : `${rawSym}.NS`;
+            const q = await getYahooStockQuote(yfSym);
+            if (q) {
+              quotesMap[rawSym] = q;
+              quotesMap[rawSym.replace(/\.(NS|BO)$/i, "")] = q;
+            }
+          } catch (err) {
+            console.warn(`[Batch Quotes] Error for ${rawSym}:`, err);
+          }
+        })
+      );
+
+      res.json({ quotes: quotesMap });
+    } catch (err: any) {
+      console.error("[Batch Quotes Error]:", err);
+      res.status(500).json({ quotes: {}, error: err.message });
+    }
+  });
+
+  // Stock Recommendations - Real-time data with SWR cache & single-flight coalescing
   app.get("/api/recommendations", async (req, res) => {
     try {
-      // Get real-time stock data
-      let stockData: StockQuote[] = [];
+      const response = await getCachedOrGenerate(
+        "api_recommendations_v2",
+        30 * 1000,
+        async () => {
+          let stockData: StockQuote[] = [];
+          try {
+            stockData = await getIndianStockRecommendations();
+          } catch (apiError) {
+            console.error("API error, using mock data:", apiError);
+            stockData = getMockStockData();
+          }
 
-      try {
-        stockData = await getIndianStockRecommendations();
-      } catch (apiError) {
-        console.error("API error, using mock data:", apiError);
-        stockData = getMockStockData();
-      }
+          const dbRecommendations = await storage.getAllRecommendations();
 
-      // Get admin recommendations from database
-      const dbRecommendations = await storage.getAllRecommendations();
-
-      // Combine real-time data with admin recommendations
-      const response = {
-        realTimeStocks: stockData,
-        adminRecommendations: dbRecommendations,
-        lastUpdated: new Date().toISOString(),
-        dataSource: stockData.length > 0 ? "Live API" : "Mock Data",
-      };
+          return {
+            realTimeStocks: stockData,
+            adminRecommendations: dbRecommendations,
+            lastUpdated: new Date().toISOString(),
+            dataSource: stockData.length > 0 ? "Live API" : "Mock Data",
+          };
+        }
+      );
 
       res.json(response);
     } catch (error) {
@@ -472,9 +637,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/recommendations", async (req: Request, res: Response) => {
+  app.post("/api/recommendations", requireAdmin, async (req: Request, res: Response) => {
     try {
-      // Allow admin panel to create recommendations without authentication
       const { createdBy, ...rest } = req.body || {};
       const validated = insertStockRecommendationSchema.parse(rest);
       const recommendation = await storage.createRecommendation(validated);
@@ -496,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete recommendation (admin only)
-  app.delete("/api/recommendations/:id", async (req, res) => {
+  app.delete("/api/recommendations/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.deleteRecommendation(id);
@@ -597,24 +761,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // IPO Scanner — dynamic base detection for recent IPOs (Self-Improving Evolved version)
-  let ipoScanCache: { data: any[]; ts: number } | null = null;
-  const IPO_CACHE_TTL = 15 * 60 * 1000; // 15 min cache for faster loads
+  const IPO_CACHE_TTL = 15 * 60 * 1000; // 15 min cache
 
   app.get("/api/scanner/ipo", async (req, res) => {
     try {
-      if (ipoScanCache && Date.now() - ipoScanCache.ts < IPO_CACHE_TTL) {
-        console.log(
-          `Returning cached evolved IPO results (${ipoScanCache.data.length} stocks)`,
-        );
-        return res.json(ipoScanCache.data);
-      }
-
-      console.log(
-        "IPO scanner endpoint hit — running evolved IPO genome scan...",
+      const results = await getCachedOrGenerate(
+        "scanner_ipo_evolved",
+        IPO_CACHE_TTL,
+        async () => {
+          console.log("Running evolved IPO genome scan...");
+          const scanResult = await runIpoScannerEvolved();
+          return scanResult.results;
+        }
       );
-      const scanResult = await runIpoScannerEvolved();
-      ipoScanCache = { data: scanResult.results, ts: Date.now() };
-      res.json(scanResult.results);
+      res.json(results);
     } catch (error) {
       console.error("Error in evolved IPO scanner:", error);
       res.status(500).json({ message: "Failed to run evolved IPO scanner" });
@@ -622,27 +782,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Swing Scanner — real technical analysis on small/mid-cap stocks (Self-Improving Evolved version)
-  let swingScanCache: { data: any[]; ts: number } | null = null;
   const SWING_CACHE_TTL = 15 * 60 * 1000; // 15 min
 
   app.get("/api/swing-scanner", async (req, res) => {
     try {
-      console.log(
-        "Swing scanner endpoint hit — running evolved Swing genome scan...",
+      const results = await getCachedOrGenerate(
+        "scanner_swing_evolved",
+        SWING_CACHE_TTL,
+        async () => {
+          console.log("Running evolved Swing genome scan...");
+          const scanResult = await runSwingScannerEvolved();
+          return { stocks: scanResult.results, genomeVersion: scanResult.genomeVersion };
+        }
       );
-
-      // Return cached if fresh
-      if (swingScanCache && Date.now() - swingScanCache.ts < SWING_CACHE_TTL) {
-        console.log(
-          `Returning cached evolved swing results (${swingScanCache.data.length} stocks)`,
-        );
-        return res.json({ stocks: swingScanCache.data, cached: true });
-      }
-
-      const scanResult = await runSwingScannerEvolved();
-      swingScanCache = { data: scanResult.results, ts: Date.now() };
-      console.log(`Evolved Swing scanner found ${scanResult.results.length} qualifying stocks (genome v${scanResult.genomeVersion})`);
-      res.json({ stocks: scanResult.results, genomeVersion: scanResult.genomeVersion });
+      res.json(results);
     } catch (error) {
       console.error("Error in evolved swing scanner:", error);
       res.status(500).json({ message: "Failed to run evolved swing scanner" });
@@ -650,23 +803,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // VCP2 Scanner — relaxed 8-filter VCP scan
-  let vcp2ScanCache: { data: any[]; ts: number } | null = null;
   const VCP2_CACHE_TTL = 15 * 60 * 1000; // 15 min
 
   app.get("/api/swing-scanner-vcp2", async (req, res) => {
     try {
-      console.log("VCP2 scanner endpoint hit — running 8-filter relaxed VCP scan...");
-
-      // Return cached if fresh
-      if (vcp2ScanCache && Date.now() - vcp2ScanCache.ts < VCP2_CACHE_TTL) {
-        console.log(`Returning cached VCP2 results (${vcp2ScanCache.data.length} stocks)`);
-        return res.json({ stocks: vcp2ScanCache.data, cached: true });
-      }
-
-      const results = await runVcp2Scanner();
-      vcp2ScanCache = { data: results, ts: Date.now() };
-      console.log(`VCP2 scanner found ${results.length} qualifying stocks`);
-      res.json({ stocks: results });
+      const results = await getCachedOrGenerate(
+        "scanner_vcp2_relaxed",
+        VCP2_CACHE_TTL,
+        async () => {
+          console.log("Running 8-filter relaxed VCP scan...");
+          const res = await runVcp2Scanner();
+          return { stocks: res };
+        }
+      );
+      res.json(results);
     } catch (error) {
       console.error("Error in VCP2 scanner:", error);
       res.status(500).json({ message: "Failed to run VCP2 scanner" });
@@ -2472,9 +2622,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chart Pattern Recognition API
+  // Chart Pattern Recognition API (Supports standard & Bayesian enhanced scans)
   app.get("/api/chart-patterns", async (req, res) => {
     try {
+      const enhanced = req.query.enhanced === "true";
+      if (enhanced) {
+        const matches = await runPatternScannerEnhanced();
+        return res.json({ matches, enhanced: true });
+      }
       const pattern = (req.query.pattern as string) || "cup_and_handle";
       const cap = (req.query.cap as string) || "all";
       const fundamentals = req.query.fundamentals === "true";
@@ -3298,15 +3453,22 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // ── USD/INR & Crypto Correlation (Phase 1D) ───────────────────────
   app.get("/api/currency/correlation", async (req, res) => {
     try {
-      const [usdinr, crypto] = await Promise.all([
-        getUSDINR(),
-        getCryptoCorrelation(),
-      ]);
-      res.json({
-        usdinr,
-        btcChange24h: crypto.btcChange24h,
-        goldChange24h: crypto.goldChange24h,
-      });
+      const data = await getCachedOrGenerate(
+        "currency_correlation",
+        5 * 60 * 1000,
+        async () => {
+          const [usdinr, crypto] = await Promise.all([
+            getUSDINR(),
+            getCryptoCorrelation(),
+          ]);
+          return {
+            usdinr,
+            btcChange24h: crypto.btcChange24h,
+            goldChange24h: crypto.goldChange24h,
+          };
+        }
+      );
+      res.json(data);
     } catch (err) {
       console.error("Error in /api/currency/correlation:", err);
       res
@@ -3512,8 +3674,8 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // HERMES AI — Self-Learning Stock Intelligence Endpoints
   // ══════════════════════════════════════════════════════════════
 
-  // Start HERMES background scheduler
-  startHermesScheduler();
+  // Start HERMES background scheduler (staggered +30s after boot to prevent boot stampede)
+  setTimeout(() => startHermesScheduler(), 30 * 1000);
 
   // Full dashboard data
   app.get("/api/hermes/dashboard", async (_req: Request, res: Response) => {
@@ -3675,14 +3837,14 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // FUGU SCORE — Self-Learning Stock Intelligence Endpoints
   // ══════════════════════════════════════════════════════════════
 
-  // Start FUGU background scheduler
-  startFuguScheduler();
+  // Start FUGU background scheduler (staggered +45s after boot)
+  setTimeout(() => startFuguScheduler(), 45 * 1000);
 
-  // Start the shared VCP journal scheduler (outcome-check + sync for all engines)
-  startVcpJournalScheduler();
+  // Start the shared VCP journal scheduler (staggered +75s after boot)
+  setTimeout(() => startVcpJournalScheduler(), 75 * 1000);
 
-  // Start the self-improving scheduler (Swing, IPO, News engines)
-  startSelfImprovingScheduler();
+  // Start the self-improving scheduler (staggered +105s after boot)
+  setTimeout(() => startSelfImprovingScheduler(), 105 * 1000);
 
   // Full dashboard data
   app.get("/api/fugu/dashboard", async (_req: Request, res: Response) => {
@@ -3833,8 +3995,31 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   // APEX SYSTEM — Intraday Intelligence System Endpoints
   // ══════════════════════════════════════════════════════════════
 
-  // Start APEX background scheduler
-  startApexScheduler();
+  // Start APEX background scheduler (staggered +135s after boot)
+  setTimeout(() => startApexScheduler(), 135 * 1000);
+
+  // APEX Intraday Scalping Signals
+  app.get("/api/scalp/signals", async (req: Request, res: Response) => {
+    try {
+      const signals = await getScalpSignals();
+      res.json({ signals: signals || [] });
+    } catch (err: any) {
+      console.error("[Scalp Signals API Error]:", err);
+      res.status(500).json({ signals: [], error: err.message });
+    }
+  });
+
+  // APEX Scalping Historical Performance
+  app.get("/api/scalp/performance", async (req: Request, res: Response) => {
+    try {
+      const days = parseInt((req.query.days as string) || "30", 10);
+      const performance = await getScalpPerformanceHistory(days);
+      res.json({ performance: performance || [] });
+    } catch (err: any) {
+      console.error("[Scalp Performance API Error]:", err);
+      res.status(500).json({ performance: [], error: err.message });
+    }
+  });
 
   // Dashboard endpoint
   app.get("/api/apex/dashboard", async (_req: Request, res: Response) => {
@@ -4322,7 +4507,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     }
   });
 
-  app.get("/api/admin/academy/enrollments", async (_req: Request, res: Response) => {
+  app.get("/api/admin/academy/enrollments", requireAdmin, async (_req: Request, res: Response) => {
     try {
       const enrollments = await getAllEnrollments();
       res.json(enrollments);
@@ -4331,7 +4516,7 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     }
   });
 
-  app.post("/api/admin/academy/approve", async (req: Request, res: Response) => {
+  app.post("/api/admin/academy/approve", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { enrollmentId, status } = req.body;
       const result = await approveEnrollment(enrollmentId, status || "GRANTED");
@@ -4461,13 +4646,13 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
     setTimeout(runDataRefresh, nextInterval);
   }
 
-  // Start scheduler after 30-second delay to let server boot
+  // Start Data Refresh scheduler after 165-second delay to let server boot smoothly
   setTimeout(() => {
     console.log("[DataRefreshScheduler] Initializing first cache warm-up...");
     runDataRefresh().catch((err) =>
       console.error("[DataRefreshScheduler] Initial run failed:", err),
     );
-  }, 30 * 1000);
+  }, 165 * 1000);
 
   const httpServer = createServer(app);
   return httpServer;

@@ -307,25 +307,34 @@ if __name__ == "__main__":
     elif args.action == 'insider-trades':
         result = fetch_insider_trades()
     elif args.action in ['quant-forecast', 'alpha158', 'sentiment', 'chartink']:
-        import subprocess
-        import os
-        quant_script = os.path.join(os.path.dirname(__file__), 'quant_models.py')
-        py_exec = sys.executable
-        sub_act = 'full_ensemble' if args.action == 'quant-forecast' else args.action
-        cmd = [py_exec, quant_script, '--action', sub_act]
-        if args.symbol:
-            cmd.extend(['--symbol', args.symbol])
-        if args.text:
-            if args.action == 'chartink':
-                cmd.extend(['--clause', args.text])
-            else:
-                cmd.extend(['--text', args.text])
-        if args.horizon:
-            cmd.extend(['--horizon', str(args.horizon)])
         try:
-            sub_res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            print(sub_res.stdout.strip())
-            sys.exit(0)
+            import quant_models
+            sub_act = 'full_ensemble' if args.action == 'quant-forecast' else args.action
+            sym = (args.symbol or 'RELIANCE').replace('.NS', '').replace('.BO', '').upper()
+            if sub_act in ['full_ensemble', 'quant-forecast']:
+                result = quant_models.run_full_quant_analysis(sym)
+            elif sub_act == 'alpha158':
+                df_d = quant_models.fetch_ohlcv(sym, period="1y", interval="1d")
+                result = quant_models.QlibAlpha158Engine.compute_factors(df_d)
+            elif sub_act == 'chartink':
+                clause = args.text or ""
+                result = quant_models.ChartinkReverseEngine.execute_scan(clause)
+            elif sub_act == 'sentiment':
+                text_input = args.text or ""
+                pos_words = ["surge", "growth", "profit", "gain", "dividend", "breakout", "bullish", "record", "expansion", "order win"]
+                neg_words = ["plunge", "loss", "crash", "fall", "fraud", "probe", "downgrade", "bearish", "miss", "default"]
+                txt_lower = text_input.lower()
+                p_score = sum(1 for w in pos_words if w in txt_lower)
+                n_score = sum(1 for w in neg_words if w in txt_lower)
+                diff = p_score - n_score
+                sentiment_label = "POSITIVE" if diff > 0 else ("NEGATIVE" if diff < 0 else "NEUTRAL")
+                result = {
+                    "text": text_input,
+                    "sentiment": sentiment_label,
+                    "score": round(max(-1.0, min(1.0, diff / 3.0)), 2)
+                }
+            else:
+                result = {"success": False, "error": f"Unknown quant action: {sub_act}"}
         except Exception as e:
             result = {"success": False, "error": str(e)}
         

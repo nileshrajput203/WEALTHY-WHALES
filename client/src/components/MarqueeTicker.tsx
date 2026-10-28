@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -20,14 +21,45 @@ const DEFAULT_INDICES: IndexData[] = [
 ];
 
 export function MarqueeTicker() {
-  const { data, isLoading } = useQuery<any>({
+  const [streamIndices, setStreamIndices] = useState<IndexData[] | null>(null);
+
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource("/api/stream/market");
+      es.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed?.type === "indices" && Array.isArray(parsed?.data) && parsed.data.length > 0) {
+            setStreamIndices(parsed.data);
+          }
+        } catch {
+          // ignore non-json frames
+        }
+      };
+      es.onerror = () => {
+        // EventSource will automatically retry in background
+      };
+    } catch {
+      // EventSource unsupported fallback
+    }
+
+    return () => {
+      if (es) {
+        es.close();
+      }
+    };
+  }, []);
+
+  const { data } = useQuery<any>({
     queryKey: ["/api/indices"],
-    refetchInterval: 30000,
+    refetchInterval: streamIndices ? false : 60000,
+    enabled: !streamIndices,
   });
 
-  const apiIndices: IndexData[] = Array.isArray(data)
+  const apiIndices: IndexData[] = streamIndices || (Array.isArray(data)
     ? data
-    : (data?.indices as IndexData[] | undefined) ?? [];
+    : (data?.indices as IndexData[] | undefined) ?? []);
 
   const indicesData = apiIndices.length > 0 ? apiIndices : DEFAULT_INDICES;
 

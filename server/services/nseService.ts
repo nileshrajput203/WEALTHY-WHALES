@@ -1,7 +1,6 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
-
 import fs from "fs";
 
 // ESM way to get directory name
@@ -31,40 +30,112 @@ export function isFnOSymbol(symbol: string): boolean {
 function getPythonCommand(): string {
   const py314Path = "C:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python314\\python.exe";
   if (fs.existsSync(py314Path)) {
-    return `"${py314Path}"`;
+    return py314Path;
   }
   return "python";
 }
 
-function runPythonWorker(action: string, symbol?: string, extraArgs?: { text?: string; horizon?: number }): Promise<any> {
-  return new Promise((resolve) => {
-    let command = `${getPythonCommand()} "${WORKER_PATH}" --action ${action}`;
-    if (symbol) {
-      command += ` --symbol "${symbol}"`;
-    }
-    if (extraArgs?.text) {
-      command += ` --text "${extraArgs.text.replace(/"/g, '\\"')}"`;
-    }
-    if (extraArgs?.horizon) {
-      command += ` --horizon ${extraArgs.horizon}`;
-    }
+// Concurrency Semaphore: prevent Python worker subprocess fork-bomb (Max 2 concurrent workers)
+const MAX_CONCURRENT_WORKERS = 2;
+let activeWorkers = 0;
+const workerQueue: (() => void)[] = [];
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error running Python worker [${action}]:`, stderr || error.message);
-        resolve(getFallbackData(action, symbol));
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        resolve(parsed);
-      } catch (parseError) {
-        console.error(`JSON Parse error from Python worker [${action}]:`, stdout);
-        resolve(getFallbackData(action, symbol));
-      }
+function acquireWorkerSlot(): Promise<void> {
+  if (activeWorkers < MAX_CONCURRENT_WORKERS) {
+    activeWorkers++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    workerQueue.push(() => {
+      activeWorkers++;
+      resolve();
     });
   });
+}
+
+function releaseWorkerSlot(): void {
+  activeWorkers--;
+  if (workerQueue.length > 0) {
+    const next = workerQueue.shift();
+    if (next) next();
+  }
+}
+
+// Worker L1 Cache & Single-Flight Coalescing
+interface WorkerCacheEntry {
+  data: any;
+  ts: number;
+}
+const nseWorkerCache = new Map<string, WorkerCacheEntry>();
+const nseInflightWorker = new Map<string, Promise<any>>();
+const WORKER_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+async function runPythonWorker(action: string, symbol?: string, extraArgs?: { text?: string; horizon?: number }): Promise<any> {
+  const cleanSym = symbol ? symbol.replace(/\.(NS|BO)$/i, "").toUpperCase().trim() : "";
+  const cacheKey = `${action}_${cleanSym}_${extraArgs?.text || ""}_${extraArgs?.horizon || ""}`;
+
+  // 1. Check L1 Memory Cache (0ms)
+  const cached = nseWorkerCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < WORKER_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  // 2. Check Single-Flight Inflight
+  const existingInflight = nseInflightWorker.get(cacheKey);
+  if (existingInflight) {
+    return existingInflight;
+  }
+
+  // 3. Queue and execute via semaphore
+  const executionPromise = (async () => {
+    await acquireWorkerSlot();
+    try {
+      const pyExe = getPythonCommand();
+      const args: string[] = [WORKER_PATH, "--action", action];
+      if (cleanSym) {
+        args.push("--symbol", cleanSym);
+      }
+      if (extraArgs?.text) {
+        args.push("--text", extraArgs.text);
+      }
+      if (extraArgs?.horizon) {
+        args.push("--horizon", String(extraArgs.horizon));
+      }
+
+      return await new Promise<any>((resolve) => {
+        execFile(
+          pyExe,
+          args,
+          {
+            maxBuffer: 10 * 1024 * 1024,
+            timeout: 25000,
+          },
+          (error, stdout, stderr) => {
+            if (error) {
+              console.error(`Error running Python worker [${action}]:`, stderr || error.message);
+              resolve(getFallbackData(action, cleanSym));
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(stdout.trim());
+              nseWorkerCache.set(cacheKey, { data: parsed, ts: Date.now() });
+              resolve(parsed);
+            } catch (parseError) {
+              console.error(`JSON Parse error from Python worker [${action}]:`, stdout);
+              resolve(getFallbackData(action, cleanSym));
+            }
+          }
+        );
+      });
+    } finally {
+      releaseWorkerSlot();
+      nseInflightWorker.delete(cacheKey);
+    }
+  })();
+
+  nseInflightWorker.set(cacheKey, executionPromise);
+  return executionPromise;
 }
 
 function getFallbackData(action: string, symbol?: string): any {

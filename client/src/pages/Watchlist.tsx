@@ -7,18 +7,40 @@ import { useState } from "react";
 import { StockChartDrawer, type StockDrawerPayload } from "@/components/StockChartDrawer";
 
 // Watchlist Stock Row Item
-function WatchlistStockRow({ symbol, onOpenChart, onRemove }: { symbol: string, onOpenChart: (stock: any) => void, onRemove: (s: string) => void }) {
-  const { data, isLoading } = useQuery<any>({
-    queryKey: [`/api/stock/${encodeURIComponent(symbol)}`],
-    refetchInterval: 30000,
-  });
-
-  if (isLoading) {
+function WatchlistStockRow({ 
+  symbol, 
+  stock,
+  isLoading,
+  onOpenChart, 
+  onRemove 
+}: { 
+  symbol: string;
+  stock?: any;
+  isLoading?: boolean;
+  onOpenChart: (stock: any) => void;
+  onRemove: (s: string) => void;
+}) {
+  if (isLoading && !stock) {
     return <div className="h-16 bg-white/5 animate-pulse rounded-xl" />;
   }
   
-  const stock = data?.stock;
-  if (!stock) return null;
+  if (!stock) {
+    return (
+      <div className="glass-card rounded-xl p-4 flex items-center justify-between border border-white/10">
+        <div className="flex flex-col">
+          <span className="font-bold text-white font-mono">{symbol.replace(".NS", "")}</span>
+          <span className="text-xs text-white/40">Loading quote...</span>
+        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onRemove(symbol); }}
+          className="p-2 hover:bg-red-500/10 text-white/40 hover:text-red-400 rounded-lg transition-colors"
+          title="Remove from Watchlist"
+        >
+          <StarOff className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   const isUp = (stock.changePercent ?? 0) >= 0;
 
@@ -29,7 +51,7 @@ function WatchlistStockRow({ symbol, onOpenChart, onRemove }: { symbol: string, 
     >
       <div className="flex flex-col">
         <span className="font-bold text-white font-mono">{symbol.replace(".NS", "")}</span>
-        <span className="text-xs text-white/50">{stock.name}</span>
+        <span className="text-xs text-white/50">{stock.name || symbol}</span>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex flex-col items-end text-right">
@@ -54,6 +76,21 @@ function WatchlistStockRow({ symbol, onOpenChart, onRemove }: { symbol: string, 
 export default function Watchlist() {
   const { watchlist, removeStock } = useWatchlist();
   const [selectedStock, setSelectedStock] = useState<StockDrawerPayload | null>(null);
+
+  // Fetch batch quotes for all watchlist items in 1 single HTTP request
+  const symbolsParam = watchlist.length > 0 ? watchlist.join(",") : "";
+  const { data: batchQuotesData, isLoading: isLoadingQuotes } = useQuery<{ quotes: Record<string, any> }>({
+    queryKey: ["/api/quotes/batch", symbolsParam],
+    queryFn: async () => {
+      if (!symbolsParam) return { quotes: {} };
+      const res = await fetch(`/api/quotes/batch?symbols=${encodeURIComponent(symbolsParam)}`);
+      return res.json();
+    },
+    enabled: watchlist.length > 0,
+    refetchInterval: 30000,
+  });
+
+  const quotesMap = batchQuotesData?.quotes || {};
 
   // Fetch batch news for all symbols in watchlist
   const symbolsQuery = watchlist.length > 0 ? watchlist.join(",") : "";
@@ -110,14 +147,21 @@ export default function Watchlist() {
           <div className="lg:col-span-1 space-y-4">
             <h2 className="text-lg font-bold text-white mb-4">Tracked Assets ({watchlist.length})</h2>
             <div className="flex flex-col gap-3">
-              {watchlist.map((symbol) => (
-                <WatchlistStockRow 
-                  key={symbol} 
-                  symbol={symbol} 
-                  onOpenChart={setSelectedStock}
-                  onRemove={removeStock}
-                />
-              ))}
+              {watchlist.map((symbol) => {
+                const norm = symbol.toUpperCase().trim();
+                const bare = norm.replace(/\.(NS|BO)$/i, "");
+                const stock = quotesMap[norm] || quotesMap[bare] || quotesMap[`${bare}.NS`];
+                return (
+                  <WatchlistStockRow 
+                    key={symbol} 
+                    symbol={symbol} 
+                    stock={stock}
+                    isLoading={isLoadingQuotes}
+                    onOpenChart={setSelectedStock}
+                    onRemove={removeStock}
+                  />
+                );
+              })}
             </div>
           </div>
 

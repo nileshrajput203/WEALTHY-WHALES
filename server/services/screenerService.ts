@@ -4,17 +4,29 @@ import { db } from "../db";
 import { screenerCache } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// L1 Memory Cache (6 hours) & Single-Flight Deduplication
+const screenerL1Cache = new Map<string, { data: any; ts: number }>();
+const screenerInflight = new Map<string, Promise<any>>();
+const SCREENER_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+// Promise Mutex Queue: ensures strictly sequential outbound calls to Screener.in with >= 2.5s delay
+let screenerMutexQueue = Promise.resolve();
 let lastRequestTime = 0;
 
-async function enforceRateLimit() {
-  const now = Date.now();
-  const timeSinceLast = now - lastRequestTime;
-  if (timeSinceLast < 2000) {
-    const delay = 2000 - timeSinceLast;
-    console.log(`[Screener.in Rate Limiter] Delaying request by ${delay}ms...`);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-  lastRequestTime = Date.now();
+function runWithScreenerMutex<T>(fn: () => Promise<T>): Promise<T> {
+  const job = screenerMutexQueue.then(async () => {
+    const now = Date.now();
+    const elapsed = now - lastRequestTime;
+    if (elapsed < 2500) {
+      const wait = 2500 - elapsed;
+      console.log(`[Screener.in Mutex Queue] Pacing request, waiting ${wait}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+    lastRequestTime = Date.now();
+    return fn();
+  });
+  screenerMutexQueue = job.then(() => {}).catch(() => {});
+  return job;
 }
 
 function parseTableElement(table: cheerio.Cheerio<any>): any[] {
@@ -127,91 +139,113 @@ export async function scrapeFinancials(symbol: string): Promise<any> {
   const cleanSymbol = symbol.replace(/\.(NS|BO|NSE|BSE)$/i, "").toUpperCase();
   const cacheKey = cleanSymbol;
 
-  // 1. Check database cache
-  try {
-    const [cached] = await db
-      .select()
-      .from(screenerCache)
-      .where(eq(screenerCache.symbol, cacheKey));
-
-    if (cached && cached.scrapedAt) {
-      const cacheAgeMs = Date.now() - new Date(cached.scrapedAt).getTime();
-      const sixHoursMs = 6 * 60 * 60 * 1000;
-      if (cacheAgeMs < sixHoursMs && isScreenerDataValid(cached.data)) {
-        console.log(`[Screener.in Cache Hit] Using database cached financials for ${cleanSymbol}`);
-        return cached.data;
-      }
-    }
-  } catch (dbError: any) {
-    console.error("[Screener.in DB Cache Query Error]:", dbError.message);
+  // 1. Check L1 RAM Cache (0ms)
+  const l1 = screenerL1Cache.get(cacheKey);
+  if (l1 && Date.now() - l1.ts < SCREENER_CACHE_TTL && isScreenerDataValid(l1.data)) {
+    return l1.data;
   }
 
-  // 2. Rate limit and scrape
-  await enforceRateLimit();
-
-  const headers = {
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    Accept:
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  };
-
-  let parsedData: any = null;
-
-  // Try consolidated first
-  const consUrl = `https://www.screener.in/company/${cleanSymbol}/consolidated/`;
-  try {
-    console.log(`[Screener.in Scraper] Fetching data from: ${consUrl}`);
-    const response = await axios.get(consUrl, { headers, timeout: 10000 });
-    const candidate = parseScreenerHtml(response.data);
-    if (isScreenerDataValid(candidate)) {
-      parsedData = candidate;
-    } else {
-      console.log(`[Screener.in] Consolidated data for ${cleanSymbol} is incomplete, trying standalone...`);
-    }
-  } catch (err: any) {
-    console.warn(`[Screener.in] Consolidated fetch failed for ${cleanSymbol}: ${err.message}`);
+  // 2. Single-Flight Inflight Deduplication
+  const existingInflight = screenerInflight.get(cacheKey);
+  if (existingInflight) {
+    return existingInflight;
   }
 
-  // If consolidated is empty or failed, fetch standalone page
-  if (!parsedData) {
-    const standUrl = `https://www.screener.in/company/${cleanSymbol}/`;
+  const fetchJob = (async () => {
+    // 3. Check database cache
     try {
-      console.log(`[Screener.in Scraper] Fetching standalone data from: ${standUrl}`);
-      const response = await axios.get(standUrl, { headers, timeout: 10000 });
-      const candidate = parseScreenerHtml(response.data);
-      if (isScreenerDataValid(candidate)) {
-        parsedData = candidate;
+      const [cached] = await db
+        .select()
+        .from(screenerCache)
+        .where(eq(screenerCache.symbol, cacheKey));
+
+      if (cached && cached.scrapedAt) {
+        const cacheAgeMs = Date.now() - new Date(cached.scrapedAt).getTime();
+        if (cacheAgeMs < SCREENER_CACHE_TTL && isScreenerDataValid(cached.data)) {
+          screenerL1Cache.set(cacheKey, { data: cached.data, ts: Date.now() });
+          return cached.data;
+        }
       }
-    } catch (err: any) {
-      console.error(`[Screener.in] Standalone fetch failed for ${cleanSymbol}: ${err.message}`);
+    } catch (dbError: any) {
+      console.warn("[Screener.in DB Cache Query Error]:", dbError.message);
     }
-  }
 
-  if (!parsedData) {
-    return null;
-  }
+    // 4. Rate-limited execution via Mutex Queue
+    return await runWithScreenerMutex(async () => {
+      const headers = {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      };
 
-  // 3. Cache to database if valid
+      let parsedData: any = null;
+
+      // Try consolidated first
+      const consUrl = `https://www.screener.in/company/${cleanSymbol}/consolidated/`;
+      try {
+        console.log(`[Screener.in Scraper] Fetching data from: ${consUrl}`);
+        const response = await axios.get(consUrl, { headers, timeout: 10000 });
+        const candidate = parseScreenerHtml(response.data);
+        if (isScreenerDataValid(candidate)) {
+          parsedData = candidate;
+        } else {
+          console.log(`[Screener.in] Consolidated data for ${cleanSymbol} is incomplete, trying standalone...`);
+        }
+      } catch (err: any) {
+        console.warn(`[Screener.in] Consolidated fetch failed for ${cleanSymbol}: ${err.message}`);
+      }
+
+      // If consolidated is empty or failed, fetch standalone page
+      if (!parsedData) {
+        const standUrl = `https://www.screener.in/company/${cleanSymbol}/`;
+        try {
+          console.log(`[Screener.in Scraper] Fetching standalone data from: ${standUrl}`);
+          const response = await axios.get(standUrl, { headers, timeout: 10000 });
+          const candidate = parseScreenerHtml(response.data);
+          if (isScreenerDataValid(candidate)) {
+            parsedData = candidate;
+          }
+        } catch (err: any) {
+          console.error(`[Screener.in] Standalone fetch failed for ${cleanSymbol}: ${err.message}`);
+        }
+      }
+
+      if (!parsedData) {
+        return null;
+      }
+
+      // Store in L1 RAM cache
+      screenerL1Cache.set(cacheKey, { data: parsedData, ts: Date.now() });
+
+      // Cache to database if valid
+      try {
+        await db
+          .insert(screenerCache)
+          .values({
+            symbol: cacheKey,
+            data: parsedData,
+            scrapedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: screenerCache.symbol,
+            set: {
+              data: parsedData,
+              scrapedAt: new Date(),
+            },
+          });
+      } catch (saveError: any) {
+        // Ignore DB errors in RAM mode
+      }
+
+      return parsedData;
+    });
+  })();
+
+  screenerInflight.set(cacheKey, fetchJob);
   try {
-    await db
-      .insert(screenerCache)
-      .values({
-        symbol: cacheKey,
-        data: parsedData,
-        scrapedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: screenerCache.symbol,
-        set: {
-          data: parsedData,
-          scrapedAt: new Date(),
-        },
-      });
-    console.log(`[Screener.in Cache Saved] Financials stored in DB for ${cleanSymbol}`);
-  } catch (saveError: any) {
-    // Ignore DB errors in RAM mode
+    return await fetchJob;
+  } finally {
+    screenerInflight.delete(cacheKey);
   }
-
-  return parsedData;
 }

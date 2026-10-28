@@ -59,7 +59,9 @@ const INDICES = {
   'NIFTY_50': '^NSEI',
   'SENSEX': '^BSESN',
   'BANK_NIFTY': '^NSEBANK',
+  'INDIA_VIX': '^INDIAVIX',
   'NIFTY_IT': '^CNXIT',
+  'NIFTY_AUTO': '^CNXAUTO',
   'NIFTY_PHARMA': '^CNXPHARMA'
 };
 
@@ -98,6 +100,25 @@ export interface MarketIndex {
   timestamp: Date;
 }
 
+// Determine whether Indian markets (NSE/BSE) are currently in active trading hours
+export function isIndianMarketHours(): boolean {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istDate = new Date(utc + (3600000 * 5.5)); // IST is UTC+5:30
+  const day = istDate.getDay(); // 0 = Sunday, 6 = Saturday
+  if (day === 0 || day === 6) return false;
+  const minutes = istDate.getHours() * 60 + istDate.getMinutes();
+  return minutes >= (9 * 60) && minutes <= (15 * 60 + 45); // 09:00 - 15:45 IST
+}
+
+export function getQuoteCacheTTL(): number {
+  return isIndianMarketHours() ? 15 * 1000 : 15 * 60 * 1000; // 15s during market, 15m off-hours
+}
+
+export function getQuoteSWRTTL(): number {
+  return isIndianMarketHours() ? 150 * 1000 : 2.5 * 60 * 60 * 1000; // 150s during market, 2.5h off-hours
+}
+
 // Shared in-memory quote cache & in-flight deduplication to handle 1000+ daily users without rate limits
 interface QuoteCacheEntry {
   quote: StockQuote;
@@ -105,25 +126,14 @@ interface QuoteCacheEntry {
 }
 const quoteCache = new Map<string, QuoteCacheEntry>();
 const quoteInflight = new Map<string, Promise<StockQuote | null>>();
-const QUOTE_CACHE_TTL_MS = 15 * 1000; // 15 seconds fresh live quote cache
 
-// Get stock quote from Yahoo Finance (no API key required)
-export async function getYahooStockQuote(symbol: string): Promise<StockQuote | null> {
-  const normSym = symbol.toUpperCase().trim();
-
-  // 1. Return fresh quote from memory cache if available (0ms latency)
-  const cached = quoteCache.get(normSym);
-  if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL_MS) {
-    return cached.quote;
-  }
-
-  // 2. Deduplicate concurrent requests (stampede shield)
+// Internal fresh fetch with in-flight deduplication
+async function fetchYahooStockQuoteFresh(symbol: string, normSym: string): Promise<StockQuote | null> {
   const inflight = quoteInflight.get(normSym);
   if (inflight) {
     return inflight;
   }
 
-  // 3. Fetch from Yahoo Finance
   const fetchPromise = (async (): Promise<StockQuote | null> => {
     try {
       const response = await axios.get(`${API_CONFIGS.yahoo.baseUrl}/${encodeURIComponent(symbol)}`, {
@@ -142,6 +152,7 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
 
       const data = response.data;
       if (!data.chart?.result?.[0]?.meta) {
+        const cached = quoteCache.get(normSym);
         return cached ? cached.quote : null;
       }
 
@@ -204,6 +215,7 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
       quoteCache.set(normSym, { quote: parsedQuote, ts: Date.now() });
       return parsedQuote;
     } catch (error) {
+      const cached = quoteCache.get(normSym);
       if (cached) {
         return cached.quote;
       }
@@ -218,6 +230,34 @@ export async function getYahooStockQuote(symbol: string): Promise<StockQuote | n
   } finally {
     quoteInflight.delete(normSym);
   }
+}
+
+// Get stock quote from Yahoo Finance with Adaptive TTL + SWR + Single Flight
+export async function getYahooStockQuote(symbol: string): Promise<StockQuote | null> {
+  const normSym = symbol.toUpperCase().trim();
+  const cached = quoteCache.get(normSym);
+
+  if (cached) {
+    const age = Date.now() - cached.ts;
+    const ttl = getQuoteCacheTTL();
+    const swrTtl = getQuoteSWRTTL();
+
+    // Fresh cache hit (<1ms)
+    if (age < ttl) {
+      return cached.quote;
+    }
+
+    // Stale-While-Revalidate: return immediately and refresh in background
+    if (age < swrTtl) {
+      if (!quoteInflight.has(normSym)) {
+        fetchYahooStockQuoteFresh(symbol, normSym).catch(() => {});
+      }
+      return cached.quote;
+    }
+  }
+
+  // Cold cache or expired past SWR window: await fresh fetch
+  return fetchYahooStockQuoteFresh(symbol, normSym);
 }
 
 // Fetch Yahoo historical candles with shared in-memory caching & deduplication
@@ -771,19 +811,20 @@ export async function getYahooStockNews(symbol: string, limit: number = 10, opts
   }
 }
 
-// Get market indices – prefer Finnhub if key provided, fallback to Yahoo Finance
+// Get market indices – prefer Finnhub if key provided, fallback to Yahoo Finance with parallel fetching
 export async function getMarketIndices(): Promise<MarketIndex[]> {
   const out: MarketIndex[] = [];
 
-  // Finnhub approach
+  // Finnhub approach (if API key configured)
   if (API_CONFIGS.finnhub.apiKey) {
     try {
-      // Finnhub symbols for indices differ; use mapped symbols where available
       const map: Record<string, string> = {
         NIFTY_50: '^NSEI',
         SENSEX: '^BSESN',
         BANK_NIFTY: '^NSEBANK',
+        INDIA_VIX: '^INDIAVIX',
         NIFTY_IT: '^CNXIT',
+        NIFTY_AUTO: '^CNXAUTO',
         NIFTY_PHARMA: '^CNXPHARMA',
       };
 
@@ -791,72 +832,86 @@ export async function getMarketIndices(): Promise<MarketIndex[]> {
         try {
           const r = await axios.get(`${API_CONFIGS.finnhub.baseUrl}/quote`, {
             params: { symbol, token: API_CONFIGS.finnhub.apiKey },
-            timeout: 10000,
+            timeout: 8000,
           });
           const q = r.data;
           if (q && typeof q.c === 'number' && q.c > 0) {
             const prevClose = typeof q.pc === 'number' ? q.pc : undefined;
             const computedChange = prevClose !== undefined ? q.c - prevClose : (typeof q.d === 'number' ? q.d : 0);
             const computedDp = prevClose && prevClose !== 0 ? (computedChange / prevClose) * 100 : (typeof q.dp === 'number' ? q.dp : 0);
-            out.push({
-              name: name.replace('_', ' '),
+            return {
+              name: name.replace(/_/g, ' '),
               symbol,
               value: q.c,
               change: computedChange,
               changePercent: computedDp,
               previousClose: prevClose,
               timestamp: new Date((q.t ?? Math.floor(Date.now() / 1000)) * 1000),
-            });
+            } as MarketIndex;
           }
-        } catch (e) {
-          // swallow; we'll try Yahoo fallback below
+        } catch {
+          return null;
         }
+        return null;
       });
-      await Promise.all(requests);
-    } catch (e) {
-      // ignore; fallback below
+
+      const finnhubResults = await Promise.allSettled(requests);
+      for (const res of finnhubResults) {
+        if (res.status === 'fulfilled' && res.value) {
+          out.push(res.value);
+        }
+      }
+    } catch {
+      // fallback to Yahoo below
     }
   }
 
   if (out.length > 0) return out;
 
-  // Yahoo fallback
-  for (const [name, symbol] of Object.entries(INDICES)) {
-    try {
+  // Yahoo Finance parallel fetch via Promise.allSettled
+  const indexEntries = Object.entries(INDICES);
+  const yahooResults = await Promise.allSettled(
+    indexEntries.map(async ([name, symbol]) => {
       const quote = await getYahooStockQuote(symbol);
-      if (quote) {
-        out.push({
-          name: name.replace('_', ' '),
-          symbol,
-          value: quote.price,
-          change: quote.change,
-          changePercent: quote.changePercent,
-          previousClose: quote.previousClose,
-          timestamp: quote.timestamp,
-        });
-      }
-    } catch {
-      // ignore item
+      if (!quote) return null;
+      return {
+        name: name.replace(/_/g, ' '),
+        symbol,
+        value: quote.price,
+        change: quote.change,
+        changePercent: quote.changePercent,
+        previousClose: quote.previousClose,
+        timestamp: quote.timestamp,
+      } as MarketIndex;
+    })
+  );
+
+  for (const r of yahooResults) {
+    if (r.status === 'fulfilled' && r.value) {
+      out.push(r.value);
     }
   }
+
   return out;
 }
 
-// Get multiple stock quotes
+// Get multiple stock quotes with fast in-memory parallelization
 export async function getStockQuotes(symbols: string[]): Promise<StockQuote[]> {
   const quotes: StockQuote[] = [];
+  if (!symbols || symbols.length === 0) return quotes;
   
-  // Process in batches to avoid overwhelming the API
-  const batchSize = 5;
+  // Process in larger parallel batches of 10
+  const batchSize = 10;
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
-    // Try StockData.org first for US symbols
+    
+    // Check if US symbols should use StockData.org
     const usSymbols = batch.filter(s => !/\.(NS|BO|BSE|NSE)$/i.test(s));
     if (API_CONFIGS.stockdata.apiToken && usSymbols.length > 0) {
       try {
         const sdoQuotes = await axios.get(`${API_CONFIGS.stockdata.baseUrl}/data/quote`, {
           params: { api_token: API_CONFIGS.stockdata.apiToken, symbols: usSymbols.join(','), key_by_ticker: false },
-          timeout: 12000,
+          timeout: 10000,
         });
         const data = Array.isArray(sdoQuotes.data?.data) ? sdoQuotes.data.data : [];
         data.forEach((q: any) => {
@@ -893,16 +948,11 @@ export async function getStockQuotes(symbols: string[]): Promise<StockQuote[]> {
     
     try {
       const batchResults = await Promise.allSettled(batchPromises);
-      batchResults.forEach((result, index) => {
+      batchResults.forEach((result) => {
         if (result.status === 'fulfilled' && result.value) {
           quotes.push(result.value);
         }
       });
-      
-      // Add delay between batches to respect rate limits
-      if (i + batchSize < symbols.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
     } catch (error) {
       console.error('Batch error:', error);
     }
