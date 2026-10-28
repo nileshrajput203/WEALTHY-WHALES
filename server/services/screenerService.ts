@@ -25,7 +25,7 @@ function runWithScreenerMutex<T>(fn: () => Promise<T>): Promise<T> {
     lastRequestTime = Date.now();
     return fn();
   });
-  screenerMutexQueue = job.then(() => {}).catch(() => {});
+  screenerMutexQueue = job.then(() => { }).catch(() => { });
   return job;
 }
 

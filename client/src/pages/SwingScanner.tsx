@@ -258,8 +258,50 @@ export default function SwingScanner() {
           </button>
         </div>
 
-        {/* ── Table View ───────────────────────── */}
-        <div className="glass-card rounded-3xl border border-white/8 overflow-hidden">
+        {/* ── Mobile Card View (md:hidden) — Thumb-Friendly Risk-First Cards ── */}
+        <div className="grid grid-cols-1 gap-3.5 md:hidden">
+          {!isLoading && stocks.map((stock) => {
+            const label = vcpLabel(stock.vcpScore);
+            const isPositive = stock.changePercent >= 0;
+            return (
+              <div
+                key={`mob-${stock.symbol}`}
+                onClick={() => setSelectedStock({ symbol: stock.symbol, name: stock.stockName, price: stock.price })}
+                className="glass-card rounded-2xl p-4 border border-white/10 active:scale-[0.99] transition-all space-y-2.5 cursor-pointer"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-mono font-extrabold text-white">
+                        {stock.symbol.replace(".NS", "").replace(".BO", "")}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${label.cls}`}>
+                        {label.text} · {stock.vcpScore}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/50 truncate max-w-[220px]">{stock.stockName}</p>
+                  </div>
+                  <div className="text-right font-mono">
+                    <div className="text-sm font-bold text-white">₹{stock.price.toLocaleString("en-IN")}</div>
+                    <div className={`text-xs font-bold ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                      {isPositive ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/4 border border-white/8 text-[11px] font-mono text-white/85 leading-relaxed">
+                  {stock.setup}
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-white/50">
+                  <span>{stock.links}</span>
+                  <span>Vol Ratio: {stock.volumeRatio.toFixed(2)}x · 52W High: {stock.nearHighPct.toFixed(1)}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Desktop Table View (hidden md:block) ───────────────────────── */}
+        <div className="hidden md:block glass-card rounded-3xl border border-white/8 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
