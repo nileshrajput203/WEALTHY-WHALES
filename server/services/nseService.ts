@@ -322,3 +322,8 @@ export async function fetchChartinkScan(clause: string) {
   const result = await runPythonWorker("chartink", undefined, { text: clause });
   return result;
 }
+
+export async function fetchFiiDii() {
+  const result = await runPythonWorker("fiidii");
+  return result;
+}

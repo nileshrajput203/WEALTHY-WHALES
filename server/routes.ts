@@ -69,6 +69,7 @@ import {
   fetchAlpha158Factors,
   analyzeHeadlineSentiment,
   fetchChartinkScan,
+  fetchFiiDii,
   isFnOSymbol,
 } from "./services/nseService";
 import { getHermesBanditProfile } from "./hermesEngine";
@@ -1297,6 +1298,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         month: "short",
         year: "numeric",
       });
+
+      // 1. Primary: Official Live NSE India FII/DII activity
+      try {
+        const nseRes = await fetchFiiDii();
+        if (nseRes && nseRes.success && Array.isArray(nseRes.data) && nseRes.data.length > 0) {
+          const diiItem = nseRes.data.find((x: any) => x.category === "DII");
+          const fiiItem = nseRes.data.find((x: any) => (x.category || "").includes("FII"));
+
+          if (fiiItem || diiItem) {
+            const fiiNet = fiiItem ? parseFloat(fiiItem.netValue) || 0 : 0;
+            const diiNet = diiItem ? parseFloat(diiItem.netValue) || 0 : 0;
+            const activeDate = fiiItem?.date || diiItem?.date || latestDate;
+
+            latestFii = fiiNet;
+            latestDii = diiNet;
+            latestDate = activeDate;
+
+            history.push({
+              date: activeDate,
+              fiiCash: fiiNet,
+              diiCash: diiNet,
+              fiiIndexFutures: 0,
+              fiiStockFutures: 0,
+              netCashFlow: fiiNet + diiNet,
+            });
+          }
+        }
+      } catch (nseErr: any) {
+        console.warn("[routes.ts] NSE official FII/DII fetch error:", nseErr?.message);
+      }
 
       try {
         const mcUrl =
@@ -2701,6 +2732,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           symbol,
           sector: "Audited Financials (Screener.in)",
           scale: "Cr (₹)",
+          overview: {
+            marketCap: screenerData.ratios?.["Market Cap"] ?? null,
+            currentPrice: screenerData.ratios?.["Current Price"] ?? null,
+            high: screenerData.ratios?.["High"] ?? null,
+            low: screenerData.ratios?.["Low"] ?? null,
+            highLow: screenerData.ratios?.["High / Low"] ?? null,
+            stockPE: screenerData.ratios?.["Stock P/E"] ?? null,
+            bookValue: screenerData.ratios?.["Book Value"] ?? null,
+            dividendYield: screenerData.ratios?.["Dividend Yield"] ?? null,
+            roce: screenerData.ratios?.["ROCE"] ?? null,
+            roe: screenerData.ratios?.["ROE"] ?? null,
+            faceValue: screenerData.ratios?.["Face Value"] ?? null,
+          },
+          topRatios: screenerData.ratios || {},
           shareholding: {
             yearly: shYearly,
             quarterly: shQuarterly,

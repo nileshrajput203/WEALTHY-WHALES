@@ -42,22 +42,45 @@ const RATIO_METADATA: Record<string, { label: string; desc: string }> = {
 
 const METRICS_POOL: Record<string, (q: any, f: any, iq: any, sym: string) => string> = {
   mktCap: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.marketCap ?? f?.topRatios?.["Market Cap"];
+    if (fromF != null && fromF !== "" && !isNaN(Number(fromF))) {
+      return `₹ ${Number(fromF).toLocaleString("en-IN")} Cr.`;
+    }
     const val = q?.stock?.marketCap ? (Number(q.stock.marketCap) / 1e7).toFixed(0) : null;
     return val ? `₹ ${Number(val).toLocaleString("en-IN")} Cr.` : "—";
   },
   currentPrice: (q: any, f: any, iq: any, sym: string) => {
-    return q?.stock?.price ? `₹ ${Number(q.stock.price).toLocaleString("en-IN")}` : "—";
+    if (q?.stock?.price != null && !isNaN(Number(q.stock.price))) {
+      return `₹ ${Number(q.stock.price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    const fromF = f?.overview?.currentPrice ?? f?.topRatios?.["Current Price"];
+    if (fromF != null && !isNaN(Number(fromF))) {
+      return `₹ ${Number(fromF).toLocaleString("en-IN")}`;
+    }
+    return "—";
   },
   highLow: (q: any, f: any, iq: any, sym: string) => {
+    const hlFromF = f?.overview?.highLow ?? f?.topRatios?.["High / Low"];
+    if (hlFromF && typeof hlFromF === "string" && hlFromF.includes("/")) {
+      const parts = hlFromF.split("/").map((s: string) => s.trim());
+      if (parts.length >= 2) return `₹ ${parts[0]} / ₹ ${parts[1]}`;
+    }
+    if (f?.overview?.high != null && f?.overview?.low != null) {
+      return `₹ ${f.overview.high} / ₹ ${f.overview.low}`;
+    }
     const high = q?.stock?.high ? `₹ ${Number(q.stock.high).toFixed(0)}` : "—";
     const low = q?.stock?.low ? `₹ ${Number(q.stock.low).toFixed(0)}` : "—";
     return `${high} / ${low}`;
   },
   pe: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.stockPE ?? f?.topRatios?.["Stock P/E"];
+    if (fromF != null && fromF !== "") return String(fromF);
     const val = f?.ratios?.yearly?.at(-1)?.pe || iq?.fundamentals?.metrics?.find((m: any) => m.name === "P/E Ratio")?.value;
-    return val ? String(val) : "—";
+    return val != null ? String(val) : "—";
   },
   bookValue: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.bookValue ?? f?.topRatios?.["Book Value"];
+    if (fromF != null && fromF !== "") return `₹ ${fromF}`;
     const pb = f?.ratios?.yearly?.at(-1)?.pb;
     const price = q?.stock?.price;
     if (pb && price && pb > 0) return `₹ ${(price / pb).toFixed(1)}`;
@@ -65,28 +88,46 @@ const METRICS_POOL: Record<string, (q: any, f: any, iq: any, sym: string) => str
     return bv ? `₹ ${bv}` : "—";
   },
   divYield: (q: any, f: any, iq: any, sym: string) => {
-    const dy = f?.ratios?.yearly?.at(-1)?.dividendYield || iq?.fundamentals?.metrics?.find((m: any) => m.name === "Dividend Yield")?.value || q?.stock?.dividendYield;
+    const fromF = f?.overview?.dividendYield ?? f?.topRatios?.["Dividend Yield"];
+    if (fromF != null && fromF !== "" && !isNaN(Number(fromF))) {
+      return `${Number(fromF).toFixed(2)} %`;
+    }
+    const dy = f?.ratios?.yearly?.at(-1)?.dividendYield ?? iq?.fundamentals?.metrics?.find((m: any) => m.name === "Dividend Yield")?.value ?? q?.stock?.dividendYield;
     return dy != null ? `${Number(dy).toFixed(2)} %` : "—";
   },
   roce: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.roce ?? f?.topRatios?.["ROCE"];
+    if (fromF != null && fromF !== "") return `${fromF} %`;
     const val = f?.ratios?.yearly?.at(-1)?.roce || iq?.fundamentals?.metrics?.find((m: any) => m.name === "ROCE")?.value;
     return val ? `${val} %` : "—";
   },
   roe: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.roe ?? f?.topRatios?.["ROE"];
+    if (fromF != null && fromF !== "") return `${fromF} %`;
     const val = f?.ratios?.yearly?.at(-1)?.roe || iq?.fundamentals?.metrics?.find((m: any) => m.name === "ROE")?.value;
     return val ? `${val} %` : "—";
   },
   faceValue: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.overview?.faceValue ?? f?.topRatios?.["Face Value"];
+    if (fromF != null && fromF !== "" && !isNaN(Number(fromF))) {
+      return `₹ ${Number(fromF).toFixed(2)}`;
+    }
     const fv = f?.ratios?.yearly?.at(-1)?.faceValue || q?.stock?.faceValue;
-    return fv ? `₹ ${fv}.00` : "—";
+    return fv ? `₹ ${Number(fv).toFixed(2)}` : "—";
   },
   debtEquity: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.topRatios?.["Debt to equity"] ?? f?.topRatios?.["Debt / Equity"];
+    if (fromF != null && fromF !== "") return String(fromF);
     const val = f?.ratios?.yearly?.at(-1)?.debtEquity || iq?.fundamentals?.metrics?.find((m: any) => m.name === "Debt/Equity")?.value;
-    return val ? String(val) : "—";
+    return val != null ? String(val) : "—";
   },
   promoterHolding: (q: any, f: any, iq: any, sym: string) => {
+    const fromF = f?.topRatios?.["Promoter holding"];
+    if (fromF != null && fromF !== "" && !isNaN(Number(fromF))) {
+      return `${Number(fromF).toFixed(2)} %`;
+    }
     const val = f?.shareholding?.yearly?.at(-1)?.promoter;
-    return val ? `${val.toFixed(2)} %` : "—";
+    return val != null ? `${val.toFixed(2)} %` : "—";
   },
   interestCoverage: (q: any, f: any, iq: any, sym: string) => {
     const val = f?.ratios?.yearly?.at(-1)?.interestCoverage;
@@ -342,10 +383,14 @@ export default function CheckStock() {
 
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold font-mono text-white">
-                      ₹{quote.stock?.price ? Number(quote.stock.price).toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "—"}
+                      ₹{quote?.stock?.price
+                        ? Number(quote.stock.price).toLocaleString("en-IN", { maximumFractionDigits: 2 })
+                        : financials?.overview?.currentPrice
+                        ? Number(financials.overview.currentPrice).toLocaleString("en-IN")
+                        : "—"}
                     </span>
-                    <span className={`text-sm font-semibold font-mono ${quote.stock?.changePercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {quote.stock?.changePercent >= 0 ? "+" : ""}{Number(quote.stock?.changePercent || 0).toFixed(2)}%
+                    <span className={`text-sm font-semibold font-mono ${(quote?.stock?.changePercent ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {(quote?.stock?.changePercent ?? 0) >= 0 ? "+" : ""}{Number(quote?.stock?.changePercent || 0).toFixed(2)}%
                     </span>
                   </div>
                 </div>

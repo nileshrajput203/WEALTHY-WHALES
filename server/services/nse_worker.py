@@ -283,9 +283,28 @@ def get_mock_insider_trades(error=None):
     ]
     return {"success": True, "trades": mock_insiders, "mocked": True, "error": error}
 
+def fetch_fiidii():
+    try:
+        from curl_cffi import requests as cffi_requests
+        s = cffi_requests.Session(impersonate='chrome120')
+        s.get('https://www.nseindia.com', timeout=10)
+        r = s.get('https://www.nseindia.com/api/fiidiiTradeReact', timeout=10)
+        if r.status_code == 200:
+            return {"success": True, "data": r.json()}
+    except Exception:
+        pass
+    try:
+        session = get_nse_session()
+        r = session.get('https://www.nseindia.com/api/fiidiiTradeReact', timeout=10, verify=False)
+        if r.status_code == 200:
+            return {"success": True, "data": r.json()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    return {"success": False, "error": "Failed to fetch FII/DII from NSE"}
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='NSE India Data Fetcher')
-    parser.add_argument('--action', required=True, choices=['quote', 'option-chain', 'bulk-deals', 'insider-trades', 'quant-forecast', 'alpha158', 'sentiment', 'chartink'])
+    parser.add_argument('--action', required=True, choices=['quote', 'option-chain', 'bulk-deals', 'insider-trades', 'fiidii', 'quant-forecast', 'alpha158', 'sentiment', 'chartink'])
     parser.add_argument('--symbol', help='Stock symbol')
     parser.add_argument('--text', help='Headline text or scan clause')
     parser.add_argument('--horizon', type=int, default=10, help='Forecast horizon')
@@ -306,6 +325,8 @@ if __name__ == "__main__":
         result = fetch_bulk_deals()
     elif args.action == 'insider-trades':
         result = fetch_insider_trades()
+    elif args.action == 'fiidii':
+        result = fetch_fiidii()
     elif args.action in ['quant-forecast', 'alpha158', 'sentiment', 'chartink']:
         try:
             import quant_models

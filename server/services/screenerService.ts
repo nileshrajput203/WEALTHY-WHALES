@@ -99,9 +99,23 @@ function parseScreenerHtml(html: string) {
   const ratios: Record<string, any> = {};
   $("#top-ratios li").each((_, el) => {
     const name = $(el).find(".name").text().trim().replace(/:$/, "");
-    const valText = $(el).find(".number").text().trim().replace(/,/g, "");
-    const valNum = parseFloat(valText);
-    ratios[name] = isNaN(valNum) ? valText : valNum;
+    const numberSpans = $(el)
+      .find(".number")
+      .map((_, n) => $(n).text().trim().replace(/,/g, ""))
+      .get()
+      .filter((s: string) => s.length > 0);
+
+    if (name.toLowerCase().includes("high") && numberSpans.length >= 2) {
+      const highVal = parseFloat(numberSpans[0]);
+      const lowVal = parseFloat(numberSpans[1]);
+      ratios["High"] = isNaN(highVal) ? numberSpans[0] : highVal;
+      ratios["Low"] = isNaN(lowVal) ? numberSpans[1] : lowVal;
+      ratios["High / Low"] = `${numberSpans[0]} / ${numberSpans[1]}`;
+    } else {
+      const valText = $(el).find(".number").first().text().trim().replace(/,/g, "");
+      const valNum = parseFloat(valText);
+      ratios[name] = isNaN(valNum) ? valText : valNum;
+    }
   });
 
   const sh = parseShareholdingTables($);

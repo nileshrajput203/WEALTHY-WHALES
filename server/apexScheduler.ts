@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
  * Checks if a job has already run successfully today in IST.
  */
 async function hasJobRanToday(name: string): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return true;
   try {
     const [job] = await db.select().from(jobLedger).where(eq(jobLedger.jobName, name)).limit(1);
     if (!job || !job.lastRanAt) return false;

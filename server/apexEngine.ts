@@ -398,64 +398,83 @@ export async function getPredictionsForDate(date: Date = getNowIST()) {
 export async function getApexDashboard() {
   const now = getNowIST();
   
-  // 1. Today's predictions
-  const todayPreds = await getPredictionsForDate(now);
-  
-  // 2. Fetch news updates
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const todayNews = await db.select()
-    .from(apexNewsSignals)
-    .where(gte(apexNewsSignals.signalDate, startOfDay))
-    .orderBy(desc(apexNewsSignals.signalDate));
+  try {
+    // 1. Today's predictions
+    const todayPreds = await getPredictionsForDate(now);
     
-  // 3. F&O signals
-  const todayFO = await db.select()
-    .from(apexFoSignals)
-    .where(gte(apexFoSignals.signalDate, startOfDay))
-    .orderBy(desc(apexFoSignals.signalDate));
+    // 2. Fetch news updates
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayNews = await db.select()
+      .from(apexNewsSignals)
+      .where(gte(apexNewsSignals.signalDate, startOfDay))
+      .orderBy(desc(apexNewsSignals.signalDate));
+      
+    // 3. F&O signals
+    const todayFO = await db.select()
+      .from(apexFoSignals)
+      .where(gte(apexFoSignals.signalDate, startOfDay))
+      .orderBy(desc(apexFoSignals.signalDate));
+      
+    // 4. Learning weight log
+    const weightHistory = await db.select()
+      .from(apexWeights)
+      .orderBy(desc(apexWeights.version));
+      
+    // 5. System Health
+    const jobs = await db.select().from(jobLedger);
+    const errors = await db.select().from(jobErrorLog).orderBy(desc(jobErrorLog.createdAt)).limit(20);
     
-  // 4. Learning weight log
-  const weightHistory = await db.select()
-    .from(apexWeights)
-    .orderBy(desc(apexWeights.version));
+    // 6. Accuracy tracker (last 30 days)
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-  // 5. System Health
-  const jobs = await db.select().from(jobLedger);
-  const errors = await db.select().from(jobErrorLog).orderBy(desc(jobErrorLog.createdAt)).limit(20);
-  
-  // 6. Accuracy tracker (last 30 days)
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const historicalPredictions = await db.select()
-    .from(apexPredictions)
-    .where(
-      and(
-        gte(apexPredictions.predictionDate, thirtyDaysAgo),
-        sql`${apexPredictions.isCorrect} IS NOT NULL`
-      )
-    );
-    
-  return {
-    predictions: todayPreds,
-    news: todayNews,
-    fo: todayFO,
-    weights: weightHistory,
-    system: {
-      jobs,
-      errors
-    },
-    historical: historicalPredictions
-  };
+    const historicalPredictions = await db.select()
+      .from(apexPredictions)
+      .where(
+        and(
+          gte(apexPredictions.predictionDate, thirtyDaysAgo),
+          sql`${apexPredictions.isCorrect} IS NOT NULL`
+        )
+      );
+      
+    return {
+      predictions: todayPreds,
+      news: todayNews,
+      fo: todayFO,
+      weights: weightHistory,
+      system: {
+        jobs,
+        errors
+      },
+      historical: historicalPredictions
+    };
+  } catch (error: any) {
+    console.warn("[ApexEngine] DB unavailable for getApexDashboard, returning safe defaults:", error?.message);
+    return {
+      predictions: [],
+      news: [],
+      fo: [],
+      weights: [],
+      system: {
+        jobs: [],
+        errors: []
+      },
+      historical: []
+    };
+  }
 }
 
 export async function getApexPrediction(symbol: string): Promise<any> {
-  const [pred] = await db
-    .select()
-    .from(apexPredictions)
-    .where(eq(apexPredictions.symbol, symbol.toUpperCase()))
-    .orderBy(desc(apexPredictions.predictionDate))
-    .limit(1);
-  return pred ?? null;
+  try {
+    const [pred] = await db
+      .select()
+      .from(apexPredictions)
+      .where(eq(apexPredictions.symbol, symbol.toUpperCase()))
+      .orderBy(desc(apexPredictions.predictionDate))
+      .limit(1);
+    return pred ?? null;
+  } catch (error: any) {
+    return null;
+  }
 }
