@@ -4,10 +4,10 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 process.on("unhandledRejection", (reason) => {
-  console.warn("[Process] Handled async rejection:", reason instanceof Error ? reason.message : reason);
+  console.warn("[Process] Handled async rejection:", reason instanceof Error ? reason.message : String(reason));
 });
 process.on("uncaughtException", (error) => {
-  console.warn("[Process] Handled uncaught exception:", error.message);
+  console.warn("[Process] Handled uncaught exception:", error instanceof Error ? error.message : String(error));
 });
 
 const app = express();
