@@ -505,22 +505,27 @@ export async function runFuguLearningCycle() {
 }
 
 export async function initializeFugu(): Promise<void> {
-  const existing = await db.select().from(fuguFactorWeights).limit(1);
-  if (existing.length > 0) return;
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const existing = await db.select().from(fuguFactorWeights).limit(1);
+    if (existing.length > 0) return;
 
-  await db.insert(fuguFactorWeights).values({
-    version: 1,
-    weights: {
-      technical: 0.35,
-      pattern: 0.25,
-      candlestick: 0.10,
-      fundamental: 0.20,
-      similarity: 0.10,
-    },
-    isActive: true,
-    notes: "Initial default weights",
-  });
-  console.log("[FUGU] Initialized default weights");
+    await db.insert(fuguFactorWeights).values({
+      version: 1,
+      weights: {
+        technical: 0.35,
+        pattern: 0.25,
+        candlestick: 0.10,
+        fundamental: 0.20,
+        similarity: 0.10,
+      },
+      isActive: true,
+      notes: "Initial default weights",
+    });
+    console.log("[FUGU] Initialized default weights");
+  } catch (err: any) {
+    console.warn("[FUGU] initializeFugu DB skipped:", err?.message);
+  }
 }
 
 export async function runFuguOutcomeTracker(): Promise<{

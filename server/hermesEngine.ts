@@ -428,16 +428,21 @@ const WIN_THRESHOLD = 3;
 const LOSS_THRESHOLD = -3;
 
 export async function initializeHermes(): Promise<void> {
-  const existing = await db.select().from(hermesWeights).limit(1);
-  if (existing.length > 0) return;
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const existing = await db.select().from(hermesWeights).limit(1);
+    if (existing.length > 0) return;
 
-  await db.insert(hermesWeights).values({
-    version: DEFAULT_WEIGHT_VERSION,
-    weights: DEFAULT_WEIGHTS,
-    isActive: true,
-    notes: "Initial default weights",
-  });
-  console.log("[HERMES] Initialized default weights");
+    await db.insert(hermesWeights).values({
+      version: DEFAULT_WEIGHT_VERSION,
+      weights: DEFAULT_WEIGHTS,
+      isActive: true,
+      notes: "Initial default weights",
+    });
+    console.log("[HERMES] Initialized default weights");
+  } catch (err: any) {
+    console.warn("[HERMES] initializeHermes DB skipped:", err?.message);
+  }
 }
 
 export async function classifyMarketRegime(): Promise<string> {
