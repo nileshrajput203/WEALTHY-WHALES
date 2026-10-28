@@ -1,0 +1,76 @@
+[
+  {
+    "id": "upgrade_ipo_v2_1793204549088",
+    "timestamp": "2026-10-28T16:22:29.088Z",
+    "engine": "IPO",
+    "versionFrom": 1,
+    "versionTo": 2,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 10,
+        "to": 10.35
+      },
+      "max_days_since_listing": {
+        "from": 110,
+        "to": 106.15
+      },
+      "max_base_depth_pct": {
+        "from": 0.35,
+        "to": 0.36
+      },
+      "consolidation_range_pct": {
+        "from": 0.15,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 50,
+        "to": 51.75
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v2. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_apex_v2_1793204549086",
+    "timestamp": "2026-10-28T16:22:29.086Z",
+    "engine": "APEX",
+    "versionFrom": 1,
+    "versionTo": 2,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "news_group_weight": {
+        "from": 0.2,
+        "to": 0.21
+      },
+      "fo_group_weight": {
+        "from": 0.2,
+        "to": 0.19
+      },
+      "technical_group_weight": {
+        "from": 0.3,
+        "to": 0.29
+      },
+      "gap_group_weight": {
+        "from": 0.2,
+        "to": 0.21
+      },
+      "macro_group_weight": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "min_confidence_threshold": {
+        "from": 55,
+        "to": 53.07
+      },
+      "target_return_goal": {
+        "from": 7.5,
+        "to": 7.24
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved APEX to v2. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  }
+]

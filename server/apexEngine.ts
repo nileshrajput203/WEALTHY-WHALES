@@ -11,6 +11,7 @@ import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { getNowIST, getISTDateString } from "./istUtils";
 import { markJobStart, markJobDone, markJobFailed, logError } from "./jobLedger";
 import { getYahooStockQuote, getYahooHistory, computeRSI, computeSMA, computeEMA } from "./stockApi";
+import { recordCall } from "./services/persistentCallLedger";
 import { getNewsScoreForSymbol, getSectorForSymbol } from "./apexNewsEngine";
 import { getFOSignalForSymbol } from "./apexFOEngine";
 import { readFileSync } from "fs";
@@ -347,7 +348,36 @@ export async function runMorningScan(): Promise<void> {
       });
     }
     
-    await db.insert(apexPredictions).values(toInsert);
+    // Persist all APEX calls into durable disk ledger
+    for (const p of toInsert) {
+      const isUp = p.direction === "UP";
+      const spot = parseFloat(p.features?.pre_open_price || p.features?.close || "1000");
+      const slPct = 0.02; // 2% intraday SL
+      const targetPct = 0.04; // 4% intraday Target
+      const entryPrice = spot;
+      const stopLoss = isUp ? spot * (1 - slPct) : spot * (1 + slPct);
+      const target = isUp ? spot * (1 + targetPct) : spot * (1 - targetPct);
+
+      recordCall({
+        engine: "APEX",
+        symbol: p.symbol,
+        entryPrice: Math.round(entryPrice * 100) / 100,
+        stopLoss: Math.round(stopLoss * 100) / 100,
+        target: Math.round(target * 100) / 100,
+        riskReward: 2.0,
+        score: parseFloat(p.confidenceScore),
+        direction: isUp ? "BUY" : "DOWN",
+        learningNotes: p.reasoning,
+        metadata: {
+          features: p.features,
+          weightVersion: version,
+        },
+      });
+    }
+
+    if (process.env.DATABASE_URL) {
+      await db.insert(apexPredictions).values(toInsert);
+    }
     console.log(`[APEXEngine] Scanned and saved ${toInsert.length} predictions using genome parameters.`);
     
     const duration = Date.now() - startTime;

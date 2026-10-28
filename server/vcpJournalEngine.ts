@@ -16,6 +16,7 @@ import {
 import { eq, and, ne, desc, gte } from "drizzle-orm";
 import { runSwingScanner, getYahooStockQuote, type SwingScanResult } from "./stockApi";
 import { getGenome, runGenomeEvolution, type TradeOutcome } from "./selfImprovingCore";
+import { recordCall } from "./services/persistentCallLedger";
 
 // ─── Dynamic genome params — replaced by self-evolving genome at runtime ─────
 // Default fallbacks (overridden by genome each run)
@@ -65,6 +66,26 @@ export async function logJournalEntry(engine: JournalEngine, pick: LogJournalEnt
     if (pick.entryPrice <= pick.stopLoss) return false; // invalid risk
 
     const grade = gradeOf(pick.vcpScore);
+
+    // Durable disk ledger recording (works 100% in RAM or Postgres mode)
+    recordCall({
+      engine,
+      symbol: pick.symbol,
+      stockName: pick.stockName,
+      entryPrice: pick.entryPrice,
+      stopLoss: pick.stopLoss,
+      target: pick.target,
+      riskReward: pick.riskReward,
+      score: pick.vcpScore,
+      direction: "BUY",
+      learningNotes: pick.aiNotes || `[${engine}] Grade ${grade} VCP setup.`,
+      metadata: {
+        atrCompression: pick.atrCompression,
+        volumeRatio: pick.volumeRatio,
+        nearHighPct: pick.nearHighPct,
+      },
+    });
+
     const entry: InsertVcpJournalEntry = {
       engine,
       symbol:      pick.symbol,
@@ -198,6 +219,25 @@ export async function syncVcpPicksToJournal(): Promise<void> {
       const target  = entryPrice + riskReward * risk;
       const grade   = gradeOf(stock.vcpScore);
       const aiNotes = buildAiNotes(stock, grade);
+
+      // Durable disk ledger recording (persists in RAM and DB modes)
+      recordCall({
+        engine: "SWING",
+        symbol: stock.symbol,
+        stockName: stock.stockName,
+        entryPrice,
+        stopLoss,
+        target,
+        riskReward,
+        score: stock.vcpScore,
+        direction: "BUY",
+        learningNotes: aiNotes,
+        metadata: {
+          atrCompression: stock.atrCompression,
+          volumeRatio: stock.volumeRatio,
+          nearHighPct: stock.nearHighPct,
+        },
+      });
 
       const entry: InsertVcpJournalEntry = {
         symbol:      stock.symbol,

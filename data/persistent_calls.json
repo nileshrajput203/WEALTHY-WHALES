@@ -1,0 +1,20 @@
+[
+  {
+    "id": "call_swing_MVGJL_1793204548515",
+    "engine": "SWING",
+    "symbol": "MVGJL",
+    "stockName": "Manoj Vaibhav Gems",
+    "entryDate": "2026-10-28",
+    "entryPrice": 181.26,
+    "stopLoss": 162.46,
+    "target": 230,
+    "riskReward": 2.6,
+    "score": 86,
+    "direction": "BUY",
+    "status": "OPEN",
+    "currentPrice": 181.26,
+    "currentReturnPct": 0,
+    "holdDays": 1,
+    "learningNotes": "VCP Breakout from 3T supply contraction base. Demand zone supported at 162.46."
+  }
+]

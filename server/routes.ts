@@ -93,6 +93,12 @@ import {
   parseCorporateActions,
 } from "./services/sebiRssService";
 import { scrapeFinancials } from "./services/screenerService";
+import {
+  getAllCalls,
+  getAllGenomes as getPersistentGenomes,
+  getLedgerStats,
+  runDailyLearningUpgradeCycle,
+} from "./services/persistentCallLedger";
 import { getUSDINR, getCryptoCorrelation } from "./services/currencyService";
 import { sendAlert, formatSignalAlert } from "./services/telegramService";
 import { db } from "./db";
@@ -4439,6 +4445,48 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       res.json({ stocks: results });
     } catch (err: any) {
       res.status(500).json({ message: "Failed to scan Order Blocks universe", error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // SELF-LEARNING PERSISTENT CALL LEDGER & DAILY UPGRADE API
+  // ══════════════════════════════════════════════════════════════
+  app.get("/api/self-learning/ledger", (req: Request, res: Response) => {
+    try {
+      const engine = req.query.engine as any;
+      const status = req.query.status as any;
+      const calls = getAllCalls({ engine, status });
+      const stats = getLedgerStats();
+      res.json({ stats, calls });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch self-learning calls", error: err.message });
+    }
+  });
+
+  app.get("/api/self-learning/genomes", (req: Request, res: Response) => {
+    try {
+      const genomes = getPersistentGenomes();
+      res.json({ genomes });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch genomes", error: err.message });
+    }
+  });
+
+  app.get("/api/self-learning/stats", (req: Request, res: Response) => {
+    try {
+      const stats = getLedgerStats();
+      res.json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to fetch learning stats", error: err.message });
+    }
+  });
+
+  app.post("/api/self-learning/run-daily-upgrade", async (req: Request, res: Response) => {
+    try {
+      const result = await runDailyLearningUpgradeCycle();
+      res.json({ message: "Daily outcome evaluation & learning upgrade cycle executed successfully", result });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to execute daily learning upgrade", error: err.message });
     }
   });
 

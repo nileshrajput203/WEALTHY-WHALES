@@ -10,6 +10,7 @@
 import { runSwingScannerEvolved, trackSwingOutcomes, runSwingLearningCycle } from "./swingGenomeEngine";
 import { runIpoScannerEvolved, trackIpoOutcomes, runIpoLearningCycle } from "./ipoGenomeEngine";
 import { fillNewsImpactOutcomes } from "./newsImpactScorer";
+import { runDailyLearningUpgradeCycle } from "./services/persistentCallLedger";
 import { getNowIST, getISTHour, getISTMinute, isWeekdayIST } from "./istUtils";
 import { shouldRunJob } from "./jobLedger";
 
@@ -98,6 +99,7 @@ export function startSelfImprovingScheduler(): void {
         await fillNewsImpactOutcomes().catch(e => console.error("[SelfImprovingScheduler] News tracker fail:", e));
         await trackSwingOutcomes().catch(e => console.error("[SelfImprovingScheduler] Swing tracker fail:", e));
         await trackIpoOutcomes().catch(e => console.error("[SelfImprovingScheduler] IPO tracker fail:", e));
+        await runDailyLearningUpgradeCycle().catch(e => console.error("[SelfImprovingScheduler] Ledger cycle fail:", e));
         
         isJobRunning = false;
       }
