@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useCallback } from "react";
 import { X, ExternalLink, TrendingUp, TrendingDown, BarChart2, Star } from "lucide-react";
 import { TradingViewChart, toTVSymbol } from "./TradingViewChart";
+import { LightweightChart } from "./LightweightChart";
 import { Link } from "wouter";
 import { useWatchlist } from "@/hooks/useWatchlist";
 
@@ -104,6 +105,7 @@ function StatPill({ label, value }: { label: string; value: string | number | un
 /* ── Main drawer ─────────────────────────────────────────── */
 export function StockChartDrawer({ stock, onClose }: Props) {
   const [interval, setInterval] = useState("D");
+  const [drawerChartMode, setDrawerChartMode] = useState<"live" | "tradingview">("live");
 
   // Build clean symbol for API queries (Yahoo-style)
   const apiSymbol = stock
@@ -283,36 +285,71 @@ export function StockChartDrawer({ stock, onClose }: Props) {
               </div>
             )}
 
-            {/* ── Interval selector ───────────────────── */}
-            <div className="flex items-center gap-1.5 px-5 py-2.5 border-b border-white/5 flex-shrink-0">
-              {INTERVALS.map(iv => (
+            {/* ── Toolbar: Engine & Interval selector ───────────────────── */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5 border-b border-white/5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 p-0.5 rounded-lg bg-white/4 border border-white/6">
                 <button
-                  key={iv.value}
-                  onClick={() => setInterval(iv.value)}
-                  className={`px-3 py-1 rounded-md text-[11px] font-mono font-semibold transition-all duration-150
-                    ${interval === iv.value
-                      ? "bg-primary/80 text-white shadow-[0_0_10px_0_hsl(260,84%,65%,0.35)]"
-                      : "text-white/35 hover:text-white/70 hover:bg-white/5"
-                    }`}
+                  onClick={() => setDrawerChartMode("live")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold transition-all duration-150 ${
+                    drawerChartMode === "live"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs"
+                      : "text-white/40 hover:text-white/80"
+                  }`}
                 >
-                  {iv.label}
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Live NSE
                 </button>
-              ))}
-              <div className="ml-auto text-[10px] text-white/20 font-mono">Powered by TradingView</div>
+                <button
+                  onClick={() => setDrawerChartMode("tradingview")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold transition-all duration-150 ${
+                    drawerChartMode === "tradingview"
+                      ? "bg-primary/20 text-primary border border-primary/40 shadow-xs"
+                      : "text-white/40 hover:text-white/80"
+                  }`}
+                >
+                  TradingView
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {INTERVALS.map((iv) => (
+                  <button
+                    key={iv.value}
+                    onClick={() => setInterval(iv.value)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all duration-150 ${
+                      interval === iv.value
+                        ? "bg-white/10 text-white font-bold"
+                        : "text-white/35 hover:text-white/70 hover:bg-white/5"
+                    }`}
+                  >
+                    {iv.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* ── TradingView chart ────────────────────── */}
-            <div className="flex-1 min-h-0 px-0 overflow-hidden">
-              <TradingViewChart
-                symbol={stock.symbol}
-                exchange={stock.exchange}
-                interval={interval}
-                height="100%"
-                className="h-full rounded-none"
-                showToolbar={true}
-                allowSymbolChange={false}
-                studies={["RSI@tv-basicstudies", "MAExp@tv-basicstudies", "MACD@tv-basicstudies"]}
-              />
+            {/* ── Chart Container ────────────────────── */}
+            <div className="flex-1 min-h-0 px-0 overflow-hidden relative">
+              {drawerChartMode === "live" ? (
+                <LightweightChart
+                  symbol={stock.symbol}
+                  interval={interval}
+                  height="100%"
+                  currentPrice={price}
+                  className="h-full rounded-none border-none"
+                />
+              ) : (
+                <TradingViewChart
+                  symbol={stock.symbol}
+                  exchange={stock.exchange}
+                  interval={interval}
+                  height="100%"
+                  className="h-full rounded-none"
+                  showToolbar={true}
+                  allowSymbolChange={false}
+                  studies={["RSI@tv-basicstudies", "MAExp@tv-basicstudies", "MACD@tv-basicstudies"]}
+                />
+              )}
             </div>
 
             {/* ── Bottom bar: rec details if available ─── */}

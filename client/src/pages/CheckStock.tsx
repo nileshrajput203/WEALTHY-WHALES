@@ -11,6 +11,7 @@ import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, 
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
 import { PredictaPanel } from "@/components/PredictaPanel";
 import { TradingViewChart, toTVSymbol } from "@/components/TradingViewChart";
+import { LightweightChart } from "@/components/LightweightChart";
 import { motion, AnimatePresence } from "framer-motion";
 
 const INTERVALS = [
@@ -167,6 +168,7 @@ export default function CheckStock() {
   const { isPro } = useViewMode();
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [interval, setInterval] = useState("D");
+  const [chartViewMode, setChartViewMode] = useState<"live" | "tradingview">("live");
 
   const { data: stockIq } = useQuery<StockIQResult>({
     queryKey: [`/api/stockiq/${selectedStock}`],
@@ -473,47 +475,87 @@ export default function CheckStock() {
               </div>
             )}
 
-            {/* ── TradingView full chart ────────── */}
+            {/* ── Chart Container with Live vs TradingView Widget Toggle ────────── */}
             <div className="rounded-2xl border border-white/6 overflow-hidden glass-card">
-              {/* Interval selector */}
-              <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/5"
-                style={{ background: "rgba(255,255,255,0.02)" }}>
-                <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest mr-2">Interval</span>
-                {INTERVALS.map(iv => (
+              {/* Toolbar: Feed Selector, Interval, and External Link */}
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-white/5"
+                style={{ background: "rgba(255,255,255,0.02)" }}
+              >
+                {/* Engine Selector */}
+                <div className="flex items-center gap-1.5 p-0.5 rounded-lg bg-white/4 border border-white/6">
                   <button
-                    key={iv.value}
-                    onClick={() => setInterval(iv.value)}
-                    className={`px-3 py-1 rounded-md text-[11px] font-mono font-semibold transition-all duration-150
-                      ${interval === iv.value
-                        ? "bg-primary/80 text-white shadow-[0_0_10px_0_hsl(260,84%,65%,0.35)]"
-                        : "text-white/35 hover:text-white/70 hover:bg-white/5"
-                      }`}
+                    onClick={() => setChartViewMode("live")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-mono font-bold transition-all duration-150 ${
+                      chartViewMode === "live"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs"
+                        : "text-white/40 hover:text-white/80"
+                    }`}
                   >
-                    {iv.label}
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live NSE Chart
                   </button>
-                ))}
-                {/* Open in TradingView — for applying Pine Script */}
+                  <button
+                    onClick={() => setChartViewMode("tradingview")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-mono font-bold transition-all duration-150 ${
+                      chartViewMode === "tradingview"
+                        ? "bg-primary/20 text-primary border border-primary/40 shadow-xs"
+                        : "text-white/40 hover:text-white/80"
+                    }`}
+                  >
+                    TradingView Widget
+                  </button>
+                </div>
+
+                {/* Interval selector */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest mr-1">Interval</span>
+                  {INTERVALS.map((iv) => (
+                    <button
+                      key={iv.value}
+                      onClick={() => setInterval(iv.value)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all duration-150 ${
+                        interval === iv.value
+                          ? "bg-white/10 text-white font-bold"
+                          : "text-white/35 hover:text-white/70 hover:bg-white/5"
+                      }`}
+                    >
+                      {iv.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Open in TradingView */}
                 <a
                   href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(toTVSymbol(selectedStock))}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-mono font-semibold text-primary/70 hover:text-primary hover:bg-primary/10 transition-all duration-150 border border-primary/20 hover:border-primary/40"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-mono font-semibold text-primary/70 hover:text-primary hover:bg-primary/10 transition-all duration-150 border border-primary/20 hover:border-primary/40"
                   title="Open on TradingView.com to apply your Pine Script"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  Open in TradingView
+                  Open in TV
                 </a>
               </div>
 
-              {/* Chart — clean, no default indicators */}
-              <TradingViewChart
-                symbol={selectedStock}
-                interval={interval}
-                height={520}
-                showToolbar={true}
-                allowSymbolChange={false}
-                studies={[]}
-              />
+              {/* Render Selected Chart Engine */}
+              {chartViewMode === "live" ? (
+                <LightweightChart
+                  symbol={selectedStock}
+                  interval={interval}
+                  height={520}
+                  currentPrice={quote?.stock?.price}
+                />
+              ) : (
+                <TradingViewChart
+                  symbol={selectedStock}
+                  interval={interval}
+                  height={520}
+                  showToolbar={true}
+                  allowSymbolChange={false}
+                  studies={[]}
+                />
+              )}
             </div>
 
             {/* ── AI Foundation Model (Amazon Chronos-Bolt + Qlib Alpha158) ── */}

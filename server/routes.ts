@@ -1878,6 +1878,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const range = (req.query.range as string) || "6mo";
       const interval = range === "1mo" ? "1d" : "1d"; // Always use daily candles for accurate indicators
       const candles = await getYahooHistory(symbol, range, interval);
+
+      // ── Synchronize final candle with live market price ──
+      try {
+        const liveQuote = await getYahooStockQuote(symbol);
+        if (liveQuote && liveQuote.price && candles.length > 0) {
+          const lastCandle = candles[candles.length - 1];
+          const lastDateStr = new Date(lastCandle.time).toISOString().slice(0, 10);
+          const todayDateStr = new Date().toISOString().slice(0, 10);
+
+          if (lastDateStr === todayDateStr) {
+            lastCandle.close = liveQuote.price;
+            if (liveQuote.high) lastCandle.high = Math.max(lastCandle.high, liveQuote.high);
+            if (liveQuote.low) lastCandle.low = Math.min(lastCandle.low, liveQuote.low);
+            if (liveQuote.volume) lastCandle.volume = Math.max(lastCandle.volume, liveQuote.volume);
+          } else {
+            candles.push({
+              time: new Date(),
+              open: liveQuote.open || liveQuote.price,
+              high: liveQuote.high || liveQuote.price,
+              low: liveQuote.low || liveQuote.price,
+              close: liveQuote.price,
+              volume: liveQuote.volume || 0,
+            });
+          }
+        }
+      } catch (quoteErr: any) {
+        // Fallback to existing candles
+      }
       const closes = candles.map((c: any) => Number(c.close));
       const sma20 = computeSMA(closes, 20);
       const sma50 = computeSMA(closes, 50);

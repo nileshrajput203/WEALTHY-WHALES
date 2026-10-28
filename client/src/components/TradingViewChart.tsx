@@ -53,23 +53,20 @@ function loadTVScript(cb: () => void) {
 /* ── Symbol normalizer ───────────────────────────────────── */
 /**
  * Convert Yahoo/plain symbols to TradingView widget format.
- * IMPORTANT: We use BSE: prefix (not NSE:) because TradingView's FREE
- * embeddable widget restricts NSE data (requires paid subscription),
- * but BSE data is freely available. Most Indian stocks are listed on both.
+ * Defaults to NSE: prefix for all Indian equities to ensure live real-time
+ * intraday tick data (BSE on TradingView's free feed is often delayed EOD).
  */
 export function toTVSymbol(raw: string, exchange?: string): string {
   let s = raw.trim().toUpperCase();
-  if (!s) return "BSE:SENSEX"; // fallback for empty
+  if (!s) return "NSE:NIFTY"; // fallback for empty
 
   // Determine original suffix-based exchange before stripping
   let detectedExchange = exchange;
   if (!detectedExchange) {
-    if (s.endsWith(".NS") || s.endsWith(".NSE")) {
-      // For the embeddable free widget, we prefer BSE even if the suffix is .NS,
-      // because TradingView's free widget restricts NSE data (needs paid plan).
+    if (s.endsWith(".BO") || s.endsWith(".BSE")) {
       detectedExchange = "BSE";
-    } else if (s.endsWith(".BO") || s.endsWith(".BSE")) {
-      detectedExchange = "BSE";
+    } else {
+      detectedExchange = "NSE"; // Default to NSE for all active Indian liquid equities
     }
   }
 
@@ -77,21 +74,22 @@ export function toTVSymbol(raw: string, exchange?: string): string {
   let changed = true;
   while (changed) {
     changed = false;
-    if (s.endsWith(".NS"))      { s = s.slice(0, -3); changed = true; }
+    if (s.endsWith(".NS"))       { s = s.slice(0, -3); changed = true; }
     else if (s.endsWith(".NSE")) { s = s.slice(0, -4); changed = true; }
     else if (s.endsWith(".BO"))  { s = s.slice(0, -3); changed = true; }
     else if (s.endsWith(".BSE")) { s = s.slice(0, -4); changed = true; }
   }
 
-  if (s.includes(":"))        return s;            // already "NSE:RELIANCE" — passthrough
+  if (s.includes(":")) return s; // already "NSE:RELIANCE" — passthrough
   // Index symbols
-  if (s === "^NSEI" || s === "NSEI")          return "BSE:SENSEX";
+  if (s === "^NSEI" || s === "NSEI")           return "NSE:NIFTY";
   if (s === "^BSESN" || s === "BSESN")         return "BSE:SENSEX";
-  if (s === "^NSEBANK" || s === "NSEBANK")       return "BSE:BANKNIFTY";
-  if (s === "^CNXIT" || s === "CNXIT")         return "BSE:CNXIT";
-  if (s === "^CNXPHARMA" || s === "CNXPHARMA")     return "BSE:CNXPHARMA";
-  // Default: assume BSE for free widget data
-  const finalExchange = (detectedExchange || "BSE").toUpperCase();
+  if (s === "^NSEBANK" || s === "NSEBANK")     return "NSE:BANKNIFTY";
+  if (s === "^CNXIT" || s === "CNXIT")         return "NSE:CNXIT";
+  if (s === "^CNXPHARMA" || s === "CNXPHARMA") return "NSE:CNXPHARMA";
+
+  // Default: assume NSE for Indian liquid equities
+  const finalExchange = (detectedExchange || "NSE").toUpperCase();
   return `${finalExchange}:${s}`;
 }
 
