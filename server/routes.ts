@@ -4186,6 +4186,73 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
   const quantForecastInflight = new Map<string, Promise<any>>();
   const QUANT_FORECAST_TTL = 15 * 60 * 1000; // 15 minutes TTL
 
+  function sanitizeQuantForecast(data: any, cleanSym: string): any {
+    if (!data || typeof data !== "object") return data;
+    const isFnO = isFnOSymbol(cleanSym);
+    data.isFnO = isFnO;
+    data.marketSegment = isFnO ? "F&O" : "CASH";
+
+    if (data.intradayFO) {
+      data.intradayFO.isFnO = isFnO;
+      data.intradayFO.segment = isFnO ? "F&O" : "CASH";
+      data.intradayFO.segmentLabel = isFnO ? "NSE Derivatives (F&O)" : "Cash Segment Only (Non-F&O)";
+
+      const spot =
+        data.forecast?.lastClose ||
+        data.intradayFO.levels?.spotEntry ||
+        data.intradayFO.levels?.vwap ||
+        1000;
+      const step =
+        spot > 5000
+          ? 100
+          : spot > 2500
+          ? 50
+          : spot > 1000
+          ? 20
+          : spot > 500
+          ? 10
+          : spot > 100
+          ? 5
+          : spot > 50
+          ? 2.5
+          : 1;
+      const atmStrike = Math.round(spot / step) * step;
+
+      if (!isFnO) {
+        data.intradayFO.optionStrikeSuggestion = null;
+        data.intradayFO.foBuildup = "NOT_APPLICABLE";
+        data.intradayFO.pcr = null;
+        const spotEntry = data.intradayFO.levels?.spotEntry || Math.round(spot * 100) / 100;
+        const target1 = data.intradayFO.levels?.target1 || Math.round(spotEntry * 1.035 * 100) / 100;
+        const stopLoss = data.intradayFO.levels?.stopLoss || Math.round(spotEntry * 0.98 * 100) / 100;
+
+        if (data.intradayFO.direction === "BULLISH") {
+          data.intradayFO.cashTradeSuggestion = `Cash / MIS Buy near ₹${spotEntry} · Target: ₹${target1} · SL: ₹${stopLoss}`;
+        } else if (data.intradayFO.direction === "BEARISH") {
+          data.intradayFO.cashTradeSuggestion = `Cash MIS Intraday Short / Avoid Delivery · Support: ₹${target1} · SL: ₹${stopLoss}`;
+        } else {
+          data.intradayFO.cashTradeSuggestion = `Consolidation Range · Support: ₹${stopLoss} · Resistance: ₹${target1}`;
+        }
+      } else {
+        // Enforce mathematical strike integrity matching spot price and direction
+        if (data.intradayFO.direction === "BULLISH") {
+          data.intradayFO.optionStrikeSuggestion = `${atmStrike} CE`;
+        } else if (data.intradayFO.direction === "BEARISH") {
+          data.intradayFO.optionStrikeSuggestion = `${atmStrike} PE`;
+        } else {
+          data.intradayFO.optionStrikeSuggestion = `${atmStrike} Straddle / Rangebound`;
+        }
+        if (!data.intradayFO.foBuildup || data.intradayFO.foBuildup === "NOT_APPLICABLE") {
+          data.intradayFO.foBuildup = "NEUTRAL_OI";
+        }
+        if (data.intradayFO.pcr == null) {
+          data.intradayFO.pcr = 1.0;
+        }
+      }
+    }
+    return data;
+  }
+
   app.get("/api/quant/forecast/:symbol", async (req: Request, res: Response) => {
     try {
       const { symbol } = req.params;
@@ -4196,64 +4263,40 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
       // 1. Instant RAM Cache Hit (0.1ms latency)
       const memCached = quantForecastMemoryCache.get(cacheKey);
       if (memCached && Date.now() - memCached.ts < QUANT_FORECAST_TTL) {
-        return res.json(memCached.data);
+        return res.json(sanitizeQuantForecast(memCached.data, cleanSym));
       }
 
       // 2. Dedup concurrent requests (stampede shield)
       const inflight = quantForecastInflight.get(cacheKey);
       if (inflight) {
         const result = await inflight;
-        return res.json(result);
+        return res.json(sanitizeQuantForecast(result, cleanSym));
       }
 
       // 3. Database Cache Hit (5ms latency)
       try {
         const dbCached = await storage.getMarketDataCache(cacheKey);
         if (dbCached && Date.now() - new Date(dbCached.updatedAt).getTime() < QUANT_FORECAST_TTL) {
-          quantForecastMemoryCache.set(cacheKey, { data: dbCached.data, ts: Date.now() });
-          return res.json(dbCached.data);
+          const sanitized = sanitizeQuantForecast(dbCached.data, cleanSym);
+          quantForecastMemoryCache.set(cacheKey, { data: sanitized, ts: Date.now() });
+          return res.json(sanitized);
         }
       } catch (_) {}
 
       // 4. Compute fresh forecast with Inflight Promise
       const fetchPromise = (async () => {
         const data = await fetchQuantModelForecast(symbol, horizon);
-        const isFnO = isFnOSymbol(cleanSym);
+        const sanitized = sanitizeQuantForecast(data, cleanSym);
 
-        if (data && typeof data === "object") {
-          data.isFnO = isFnO;
-          data.marketSegment = isFnO ? "F&O" : "CASH";
-          if (data.intradayFO) {
-            data.intradayFO.isFnO = isFnO;
-            data.intradayFO.segment = isFnO ? "F&O" : "CASH";
-            data.intradayFO.segmentLabel = isFnO ? "NSE Derivatives (F&O)" : "Cash Segment Only (Non-F&O)";
-            if (!isFnO) {
-              data.intradayFO.optionStrikeSuggestion = null;
-              data.intradayFO.foBuildup = "NOT_APPLICABLE";
-              data.intradayFO.pcr = null;
-              if (!data.intradayFO.cashTradeSuggestion && data.intradayFO.levels) {
-                const { spotEntry, target1, stopLoss } = data.intradayFO.levels;
-                if (data.intradayFO.direction === "BULLISH") {
-                  data.intradayFO.cashTradeSuggestion = `Cash / MIS Buy near ₹${spotEntry} · Target: ₹${target1} · SL: ₹${stopLoss}`;
-                } else if (data.intradayFO.direction === "BEARISH") {
-                  data.intradayFO.cashTradeSuggestion = `Cash MIS Intraday Short / Avoid Delivery · Support: ₹${target1} · SL: ₹${stopLoss}`;
-                } else {
-                  data.intradayFO.cashTradeSuggestion = `Consolidation Range · Support: ₹${stopLoss} · Resistance: ₹${target1}`;
-                }
-              }
-            }
-          }
-        }
-
-        quantForecastMemoryCache.set(cacheKey, { data, ts: Date.now() });
-        storage.setMarketDataCache(cacheKey, data).catch((e) => console.warn(`[QuantCache DB write error]`, e));
-        return data;
+        quantForecastMemoryCache.set(cacheKey, { data: sanitized, ts: Date.now() });
+        storage.setMarketDataCache(cacheKey, sanitized).catch((e) => console.warn(`[QuantCache DB write error]`, e));
+        return sanitized;
       })();
 
       quantForecastInflight.set(cacheKey, fetchPromise);
       try {
         const result = await fetchPromise;
-        res.json(result);
+        res.json(sanitizeQuantForecast(result, cleanSym));
       } finally {
         quantForecastInflight.delete(cacheKey);
       }

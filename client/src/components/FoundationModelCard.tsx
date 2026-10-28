@@ -322,13 +322,25 @@ export function FoundationModelCard({ symbol, currentPrice }: FoundationModelCar
 
           {/* Intraday Multi-EMA Setup: Intelligently adapts between F&O Derivatives vs Cash Market */}
           {intradayFO && (() => {
-            const isFnO = intradayFO.isFnO ?? (data.isFnO ?? false);
+            const isFnO = Boolean(intradayFO.isFnO && (data.isFnO ?? true) && data.marketSegment !== "CASH");
             const dirColor =
               intradayFO.direction === "BULLISH"
                 ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                 : intradayFO.direction === "BEARISH"
                 ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
                 : "bg-amber-500/15 text-amber-300 border border-amber-500/30";
+
+            const spot = currentPrice || intradayFO.levels?.spotEntry || intradayFO.levels?.vwap || 1000;
+            const step =
+              spot > 5000 ? 100 : spot > 2500 ? 50 : spot > 1000 ? 20 : spot > 500 ? 10 : spot > 100 ? 5 : spot > 50 ? 2.5 : 1;
+            const atmStrike = Math.round(spot / step) * step;
+
+            const strikeDisplay =
+              intradayFO.direction === "BULLISH"
+                ? `${atmStrike} CE`
+                : intradayFO.direction === "BEARISH"
+                ? `${atmStrike} PE`
+                : `${atmStrike} Straddle / Rangebound`;
 
             return (
               <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 space-y-2">
@@ -367,7 +379,7 @@ export function FoundationModelCard({ symbol, currentPrice }: FoundationModelCar
                   <div className="space-y-1">
                     <div className="text-[11px] font-mono text-white/70">
                       Suggested Strike:{" "}
-                      <span className="text-white font-bold">{intradayFO.optionStrikeSuggestion || "ATM Strike"}</span>
+                      <span className="text-white font-bold">{strikeDisplay}</span>
                       {intradayFO.pcr && (
                         <span className="text-white/40 text-[10px] ml-2">
                           (PCR: {intradayFO.pcr})

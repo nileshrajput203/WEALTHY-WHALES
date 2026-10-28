@@ -338,4 +338,25 @@ if __name__ == "__main__":
         except Exception as e:
             result = {"success": False, "error": str(e)}
         
-    print(json.dumps(result))
+    def json_default(obj):
+        if hasattr(obj, "item"):
+            val = obj.item()
+            if isinstance(val, (int, float, bool, str)):
+                return val
+        if hasattr(obj, "tolist"):
+            return obj.tolist()
+        if hasattr(obj, "isoformat"):
+            return obj.isoformat()
+        try:
+            import numpy as _np
+            if isinstance(obj, _np.bool_):
+                return bool(obj)
+            if isinstance(obj, (_np.integer, _np.floating)):
+                return obj.item()
+            if isinstance(obj, _np.ndarray):
+                return obj.tolist()
+        except Exception:
+            pass
+        return str(obj)
+
+    print(json.dumps(result, default=json_default))
