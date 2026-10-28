@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { NSE_UNIQUE, NIFTY_50, ETFS } from './nseUniverse';
+import { NSE_UNIQUE, NIFTY_50, ETFS, NSE_UNIVERSE } from './nseUniverse';
 import { candleCache } from './candleCache';
 
 // Configuration for different free APIs
@@ -98,80 +98,125 @@ export interface MarketIndex {
   timestamp: Date;
 }
 
+// Shared in-memory quote cache & in-flight deduplication to handle 1000+ daily users without rate limits
+interface QuoteCacheEntry {
+  quote: StockQuote;
+  ts: number;
+}
+const quoteCache = new Map<string, QuoteCacheEntry>();
+const quoteInflight = new Map<string, Promise<StockQuote | null>>();
+const QUOTE_CACHE_TTL_MS = 15 * 1000; // 15 seconds fresh live quote cache
+
 // Get stock quote from Yahoo Finance (no API key required)
 export async function getYahooStockQuote(symbol: string): Promise<StockQuote | null> {
-  try {
-    const response = await axios.get(`${API_CONFIGS.yahoo.baseUrl}/${symbol}`, {
-      params: {
-        interval: '1d',
-        range: '5d',
-        includePrePost: false,
-        useYfid: true,
-        corsDomain: 'finance.yahoo.com'
-      },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      timeout: 10000
-    });
+  const normSym = symbol.toUpperCase().trim();
 
-    const data = response.data;
-    if (!data.chart?.result?.[0]?.meta) {
-      return null;
-    }
+  // 1. Return fresh quote from memory cache if available (0ms latency)
+  const cached = quoteCache.get(normSym);
+  if (cached && Date.now() - cached.ts < QUOTE_CACHE_TTL_MS) {
+    return cached.quote;
+  }
 
-    const meta = data.chart.result[0].meta;
-    const quoteData = data.chart.result[0].indicators?.quote?.[0];
-    const timestamps = data.chart.result[0].timestamp;
-    
-    const currentPrice = meta.regularMarketPrice || meta.previousClose;
-    const previousClose = meta.previousClose || 0;
+  // 2. Deduplicate concurrent requests (stampede shield)
+  const inflight = quoteInflight.get(normSym);
+  if (inflight) {
+    return inflight;
+  }
 
-    // Try multiple ways to get accurate change values
-    let change = 0;
-    let changePercent = 0;
+  // 3. Fetch from Yahoo Finance
+  const fetchPromise = (async (): Promise<StockQuote | null> => {
+    try {
+      const response = await axios.get(`${API_CONFIGS.yahoo.baseUrl}/${encodeURIComponent(symbol)}`, {
+        params: {
+          interval: '1d',
+          range: '5d',
+          includePrePost: false,
+          useYfid: true,
+          corsDomain: 'finance.yahoo.com'
+        },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        },
+        timeout: 8000
+      });
 
-    // Method 1: Use meta fields if available and non-zero
-    if (meta.regularMarketChange && meta.regularMarketChange !== 0) {
-      change = meta.regularMarketChange;
-      changePercent = meta.regularMarketChangePercent || (previousClose ? (change / previousClose) * 100 : 0);
-    }
-    // Method 2: Compute from currentPrice vs previousClose
-    else if (currentPrice && previousClose && currentPrice !== previousClose) {
-      change = currentPrice - previousClose;
-      changePercent = (change / previousClose) * 100;
-    }
-    // Method 3: Use last two candle closes (works when market is closed)
-    else if (quoteData?.close && timestamps && timestamps.length >= 2) {
-      const closes = quoteData.close.filter((c: any) => c != null && Number.isFinite(c));
-      if (closes.length >= 2) {
-        const lastClose = closes[closes.length - 1];
-        const prevDayClose = closes[closes.length - 2];
-        if (prevDayClose && prevDayClose !== 0) {
-          change = lastClose - prevDayClose;
-          changePercent = (change / prevDayClose) * 100;
+      const data = response.data;
+      if (!data.chart?.result?.[0]?.meta) {
+        return cached ? cached.quote : null;
+      }
+
+      const meta = data.chart.result[0].meta;
+      const quoteData = data.chart.result[0].indicators?.quote?.[0];
+      const timestamps = data.chart.result[0].timestamp;
+      
+      const currentPrice = meta.regularMarketPrice ?? meta.previousClose ?? 0;
+      const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+
+      let change = 0;
+      let changePercent = 0;
+
+      if (typeof meta.regularMarketChangePercent === "number") {
+        changePercent = meta.regularMarketChangePercent;
+      } else if (typeof meta.fulldayChangePercent === "number") {
+        changePercent = meta.fulldayChangePercent;
+      } else if (currentPrice && previousClose && previousClose > 0) {
+        changePercent = ((currentPrice - previousClose) / previousClose) * 100;
+      }
+
+      if (typeof meta.regularMarketChange === "number") {
+        change = meta.regularMarketChange;
+      } else if (typeof meta.fulldayChange === "number") {
+        change = meta.fulldayChange;
+      } else if (currentPrice && previousClose) {
+        change = currentPrice - previousClose;
+      }
+
+      // Fallback: use last two candle closes if live fields were not populated
+      if (change === 0 && changePercent === 0 && quoteData?.close && timestamps && timestamps.length >= 2) {
+        const closes = quoteData.close.filter((c: any) => c != null && Number.isFinite(c));
+        if (closes.length >= 2) {
+          const lastClose = closes[closes.length - 1];
+          const prevDayClose = closes[closes.length - 2];
+          if (prevDayClose && prevDayClose !== 0) {
+            change = lastClose - prevDayClose;
+            changePercent = ((lastClose - prevDayClose) / prevDayClose) * 100;
+          }
         }
       }
-    }
 
-    return {
-      symbol: meta.symbol,
-      name: meta.longName || meta.shortName || symbol,
-      price: currentPrice,
-      change: change,
-      changePercent: changePercent,
-      volume: meta.regularMarketVolume,
-      marketCap: meta.marketCap,
-      high: meta.regularMarketDayHigh,
-      low: meta.regularMarketDayLow,
-      open: meta.regularMarketOpen,
-      previousClose: previousClose,
-      timestamp: new Date((meta.regularMarketTime ?? Math.floor(Date.now() / 1000)) * 1000),
-      source: 'Yahoo Finance'
-    };
-  } catch (error) {
-    console.error('Yahoo Finance API error:', error);
-    return null;
+      const parsedQuote: StockQuote = {
+        symbol: meta.symbol,
+        name: meta.longName || meta.shortName || symbol,
+        price: currentPrice,
+        change: change,
+        changePercent: changePercent,
+        volume: meta.regularMarketVolume,
+        marketCap: meta.marketCap,
+        high: meta.regularMarketDayHigh,
+        low: meta.regularMarketDayLow,
+        open: meta.regularMarketOpen,
+        previousClose: previousClose,
+        timestamp: new Date((meta.regularMarketTime ?? Math.floor(Date.now() / 1000)) * 1000),
+        source: 'Yahoo Finance'
+      };
+
+      // Store in memory cache
+      quoteCache.set(normSym, { quote: parsedQuote, ts: Date.now() });
+      return parsedQuote;
+    } catch (error) {
+      if (cached) {
+        return cached.quote;
+      }
+      console.error('Yahoo Finance API error for', symbol, ':', error);
+      return null;
+    }
+  })();
+
+  quoteInflight.set(normSym, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    quoteInflight.delete(normSym);
   }
 }
 
@@ -920,22 +965,41 @@ export async function getFinancialNews(limit: number = 20): Promise<StockNews[]>
   }
 }
 
-// Yahoo Finance symbol search with NSE/BSE support
+// Yahoo Finance symbol search with NSE/BSE support & fast in-memory local fallback
 export async function searchStocksYahoo(query: string): Promise<{ symbol: string; name: string; exchange?: string }[]> {
+  const q = (query || "").trim().toUpperCase();
+  if (!q) return [];
+
   try {
     const r = await axios.get('https://query2.finance.yahoo.com/v1/finance/search', {
       params: { q: query, quotesCount: 10, newsCount: 0, listsCount: 0 },
-      timeout: 8000,
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 5000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
     });
     const quotes = Array.isArray(r.data?.quotes) ? r.data.quotes : [];
-    return quotes
-      .filter((q: any) => q.symbol && q.shortname)
-      .map((q: any) => ({ symbol: q.symbol as string, name: q.shortname as string, exchange: q.exchange }))
+    const filtered = quotes
+      .filter((item: any) => item.symbol && (item.shortname || item.longname))
+      .map((item: any) => ({
+        symbol: (item.symbol as string).replace(/\.(NS|BO|NSE|BSE)$/i, '').toUpperCase(),
+        name: (item.shortname || item.longname || item.symbol) as string,
+        exchange: (item.exchange as string) || 'NSE'
+      }))
       .slice(0, 10);
+
+    if (filtered.length > 0) {
+      return filtered;
+    }
   } catch (e) {
-    return [];
+    // If Yahoo search is slow or rate-limited, fallback to local match
   }
+
+  // Fast in-memory local match against NSE Universe (0ms)
+  const localMatches = NSE_UNIVERSE
+    .filter(s => s.startsWith(q) || s.includes(q))
+    .slice(0, 8)
+    .map(sym => ({ symbol: sym, name: sym, exchange: 'NSE' }));
+
+  return localMatches;
 }
 
 // Fallback to mock data if APIs fail

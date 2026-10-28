@@ -27,6 +27,8 @@ import {
 interface FoundationModelData {
   status: string;
   symbol: string;
+  isFnO?: boolean;
+  marketSegment?: "F&O" | "CASH";
   timestamp: string;
   hermesConvictionScore: number;
   alpha158?: {
@@ -61,9 +63,13 @@ interface FoundationModelData {
     setupType: string;
     direction: "BULLISH" | "BEARISH" | "NEUTRAL";
     confidence: number;
-    foBuildup: string;
-    pcr: number;
-    optionStrikeSuggestion: string;
+    isFnO?: boolean;
+    segment?: "F&O" | "CASH";
+    segmentLabel?: string;
+    foBuildup?: string;
+    pcr?: number | null;
+    optionStrikeSuggestion?: string | null;
+    cashTradeSuggestion?: string | null;
     levels: {
       spotEntry: number;
       stopLoss: number;
@@ -314,33 +320,91 @@ export function FoundationModelCard({ symbol, currentPrice }: FoundationModelCar
             </span>
           </div>
 
-          {/* Intraday Multi-EMA Setup */}
-          {intradayFO && (
-            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-white/50 uppercase flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  Intraday F&O Ribbon
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    intradayFO.direction === "BULLISH"
-                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                      : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                  }`}
-                >
-                  {intradayFO.direction} ({intradayFO.confidence}%)
-                </span>
+          {/* Intraday Multi-EMA Setup: Intelligently adapts between F&O Derivatives vs Cash Market */}
+          {intradayFO && (() => {
+            const isFnO = intradayFO.isFnO ?? (data.isFnO ?? false);
+            const dirColor =
+              intradayFO.direction === "BULLISH"
+                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                : intradayFO.direction === "BEARISH"
+                ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                : "bg-amber-500/15 text-amber-300 border border-amber-500/30";
+
+            return (
+              <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono gap-2 flex-wrap">
+                  <span className="text-white/60 uppercase flex items-center gap-1.5 font-bold">
+                    {isFnO ? (
+                      <>
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        Intraday F&O Ribbon
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                        Intraday Cash Setup
+                      </>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold border ${
+                        isFnO
+                          ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                          : "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                      }`}
+                    >
+                      {isFnO ? "F&O Eligible" : "Cash Only"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${dirColor}`}>
+                      {intradayFO.direction} ({intradayFO.confidence}%)
+                    </span>
+                  </div>
+                </div>
+
+                {isFnO ? (
+                  /* F&O Stocks: Authentic Option Strike & OI Buildup */
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-mono text-white/70">
+                      Suggested Strike:{" "}
+                      <span className="text-white font-bold">{intradayFO.optionStrikeSuggestion || "ATM Strike"}</span>
+                      {intradayFO.pcr && (
+                        <span className="text-white/40 text-[10px] ml-2">
+                          (PCR: {intradayFO.pcr})
+                        </span>
+                      )}
+                    </div>
+                    {intradayFO.foBuildup && intradayFO.foBuildup !== "NOT_APPLICABLE" && (
+                      <div className="text-[10px] font-mono text-indigo-300">
+                        OI Positioning: {intradayFO.foBuildup.replace(/_/g, " ")}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Non-F&O Stocks: Accurate Cash Market Execution Guidance (No Fake Strikes) */
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-mono text-white/80">
+                      <span className="text-cyan-400 font-medium">Cash Action: </span>
+                      <span>
+                        {intradayFO.cashTradeSuggestion ||
+                          `Trade via Cash/MIS · Target: ₹${intradayFO.levels.target1} · SL: ₹${intradayFO.levels.stopLoss}`}
+                      </span>
+                    </div>
+                    <div className="text-[10px] font-mono text-white/40 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3 text-cyan-400/60" />
+                      <span>Non-F&O Counter · Options & Derivatives not traded on NSE</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-[10px] font-mono text-white/40 pt-1 border-t border-white/5 flex items-center justify-between">
+                  <span>VWAP: ₹{intradayFO.levels.vwap}</span>
+                  <span>ATR(14): ₹{intradayFO.levels.atr14}</span>
+                  <span>SL: ₹{intradayFO.levels.stopLoss}</span>
+                </div>
               </div>
-              <div className="text-[11px] font-mono text-white/70">
-                Suggested Strike:{" "}
-                <span className="text-white font-bold">{intradayFO.optionStrikeSuggestion}</span>
-              </div>
-              <div className="text-[10px] font-mono text-white/40">
-                VWAP: ₹{intradayFO.levels.vwap} · ATR(14): ₹{intradayFO.levels.atr14}
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 10-Year Seasonality Insight */}
           {seasonality && (

@@ -68,6 +68,7 @@ import {
   fetchAlpha158Factors,
   analyzeHeadlineSentiment,
   fetchChartinkScan,
+  isFnOSymbol,
 } from "./services/nseService";
 import { getHermesBanditProfile } from "./hermesEngine";
 import { scanIntradayFOSetups } from "./apexFOEngine";
@@ -2401,23 +2402,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         /* ignore */
       }
 
-      // Step 3 — Concall + Annual Report summary (Gemini)
-      const concallData = await getConcallAndAnnualReportSummary({
-        symbol,
-        companyName,
-        fundamentals: fundData,
-        newsSample: newsTitles,
-      });
-
-      // Step 4 — Full dashboard JSON (Gemini)
-      const dashboard = await getDeepFundamentalDashboard({
-        symbol,
-        fundamentals: fundData,
-        technicals,
-        newsSample: newsTitles,
-        concallData,
-        currentPrice: currentPrice ?? undefined,
-      });
+      // Step 3 & 4 — Concall + Full dashboard in parallel
+      const [concallData, dashboard] = await Promise.all([
+        getConcallAndAnnualReportSummary({
+          symbol,
+          companyName,
+          fundamentals: fundData,
+          newsSample: newsTitles,
+        }),
+        getDeepFundamentalDashboard({
+          symbol,
+          fundamentals: fundData,
+          technicals,
+          newsSample: newsTitles,
+          currentPrice: currentPrice ?? undefined,
+        }),
+      ]);
 
       if (!dashboard || !concallData) {
         return res.status(500).json({
@@ -2427,6 +2427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
+        ...dashboard,
         symbol,
         companyName: concallData?.companyName ?? companyName ?? symbol,
         sector: concallData?.sector ?? null,
@@ -2452,6 +2453,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         governance: dashboard?.governance ?? null,
         industryPosition: dashboard?.industryPosition ?? null,
         cashDebtQuality: dashboard?.cashDebtQuality ?? null,
+        sectorRotationMacro: dashboard?.sectorRotationMacro ?? null,
+        marketSentimentRumors: dashboard?.marketSentimentRumors ?? null,
+        hiddenTroubleSignals: dashboard?.hiddenTroubleSignals ?? null,
+        competitiveIntelligence: dashboard?.competitiveIntelligence ?? null,
+        businessModelQuality: dashboard?.businessModelQuality ?? null,
+        insiderSmartMoney: dashboard?.insiderSmartMoney ?? null,
+        bullBearNarrative: dashboard?.bullBearNarrative ?? dashboard?.bullVsBearNarrative ?? null,
+        valuationBankerContext: dashboard?.valuationBankerContext ?? null,
+        overallGradeRecommendation: dashboard?.overallGradeRecommendation ?? null,
         lastUpdated: new Date().toISOString(),
       });
     } catch (err) {
@@ -2501,26 +2511,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (
         screenerData &&
-        screenerData.tenYearPL &&
-        screenerData.tenYearPL.length > 0
+        screenerData.quarterlyResults &&
+        screenerData.quarterlyResults.length > 0 &&
+        Object.keys(screenerData.quarterlyResults[0] || {}).length > 1
       ) {
         const plPeriods = transposeScreenerTable(
-          screenerData.tenYearPL,
+          screenerData.tenYearPL || [],
           PL_MAP,
         );
         const bsPeriods = transposeScreenerTable(
-          screenerData.tenYearBS,
+          screenerData.tenYearBS || [],
           BS_MAP,
         );
         const quarterlyPeriods = transposeScreenerTable(
-          screenerData.quarterlyResults,
+          screenerData.quarterlyResults || [],
           PL_MAP,
         );
-        const cfPeriods = transposeScreenerTable(screenerData.cashFlow, CF_MAP);
-        const shPeriods = transposeScreenerTable(
-          screenerData.shareholding,
+        const cfPeriods = transposeScreenerTable(screenerData.cashFlow || [], CF_MAP);
+        const shQuarterly = transposeScreenerTable(
+          screenerData.shareholding || [],
           SH_MAP,
         );
+        const shYearly = screenerData.shareholdingYearly?.length > 0
+          ? transposeScreenerTable(screenerData.shareholdingYearly, SH_MAP)
+          : shQuarterly;
 
         const ratiosYearly = computeRatiosFromScreener(
           plPeriods,
@@ -2530,11 +2544,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({
           symbol,
-          sector: "Consolidated (Screener.in)",
+          sector: "Audited Financials (Screener.in)",
           scale: "Cr (₹)",
           shareholding: {
-            yearly: shPeriods,
-            quarterly: shPeriods.slice(-4),
+            yearly: shYearly,
+            quarterly: shQuarterly,
           },
           ratios: {
             yearly: ratiosYearly,
@@ -2554,8 +2568,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const data = getFinancialData(symbol);
-      res.json(data);
+      // ZERO FAKE DATA: Return clean empty structure if financials are not listed
+      res.status(404).json({
+        message: `Audited financial statements are not available for ${symbol} on Screener.in.`,
+        symbol,
+        shareholding: { yearly: [], quarterly: [] },
+        ratios: { yearly: [], quarterly: [] },
+        cashFlows: { yearly: [], quarterly: [] },
+        balanceSheet: { yearly: [], quarterly: [] },
+        profitAndLoss: [],
+        quarterlyResults: [],
+      });
     } catch (error) {
       console.error("Stock financials error:", error);
       res.status(500).json({ message: "Failed to fetch financial statements" });
@@ -2678,6 +2701,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res
         .status(500)
         .json({ message: "Failed to compute seasonality analysis" });
+    }
+  });
+
+  // Real Stock Price Performance & Volume Analysis API (100% Real Market Data)
+  app.get("/api/stock/:symbol/performance", async (req, res) => {
+    try {
+      const rawSymbol = req.params.symbol;
+      const symbol = toYahooSymbol(rawSymbol);
+
+      // Fetch 3-year daily candles to calculate real returns and moving volume averages
+      const candles = await getYahooHistory(symbol, "3y", "1d");
+      if (!candles || candles.length === 0) {
+        return res.status(404).json({ message: "No price history found" });
+      }
+
+      const validCandles = candles.filter((c) => c && typeof c.close === "number" && !isNaN(c.close));
+      if (validCandles.length < 2) {
+        return res.status(404).json({ message: "Insufficient candle history" });
+      }
+
+      const latestCandle = validCandles[validCandles.length - 1];
+      const latestClose = latestCandle.close;
+
+      const getReturn = (tradingDaysAgo: number) => {
+        if (validCandles.length <= tradingDaysAgo) return null;
+        const past = validCandles[validCandles.length - 1 - tradingDaysAgo];
+        if (!past || !past.close) return null;
+        return Number((((latestClose - past.close) / past.close) * 100).toFixed(2));
+      };
+
+      // Real YTD return calculation
+      const currentYear = new Date(latestCandle.time).getFullYear();
+      let ytdStartCandle = null;
+      for (let i = validCandles.length - 1; i >= 0; i--) {
+        const cDate = new Date(validCandles[i].time);
+        if (cDate.getFullYear() < currentYear) {
+          ytdStartCandle = validCandles[i];
+          break;
+        }
+      }
+      let ytdReturn: number | null = null;
+      if (ytdStartCandle && ytdStartCandle.close) {
+        ytdReturn = Number((((latestClose - ytdStartCandle.close) / ytdStartCandle.close) * 100).toFixed(2));
+      } else if (validCandles.length > 0) {
+        const firstOfYear = validCandles[0];
+        ytdReturn = Number((((latestClose - firstOfYear.close) / firstOfYear.close) * 100).toFixed(2));
+      }
+
+      const performance = {
+        w1: getReturn(5),
+        m1: getReturn(21),
+        m3: getReturn(63),
+        ytd: ytdReturn,
+        y1: getReturn(252),
+        y3: getReturn(756),
+      };
+
+      // Real volume analysis (in Lakhs = volume / 100,000)
+      const todayVol = (latestCandle.volume || 0) / 100000;
+      const yesterdayCandle = validCandles[validCandles.length - 2];
+      const yesterdayVol = yesterdayCandle ? (yesterdayCandle.volume || 0) / 100000 : todayVol;
+
+      // 1-Week avg volume (last 5 trading days)
+      const last5 = validCandles.slice(-5);
+      const wkAvgVol = last5.reduce((sum, c) => sum + (c.volume || 0), 0) / (last5.length || 1) / 100000;
+
+      // 1-Month avg volume (last 21 trading days)
+      const last21 = validCandles.slice(-21);
+      const moAvgVol = last21.reduce((sum, c) => sum + (c.volume || 0), 0) / (last21.length || 1) / 100000;
+
+      const volumeData = [
+        { label: "Today", vol: Number(todayVol.toFixed(2)), del: null },
+        { label: "Yesterday", vol: Number(yesterdayVol.toFixed(2)), del: null },
+        { label: "1 Week Avg", vol: Number(wkAvgVol.toFixed(2)), del: null },
+        { label: "1 Month Avg", vol: Number(moAvgVol.toFixed(2)), del: null },
+      ];
+
+      res.json({
+        symbol: rawSymbol,
+        performance,
+        volumeData,
+      });
+    } catch (e) {
+      console.error("Performance error:", e);
+      res.status(500).json({ message: "Failed to compute performance analysis" });
     }
   });
 
@@ -2930,7 +3038,19 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
   app.get("/api/nse/option-chain/:symbol", async (req, res) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const rawSym = req.params.symbol.toUpperCase();
+      const symbol = rawSym.replace(/\.(NS|BO)$/i, "");
+      const isFnO = isFnOSymbol(symbol);
+      if (!isFnO) {
+        return res.json({
+          success: false,
+          isFnO: false,
+          symbol,
+          message: `${symbol} is an Equity Cash segment stock. It is not traded in the NSE Derivatives (F&O) segment, so Option Chain and Strike Prices do not exist for this stock.`,
+          calls: [],
+          puts: []
+        });
+      }
       const result = await getCachedOrGenerate(
         `nse_option_chain_${symbol}`,
         5 * 60 * 1000,
@@ -3875,13 +3995,83 @@ Use ** for bold. No disclaimers. Be specific with numbers.`;
 
   // ══════════════════════════════════════════════════════════════
   // QUANT & CHINESE/GLOBAL AI FOUNDATION MODELS
+  // High-performance 2-tier caching + stampede deduplication
   // ══════════════════════════════════════════════════════════════
+  const quantForecastMemoryCache = new Map<string, { data: any; ts: number }>();
+  const quantForecastInflight = new Map<string, Promise<any>>();
+  const QUANT_FORECAST_TTL = 15 * 60 * 1000; // 15 minutes TTL
+
   app.get("/api/quant/forecast/:symbol", async (req: Request, res: Response) => {
     try {
       const { symbol } = req.params;
+      const cleanSym = symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
       const horizon = req.query.horizon ? parseInt(req.query.horizon as string) : 10;
-      const data = await fetchQuantModelForecast(symbol, horizon);
-      res.json(data);
+      const cacheKey = `quant_fc_${cleanSym}_${horizon}`;
+
+      // 1. Instant RAM Cache Hit (0.1ms latency)
+      const memCached = quantForecastMemoryCache.get(cacheKey);
+      if (memCached && Date.now() - memCached.ts < QUANT_FORECAST_TTL) {
+        return res.json(memCached.data);
+      }
+
+      // 2. Dedup concurrent requests (stampede shield)
+      const inflight = quantForecastInflight.get(cacheKey);
+      if (inflight) {
+        const result = await inflight;
+        return res.json(result);
+      }
+
+      // 3. Database Cache Hit (5ms latency)
+      try {
+        const dbCached = await storage.getMarketDataCache(cacheKey);
+        if (dbCached && Date.now() - new Date(dbCached.updatedAt).getTime() < QUANT_FORECAST_TTL) {
+          quantForecastMemoryCache.set(cacheKey, { data: dbCached.data, ts: Date.now() });
+          return res.json(dbCached.data);
+        }
+      } catch (_) {}
+
+      // 4. Compute fresh forecast with Inflight Promise
+      const fetchPromise = (async () => {
+        const data = await fetchQuantModelForecast(symbol, horizon);
+        const isFnO = isFnOSymbol(cleanSym);
+
+        if (data && typeof data === "object") {
+          data.isFnO = isFnO;
+          data.marketSegment = isFnO ? "F&O" : "CASH";
+          if (data.intradayFO) {
+            data.intradayFO.isFnO = isFnO;
+            data.intradayFO.segment = isFnO ? "F&O" : "CASH";
+            data.intradayFO.segmentLabel = isFnO ? "NSE Derivatives (F&O)" : "Cash Segment Only (Non-F&O)";
+            if (!isFnO) {
+              data.intradayFO.optionStrikeSuggestion = null;
+              data.intradayFO.foBuildup = "NOT_APPLICABLE";
+              data.intradayFO.pcr = null;
+              if (!data.intradayFO.cashTradeSuggestion && data.intradayFO.levels) {
+                const { spotEntry, target1, stopLoss } = data.intradayFO.levels;
+                if (data.intradayFO.direction === "BULLISH") {
+                  data.intradayFO.cashTradeSuggestion = `Cash / MIS Buy near ₹${spotEntry} · Target: ₹${target1} · SL: ₹${stopLoss}`;
+                } else if (data.intradayFO.direction === "BEARISH") {
+                  data.intradayFO.cashTradeSuggestion = `Cash MIS Intraday Short / Avoid Delivery · Support: ₹${target1} · SL: ₹${stopLoss}`;
+                } else {
+                  data.intradayFO.cashTradeSuggestion = `Consolidation Range · Support: ₹${stopLoss} · Resistance: ₹${target1}`;
+                }
+              }
+            }
+          }
+        }
+
+        quantForecastMemoryCache.set(cacheKey, { data, ts: Date.now() });
+        storage.setMarketDataCache(cacheKey, data).catch((e) => console.warn(`[QuantCache DB write error]`, e));
+        return data;
+      })();
+
+      quantForecastInflight.set(cacheKey, fetchPromise);
+      try {
+        const result = await fetchPromise;
+        res.json(result);
+      } finally {
+        quantForecastInflight.delete(cacheKey);
+      }
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

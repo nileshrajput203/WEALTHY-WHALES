@@ -3,12 +3,11 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useViewMode } from "@/hooks/useViewMode";
 import { type StockIQResult } from "@shared/types";
-import StockIQScore from "@/components/StockIQScore";
 import { StockSearchBar } from "@/components/StockSearchBar";
 import { InstitutionalVerdictCard } from "@/components/InstitutionalVerdictCard";
 import { FoundationModelCard } from "@/components/FoundationModelCard";
 import { OrderBlockCard } from "@/components/OrderBlockCard";
-import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info } from "lucide-react";
+import { Search, BarChart2, ExternalLink, Globe, Settings, X, Plus, TrendingUp, TrendingDown, Info, Sparkles } from "lucide-react";
 import { FundamentalDashboard } from "@/components/FundamentalDashboard";
 import { PredictaPanel } from "@/components/PredictaPanel";
 import { TradingViewChart, toTVSymbol } from "@/components/TradingViewChart";
@@ -133,7 +132,7 @@ export default function CheckStock() {
     enabled: !!selectedStock,
   });
 
-  const { data: quote } = useQuery<any>({
+  const { data: quote, isLoading: quoteLoading } = useQuery<any>({
     queryKey: [`/api/stock/${selectedStock}`],
     enabled: !!selectedStock,
   });
@@ -241,6 +240,17 @@ export default function CheckStock() {
             )}
 
             {/* ── Screener.in Style Key Metrics Card ── */}
+            {quoteLoading && !quote && (
+              <div className="glass-card border border-white/10 rounded-2xl p-6 space-y-4 animate-pulse bg-white/[0.02]">
+                <div className="h-7 w-48 bg-white/10 rounded-lg" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pt-2">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className="h-16 bg-white/5 rounded-xl border border-white/5" />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {quote && (
               <div 
                 className="glass-card border border-white/10 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-visible"
@@ -478,15 +488,17 @@ export default function CheckStock() {
             {/* ── Deep Fundamental Dashboard ─────────────────── */}
             <FundamentalDashboard symbol={selectedStock} />
 
-            {/* ── StockIQ Score (at the end of fundamental analysis) ────────── */}
-            {stockIq && (
-              <div className="grid grid-cols-1 gap-6">
-                <StockIQScore
-                  data={stockIq}
-                  onGenerateReport={() => setLocation(`/stock/${selectedStock}/report`)}
-                />
-              </div>
-            )}
+            {/* ── Generate Detailed AI Research Report Option ────────── */}
+            <div className="pt-2 pb-6">
+              <button
+                type="button"
+                onClick={() => setLocation(`/stock/${selectedStock}/report`)}
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-primary via-violet-600 to-indigo-600 hover:from-primary/90 hover:via-violet-600/90 hover:to-indigo-600/90 text-white font-bold text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 transition-all shadow-[0_0_24px_rgba(124,58,237,0.35)] hover:shadow-[0_0_32px_rgba(124,58,237,0.55)] active:scale-[0.99] border border-white/10 group cursor-pointer"
+              >
+                <Sparkles className="h-4 w-4 text-violet-200 animate-pulse group-hover:rotate-12 transition-transform" />
+                <span>Generate Detailed AI Research Report</span>
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

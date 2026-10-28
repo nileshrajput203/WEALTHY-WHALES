@@ -828,146 +828,128 @@ function DashboardSkeleton() {
   );
 }
 
-/* ─── Price & Volume Analysis helpers ─── */
-const getPricePerf = (sym: string) => {
-  const clean = sym.replace(/\.(ns|bo)$/i, "").toUpperCase();
-  const hash = clean.charCodeAt(0) + (clean.charCodeAt(1) || 0) + (clean.charCodeAt(2) || 0);
-  const w1 = (hash % 15) - 4;
-  const m1 = (hash % 25) - 6;
-  const m3 = (hash % 60) - 10;
-  const ytd = (hash % 40) - 8;
-  const y1 = (hash % 80) - 20;
-  const y3 = (hash % 300) - 40;
-  return { w1, m1, m3, ytd, y1, y3 };
-};
-
-const getVolumeData = (sym: string) => {
-  const clean = sym.replace(/\.(ns|bo)$/i, "").toUpperCase();
-  const hash = (clean.charCodeAt(0) + (clean.charCodeAt(1) || 0) + (clean.charCodeAt(2) || 0)) % 100;
-  const todayVol = 15 + (hash % 85);
-  const todayDel = todayVol * (0.3 + (hash % 25) / 100);
-  const yesterdayVol = todayVol * (0.9 + (hash % 15) / 100);
-  const yesterdayDel = yesterdayVol * (0.32 + (hash % 23) / 100);
-  const wkAvgVol = todayVol * 0.8;
-  const wkAvgDel = wkAvgVol * (0.35 + (hash % 10) / 100);
-  const moAvgVol = todayVol * 0.85;
-  const moAvgDel = moAvgVol * (0.33 + (hash % 10) / 100);
-
-  return [
-    { label: "Today", vol: todayVol, del: todayDel },
-    { label: "Yesterday", vol: yesterdayVol, del: yesterdayDel },
-    { label: "1 Week Avg", vol: wkAvgVol, del: wkAvgDel },
-    { label: "1 Month Avg", vol: moAvgVol, del: moAvgDel }
-  ];
-};
-
+/* ─── Price & Volume Analysis (100% Real Live Market Data) ─── */
 const formatVol = (val: number) => {
-  if (val >= 100) return `${(val / 100).toFixed(1)} Cr.`;
-  return `${val.toFixed(1)} Lakh`;
+  if (val >= 100) return `${(val / 100).toFixed(2)} Cr.`;
+  return `${val.toFixed(2)} Lakh`;
 };
 
 function PriceAndVolumeSection({ symbol }: { symbol: string }) {
-  const perf = getPricePerf(symbol);
-  const volData = getVolumeData(symbol);
-  const maxVol = Math.max(...volData.map(d => d.vol));
+  const [data, setData] = useState<{ performance: any; volumeData: any[] } | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function load() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/stock/${encodeURIComponent(symbol)}/performance`);
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted) setData(json);
+        }
+      } catch (err) {
+        console.error("Failed to load real performance:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, [symbol]);
+
+  const perf = data?.performance;
+  const volData = data?.volumeData || [];
+  const maxVol = Math.max(...volData.map((d) => d.vol || 0), 1);
 
   return (
     <div className="glass-card rounded-2xl border border-white/6 p-5 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: Price Performance */}
         <div className="space-y-4">
-          <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Price Performance</h5>
-          <div className="divide-y divide-white/5 font-mono text-xs">
-            {[
-              { label: "1 Week", val: perf.w1 },
-              { label: "1 Month", val: perf.m1 },
-              { label: "3 Months", val: perf.m3 },
-              { label: "YTD", val: perf.ytd },
-              { label: "1 Year", val: perf.y1 },
-              { label: "3 Years", val: perf.y3 }
-            ].map(row => {
-              const isPos = row.val >= 0;
-              return (
-                <div key={row.label} className="flex items-center justify-between py-2.5">
-                  <span className="text-white/60 font-sans">{row.label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className={`font-bold ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
-                      {isPos ? "+" : ""}{row.val.toFixed(2)}%
-                    </span>
-                    <div className={`w-16 h-2 rounded-full ${isPos ? "bg-emerald-500/20" : "bg-rose-500/20"} overflow-hidden relative`}>
-                      <div 
-                        className={`absolute top-0 bottom-0 left-0 rounded-full ${isPos ? "bg-emerald-500" : "bg-rose-500"}`}
-                        style={{ width: `${Math.min(100, Math.max(10, Math.abs(row.val) * 1.5))}%` }}
-                      />
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Price Performance</h5>
+            <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Live Returns</span>
+          </div>
+          {loading ? (
+            <div className="py-8 text-center text-xs text-white/40 font-mono animate-pulse">Calculating market returns...</div>
+          ) : (
+            <div className="divide-y divide-white/5 font-mono text-xs">
+              {[
+                { label: "1 Week", val: perf?.w1 },
+                { label: "1 Month", val: perf?.m1 },
+                { label: "3 Months", val: perf?.m3 },
+                { label: "YTD", val: perf?.ytd },
+                { label: "1 Year", val: perf?.y1 },
+                { label: "3 Years", val: perf?.y3 },
+              ].map((row) => {
+                const hasVal = row.val !== null && row.val !== undefined;
+                const isPos = (row.val || 0) >= 0;
+                return (
+                  <div key={row.label} className="flex items-center justify-between py-2.5">
+                    <span className="text-white/60 font-sans">{row.label}</span>
+                    <div className="flex items-center gap-3">
+                      {hasVal ? (
+                        <>
+                          <span className={`font-bold ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isPos ? "+" : ""}{Number(row.val).toFixed(2)}%
+                          </span>
+                          <div className={`w-16 h-2 rounded-full ${isPos ? "bg-emerald-500/20" : "bg-rose-500/20"} overflow-hidden relative`}>
+                            <div
+                              className={`absolute top-0 bottom-0 left-0 rounded-full ${isPos ? "bg-emerald-500" : "bg-rose-500"}`}
+                              style={{ width: `${Math.min(100, Math.max(10, Math.abs(row.val) * 1.5))}%` }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-white/30 text-[11px] font-sans">N/A (&lt; period)</span>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Volume Analysis */}
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Volume Analysis</h5>
-            <div className="flex items-center gap-3 text-[10px] font-mono">
-              <span className="flex items-center gap-1.5 text-white/60">
-                <span className="w-2.5 h-2.5 rounded-sm bg-slate-500/60" />
-                Volume
-              </span>
-              <span className="flex items-center gap-1.5 text-white/60">
-                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80" />
-                Delivery
-              </span>
-              <select className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white/80 focus:outline-none text-[10px] cursor-pointer">
-                <option value="combined">Combined</option>
-                <option value="volume">Volume Only</option>
-                <option value="delivery">Delivery Only</option>
-              </select>
-            </div>
+            <span className="text-[10px] text-sky-400 font-mono bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">Exchange Volume</span>
           </div>
 
-          <div className="space-y-5">
-            {volData.map(row => {
-              const delPercent = ((row.del / row.vol) * 100).toFixed(2);
-              const volWidth = (row.vol / maxVol) * 100;
-              const delWidth = (row.del / maxVol) * 100;
+          {loading ? (
+            <div className="py-8 text-center text-xs text-white/40 font-mono animate-pulse">Fetching exchange volumes...</div>
+          ) : (
+            <div className="space-y-5">
+              {volData.map((row) => {
+                const volWidth = maxVol > 0 ? ((row.vol || 0) / maxVol) * 100 : 0;
 
-              return (
-                <div key={row.label} className="grid grid-cols-4 gap-2 items-center text-xs">
-                  <span className="text-white/60 font-medium font-sans truncate">{row.label}</span>
-                  <div className="col-span-3 space-y-1.5">
-                    {/* Volume Bar */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-slate-400/60 rounded-full transition-all duration-500"
-                          style={{ width: `${volWidth}%` }}
-                        />
+                return (
+                  <div key={row.label} className="grid grid-cols-4 gap-2 items-center text-xs">
+                    <span className="text-white/60 font-medium font-sans truncate">{row.label}</span>
+                    <div className="col-span-3 space-y-1.5">
+                      {/* Volume Bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-cyan-500/70 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.max(5, volWidth)}%` }}
+                          />
+                        </div>
+                        <span className="w-20 text-[11px] font-mono text-cyan-300 font-semibold text-right tabular-nums">
+                          {formatVol(row.vol)}
+                        </span>
                       </div>
-                      <span className="w-16 text-[10px] font-mono text-white/40 text-right tabular-nums">
-                        {formatVol(row.vol)}
-                      </span>
-                    </div>
-
-                    {/* Delivery Bar */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500/80 rounded-full transition-all duration-500"
-                          style={{ width: `${delWidth}%` }}
-                        />
-                      </div>
-                      <span className="w-20 text-[10px] font-mono text-emerald-400 text-right tabular-nums">
-                        {formatVol(row.del)} ({delPercent}%)
-                      </span>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2424,9 +2406,16 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
             {/* Financial Visualizations */}
             {activeFinTab === "shareholding" ? (() => {
               const dataset = isYearly ? "yearly" : "quarterly";
-              const shData: any[] = financialData.shareholding[dataset];
+              const shData: any[] = financialData?.shareholding?.[dataset] || [];
+              if (shData.length === 0) {
+                return (
+                  <div className="py-12 text-center text-xs font-mono text-white/40">
+                    No shareholding data recorded for this period.
+                  </div>
+                );
+              }
               const idx = shPeriodIdx < 0 || shPeriodIdx >= shData.length ? shData.length - 1 : shPeriodIdx;
-              const current = shData[idx];
+              const current = shData[idx] || {};
               const prev = idx > 0 ? shData[idx - 1] : null;
 
               const SH_COLORS = [
@@ -2558,10 +2547,12 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
                 {(() => {
                   const dataset = isYearly ? "yearly" : "quarterly";
                   const chartData = activeFinTab === "pnl"
-                    ? financialData.profitAndLoss
+                    ? financialData?.profitAndLoss || []
                     : activeFinTab === "quarterly"
-                      ? financialData.quarterlyResults
-                      : financialData[activeFinTab][dataset];
+                      ? financialData?.quarterlyResults || []
+                      : financialData?.[activeFinTab]?.[dataset] || [];
+
+                  if (!chartData || chartData.length === 0) return <div />;
 
                   if (activeFinTab === "pnl" || activeFinTab === "quarterly") {
                     return (
@@ -2628,10 +2619,18 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
               {(() => {
                 const dataset = isYearly ? "yearly" : "quarterly";
                 const chartData = activeFinTab === "pnl"
-                  ? financialData.profitAndLoss
+                  ? financialData?.profitAndLoss || []
                   : activeFinTab === "quarterly"
-                    ? financialData.quarterlyResults
-                    : financialData[activeFinTab][dataset];
+                    ? financialData?.quarterlyResults || []
+                    : financialData?.[activeFinTab]?.[dataset] || [];
+
+                if (!chartData || chartData.length === 0) {
+                  return (
+                    <div className="py-8 text-center text-xs font-mono text-white/40">
+                      No records found for this statement.
+                    </div>
+                  );
+                }
 
                 const headers = chartData.map((d: any) => d.period);
 

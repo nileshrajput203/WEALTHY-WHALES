@@ -12,6 +12,7 @@ Integrates:
 6. Reverse-Engineered Chartink Live Screener Engine (CSRF Token & Query Processor)
 """
 
+import os
 import sys
 import json
 import math
@@ -27,6 +28,48 @@ from bs4 import BeautifulSoup
 import yfinance as yf
 
 warnings.filterwarnings("ignore")
+
+# ----------------------------------------------------------------------------
+# F&O Universe Definition (Loaded from server/fo_stock_list.json)
+# ----------------------------------------------------------------------------
+FO_STOCKS_SET = set()
+try:
+    _cur_dir = os.path.dirname(os.path.abspath(__file__))
+    _fo_path = os.path.join(os.path.dirname(_cur_dir), "fo_stock_list.json")
+    if os.path.exists(_fo_path):
+        with open(_fo_path, "r", encoding="utf-8") as _f:
+            FO_STOCKS_SET = set(json.load(_f))
+except Exception:
+    pass
+
+def is_fno_symbol(symbol: str) -> bool:
+    if not symbol:
+        return False
+    clean = symbol.upper().replace(".NS", "").replace(".BO", "").strip()
+    return clean in FO_STOCKS_SET or clean in {"NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"}
+
+def get_nse_strike_step(price: float) -> float:
+    if price > 5000:
+        return 100.0
+    elif price > 2500:
+        return 50.0
+    elif price > 1000:
+        return 20.0
+    elif price > 500:
+        return 10.0
+    elif price > 100:
+        return 5.0
+    elif price > 50:
+        return 2.5
+    else:
+        return 1.0
+
+def calculate_atm_strike(price: float) -> str:
+    step = get_nse_strike_step(price)
+    strike_val = round(price / step) * step
+    if strike_val.is_integer():
+        return str(int(strike_val))
+    return f"{strike_val:.1f}"
 
 # Optional Deep Learning / Foundation Model Imports (Graceful CPU Fallback)
 HAS_TORCH = False
@@ -360,6 +403,7 @@ class IntradayFOEmaEngine:
     @staticmethod
     def analyze_intraday_setup(
         df: pd.DataFrame,
+        symbol: str = "",
         oi_change_pct: float = 0.0,
         pcr: float = 1.0,
     ) -> Dict[str, Any]:
@@ -496,17 +540,42 @@ class IntradayFOEmaEngine:
             target_1 = round(curr_c + (2.2 * atr), 2)
             target_2 = round(curr_c + (3.8 * atr), 2)
 
-        step_size = 50 if curr_c > 2500 else (20 if curr_c > 1000 else (10 if curr_c > 400 else 5))
-        atm_strike = int(round(curr_c / step_size) * step_size)
-        option_suggestion = f"{atm_strike} {'PE' if direction == 'BEARISH' else 'CE'}"
+        is_fno = is_fno_symbol(symbol)
+
+        if is_fno:
+            atm_strike_str = calculate_atm_strike(curr_c)
+            if direction == "BULLISH":
+                option_suggestion = f"{atm_strike_str} CE"
+            elif direction == "BEARISH":
+                option_suggestion = f"{atm_strike_str} PE"
+            else:
+                option_suggestion = f"{atm_strike_str} Straddle / Rangebound"
+
+            cash_suggestion = None
+            fo_buildup_val = fo_buildup
+            pcr_val = round(pcr, 2)
+        else:
+            option_suggestion = None
+            fo_buildup_val = "NOT_APPLICABLE"
+            pcr_val = None
+            if direction == "BULLISH":
+                cash_suggestion = f"Cash / MIS Buy near ₹{round(curr_c, 2)} · Target: ₹{target_1} · SL: ₹{stop_loss}"
+            elif direction == "BEARISH":
+                cash_suggestion = f"Cash MIS Intraday Short / Avoid Delivery · Support: ₹{target_1} · SL: ₹{stop_loss}"
+            else:
+                cash_suggestion = f"Consolidation Range · Support: ₹{stop_loss} · Resistance: ₹{target_1}"
 
         return {
+            "isFnO": bool(is_fno),
+            "segment": "F&O" if is_fno else "CASH",
+            "segmentLabel": "NSE Derivatives (F&O)" if is_fno else "Cash Segment Only (Non-F&O)",
             "setupType": setup_type,
             "direction": direction,
             "confidence": confidence,
-            "foBuildup": fo_buildup,
-            "pcr": round(pcr, 2),
+            "foBuildup": fo_buildup_val,
+            "pcr": pcr_val,
             "optionStrikeSuggestion": option_suggestion,
+            "cashTradeSuggestion": cash_suggestion,
             "levels": {
                 "spotEntry": round(curr_c, 2),
                 "stopLoss": stop_loss,
@@ -821,7 +890,10 @@ class InstitutionalVerdictEngine:
             stage_score = 60
 
         # 2. Narrow CPR Calculation for Intraday / Swing Precision
-        prev_h, prev_l, prev_c = float(h.iloc[-2]), float(l.iloc[-2]), float(c.iloc[-2])
+        if len(h) >= 2:
+            prev_h, prev_l, prev_c = float(h.iloc[-2]), float(l.iloc[-2]), float(c.iloc[-2])
+        else:
+            prev_h, prev_l, prev_c = float(h.iloc[-1]), float(l.iloc[-1]), float(c.iloc[-1])
         pivot = (prev_h + prev_l + prev_c) / 3.0
         bc = (prev_h + prev_l) / 2.0
         tc = (pivot - bc) + pivot
@@ -893,9 +965,10 @@ def run_full_quant_analysis(symbol: str, oi_change_pct: float = 0.0, pcr: float 
     df_daily = fetch_ohlcv(symbol, period="1y", interval="1d")
     alpha = QlibAlpha158Engine.compute_factors(df_daily)
     forecast = TimeSeriesEnsembleForecaster.forecast_kline(df_daily, pred_len=5)
-    intraday = IntradayFOEmaEngine.analyze_intraday_setup(df_daily, oi_change_pct=oi_change_pct, pcr=pcr)
+    intraday = IntradayFOEmaEngine.analyze_intraday_setup(df_daily, symbol=symbol, oi_change_pct=oi_change_pct, pcr=pcr)
     seasonality = SeasonalityEngine.compute_10y_seasonality(symbol)
     verdict = InstitutionalVerdictEngine.compute_verdict(df_daily, alpha, forecast, seasonality)
+    is_fno = is_fno_symbol(symbol)
 
     hermes_conviction = int(round(
         0.30 * forecast["bullishProbability"]
@@ -907,6 +980,8 @@ def run_full_quant_analysis(symbol: str, oi_change_pct: float = 0.0, pcr: float 
     return {
         "status": "ok",
         "symbol": symbol.upper(),
+        "isFnO": is_fno,
+        "marketSegment": "F&O" if is_fno else "CASH",
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "hermesConvictionScore": hermes_conviction,
         "alpha158": alpha,
@@ -973,10 +1048,13 @@ if __name__ == "__main__":
 
         elif action in ["intraday_fo", "intraday"]:
             df_intraday = fetch_ohlcv(symbol, period="5d", interval="15m")
+            is_fno = is_fno_symbol(symbol)
             result = {
                 "status": "ok",
                 "symbol": symbol.upper(),
-                "intradayFO": IntradayFOEmaEngine.analyze_intraday_setup(df_intraday, oi_pct, pcr_val),
+                "isFnO": is_fno,
+                "marketSegment": "F&O" if is_fno else "CASH",
+                "intradayFO": IntradayFOEmaEngine.analyze_intraday_setup(df_intraday, symbol=symbol, oi_change_pct=oi_pct, pcr=pcr_val),
             }
 
         elif action in ["seasonality"]:

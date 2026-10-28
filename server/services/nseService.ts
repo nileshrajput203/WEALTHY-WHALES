@@ -10,6 +10,23 @@ const __dirname = path.dirname(__filename);
 
 const WORKER_PATH = path.resolve(__dirname, "nse_worker.py");
 
+let FO_STOCKS: string[] = [];
+try {
+  const listPath = path.resolve(__dirname, "../fo_stock_list.json");
+  if (fs.existsSync(listPath)) {
+    FO_STOCKS = JSON.parse(fs.readFileSync(listPath, "utf8"));
+  }
+} catch (err) {
+  console.error("[nseService] Failed to load fo_stock_list.json:", err);
+}
+
+export function isFnOSymbol(symbol: string): boolean {
+  if (!symbol) return false;
+  const clean = symbol.replace(/\.(NS|BO)$/i, "").toUpperCase().trim();
+  const indices = new Set(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"]);
+  return indices.has(clean) || FO_STOCKS.includes(clean);
+}
+
 // Detect best python executable
 function getPythonCommand(): string {
   const py314Path = "C:\\Users\\USER\\AppData\\Local\\Programs\\Python\\Python314\\python.exe";
@@ -65,6 +82,19 @@ function getFallbackData(action: string, symbol?: string): any {
       mocked: true
     };
   } else if (action === "option-chain") {
+    const cleanSym = (symbol || "").replace(/\.(NS|BO)$/i, "").toUpperCase();
+    const isFnO = isFnOSymbol(cleanSym);
+    if (!isFnO) {
+      return {
+        success: false,
+        isFnO: false,
+        symbol: cleanSym,
+        message: `${cleanSym} is an Equity Cash segment stock. It is not traded in the NSE F&O derivatives segment, so no Option Chain or Strikes exist for this stock.`,
+        calls: [],
+        puts: [],
+        mocked: false
+      };
+    }
     const expiry = "28-May-2026";
     const calls = [];
     const puts = [];
@@ -74,6 +104,7 @@ function getFallbackData(action: string, symbol?: string): any {
     }
     return {
       success: true,
+      isFnO: true,
       underlyingValue: 1500.0,
       expiryDates: [expiry],
       calls,
@@ -98,8 +129,12 @@ function getFallbackData(action: string, symbol?: string): any {
       mocked: true
     };
   } else if (action === "quant-forecast") {
+    const cleanSym = (symbol || "RELIANCE").replace(/\.(NS|BO)$/i, "").toUpperCase();
+    const isFnO = isFnOSymbol(cleanSym);
     return {
-      symbol: symbol || "RELIANCE",
+      symbol: cleanSym,
+      isFnO,
+      marketSegment: isFnO ? "F&O" : "CASH",
       timestamp: new Date().toISOString(),
       kronos: {
         model: "Kronos-Fallback",
@@ -137,7 +172,22 @@ function getFallbackData(action: string, symbol?: string): any {
         volumeFactors: { volumePriceCorr: 0.32, volumeRatio: 1.4, obvSlope: 45000, isAccumulation: true },
         relativeStrength: { rsRating: 84, perf3M: 12.5, perf6M: 25.0, perf12M: 42.0, isLeader: true }
       },
-      consensus: { bias: "BULLISH", rsRating: 84, breakoutProbability: 65.0, p50Target: 1530.0 },
+      intradayFO: {
+        isFnO,
+        segment: isFnO ? "F&O" : "CASH",
+        segmentLabel: isFnO ? "NSE Derivatives (F&O)" : "Cash Segment Only (Non-F&O)",
+        setupType: "CONSOLIDATION_WATCH",
+        direction: "NEUTRAL",
+        confidence: 50,
+        foBuildup: isFnO ? "NEUTRAL_OI" : "NOT_APPLICABLE",
+        pcr: isFnO ? 1.0 : null,
+        optionStrikeSuggestion: isFnO ? "1500 Straddle / Rangebound" : null,
+        cashTradeSuggestion: isFnO ? null : "Cash / MIS Setup: Trade within support and resistance zones",
+        levels: { spotEntry: 1500, stopLoss: 1475, target1: 1535, target2: 1560, vwap: 1502, atr14: 22 },
+        emaStack: { ema9: 1501, ema20: 1500, ema50: 1495, ema200: 1480, aboveAllEmas: true, belowAllEmas: false },
+        indicators: { rsi14: 52, volumeSpikeRatio: 1.0 }
+      },
+      consensus: { bias: "NEUTRAL", rsRating: 84, breakoutProbability: 65.0, p50Target: 1530.0 },
       mocked: true
     };
   } else if (action === "alpha158") {

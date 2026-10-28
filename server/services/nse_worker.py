@@ -1,5 +1,9 @@
 import sys
+import os
 import json
+import time
+import pickle
+import tempfile
 import argparse
 import requests
 import urllib3
@@ -8,19 +12,38 @@ from datetime import datetime
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+COOKIE_FILE = os.path.join(tempfile.gettempdir(), "nse_session_cookies.pkl")
+
 def get_nse_session():
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
         'Referer': 'https://www.nseindia.com/',
     }
     session = requests.Session()
     session.headers.update(headers)
-    # Hit homepage to get cookies
-    session.get("https://www.nseindia.com", timeout=15, verify=False)
+
+    # Reuse cookies across Python worker invocations (5 minute TTL)
+    loaded_cache = False
+    if os.path.exists(COOKIE_FILE):
+        try:
+            mtime = os.path.getmtime(COOKIE_FILE)
+            if time.time() - mtime < 300:
+                with open(COOKIE_FILE, 'rb') as f:
+                    session.cookies.update(pickle.load(f))
+                loaded_cache = True
+        except Exception:
+            pass
+
+    if not loaded_cache:
+        try:
+            session.get("https://www.nseindia.com", timeout=10, verify=False)
+            with open(COOKIE_FILE, 'wb') as f:
+                pickle.dump(session.cookies, f)
+        except Exception:
+            pass
+
     return session
 
 def fetch_quote(symbol):
