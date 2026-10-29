@@ -1,0 +1,30 @@
+{
+  "delivery_TCS": {
+    "data": {
+      "symbol": "TCS",
+      "priceCurrent": 2482.7,
+      "pricePrevClose": 2460,
+      "priceChange": 22.7,
+      "pricePercentChange": 0.9228,
+      "volumeTradedToday": 1357745,
+      "qtyDeliverableToday": 966800,
+      "deliveryPctToday": 38.06,
+      "avgVol5Day": 4447154,
+      "avgDelQty5Day": 1959972,
+      "avgDelPct5Day": 44.07,
+      "avgVol20Day": 6058861,
+      "avgDelQty20Day": 2951745,
+      "avgDelPct20Day": 48.72,
+      "marketCapCr": 898262.59,
+      "bookValue": 271.74,
+      "pe": 17.12,
+      "faceValue": 1,
+      "high52": 3350,
+      "low52": 1976.8,
+      "scId": "TCS",
+      "fetchedAt": 1793252142952
+    },
+    "timestamp": 1793252142952,
+    "source": "priceapi"
+  }
+}

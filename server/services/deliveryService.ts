@@ -1,4 +1,5 @@
 import axios from "axios";
+import { MarketCacheService } from "./marketCacheService";
 
 export interface StockDeliveryResult {
   symbol: string;
@@ -32,11 +33,12 @@ const CACHE_TTL_MS = 60 * 1000;
 
 export async function getStockDeliveryData(symbol: string): Promise<StockDeliveryResult | null> {
   const cleanSym = symbol.replace(/\.(NS|BO|BSE|NSE)$/i, "").toUpperCase();
+  const cacheKey = `delivery_${cleanSym}`;
 
-  // Check cache
-  const cached = deliveryCache.get(cleanSym);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return cached.data;
+  // Check persistent high-speed cache (<5ms)
+  const cached = MarketCacheService.get<StockDeliveryResult>(cacheKey, CACHE_TTL_MS);
+  if (cached) {
+    return cached;
   }
 
   const headers = {
@@ -131,9 +133,15 @@ export async function getStockDeliveryData(symbol: string): Promise<StockDeliver
     };
 
     deliveryCache.set(cleanSym, { data: result, ts: Date.now() });
+    MarketCacheService.set(cacheKey, result, "priceapi");
     return result;
   } catch (err: any) {
     console.warn(`[DeliveryService] Error fetching delivery data for ${symbol}:`, err?.message);
+    // Graceful fallback to persistent cache even if stale (prevents empty "N/A" on frontend)
+    const stale = MarketCacheService.getStale<StockDeliveryResult>(cacheKey);
+    if (stale) {
+      return stale.data;
+    }
     return null;
   }
 }

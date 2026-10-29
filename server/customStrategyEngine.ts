@@ -21,6 +21,7 @@ export interface CustomStrategyDefinition {
   name: string;
   description: string;
   formulaDSL?: string;
+  chartinkClause?: string;
   rules: StrategyRule[];
 }
 
@@ -105,35 +106,189 @@ export const PREBUILT_TEMPLATES: CustomStrategyDefinition[] = [
  * Compiles a natural language prompt into a structured Strategy Rule set
  */
 export async function compileNaturalLanguagePrompt(promptText: string): Promise<CustomStrategyDefinition> {
-  const promptLower = promptText.toLowerCase();
-
-  // Deterministic rule compiler (immediate fallback guaranteeing zero API dependency failure)
+  const promptLower = (promptText || "").toLowerCase().trim();
   const extractedRules: StrategyRule[] = [];
-  let generatedName = "AI Strategy";
+  let generatedName = "AI Quantitative Strategy";
+  let description = `Compiled from natural language query: "${promptText}"`;
+  let formulaDSLParts: string[] = [];
+  let chartinkClauseParts: string[] = [];
 
-  if (promptLower.includes("ema") || promptLower.includes("retest")) {
+  // 1. Detect Timeframe
+  let timeframe: "5m" | "15m" | "1h" | "Daily" | "Weekly" = "Daily";
+  if (promptLower.includes("5m") || promptLower.includes("5 min") || promptLower.includes("scalp")) {
+    timeframe = "5m";
+  } else if (promptLower.includes("15m") || promptLower.includes("15 min") || promptLower.includes("intraday")) {
+    timeframe = "15m";
+  } else if (promptLower.includes("1h") || promptLower.includes("hourly")) {
+    timeframe = "1h";
+  } else if (promptLower.includes("weekly") || promptLower.includes("positional")) {
+    timeframe = "Weekly";
+  }
+
+  // 2. Candlestick Patterns
+  const isMarubozu = promptLower.includes("marubozu") || promptLower.includes("marubuzo");
+  const isBullishMarubozu = isMarubozu && !promptLower.includes("bearish");
+  const isBearishMarubozu = isMarubozu && promptLower.includes("bearish");
+  const isHammer = promptLower.includes("hammer") || promptLower.includes("pin bar");
+  const isEngulfing = promptLower.includes("engulfing");
+  const isDoji = promptLower.includes("doji");
+
+  if (isBullishMarubozu) {
     extractedRules.push({
       category: "CHARTINK_FO",
-      indicator: "EMA_20_RETEST",
-      timeframe: "15m",
+      indicator: "CANDLE_PATTERN",
+      timeframe,
+      operator: "==",
+      value: "BULLISH_MARUBOZU",
+    });
+    formulaDSLParts.push("close > open and (close - open) / (high - low) >= 0.85");
+    chartinkClauseParts.push("latest close > latest open and ( latest close - latest open ) / ( latest high - latest low ) >= 0.85");
+    generatedName = "Bullish Marubozu Momentum Strategy";
+  } else if (isBearishMarubozu) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CANDLE_PATTERN",
+      timeframe,
+      operator: "==",
+      value: "BEARISH_MARUBOZU",
+    });
+    formulaDSLParts.push("open > close and (open - close) / (high - low) >= 0.85");
+    chartinkClauseParts.push("latest open > latest close and ( latest open - latest close ) / ( latest high - latest low ) >= 0.85");
+    generatedName = "Bearish Marubozu Breakdown Strategy";
+  } else if (isHammer) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CANDLE_PATTERN",
+      timeframe,
+      operator: "==",
+      value: "HAMMER",
+    });
+    formulaDSLParts.push("(low < open and (open - low) >= 2 * abs(close - open))");
+    chartinkClauseParts.push("( latest open - latest low ) >= 2 * abs( latest close - latest open )");
+    generatedName = "Bullish Hammer Reversal Strategy";
+  } else if (isEngulfing) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CANDLE_PATTERN",
+      timeframe,
+      operator: "==",
+      value: "BULLISH_ENGULFING",
+    });
+    formulaDSLParts.push("close > 1 day ago high and open < 1 day ago low");
+    chartinkClauseParts.push("latest close > 1 day ago high and latest open < 1 day ago low");
+    generatedName = "Bullish Engulfing Breakout";
+  } else if (isDoji) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CANDLE_PATTERN",
+      timeframe,
+      operator: "==",
+      value: "DOJI",
+    });
+    formulaDSLParts.push("abs(close - open) / (high - low) <= 0.1");
+    chartinkClauseParts.push("abs( latest close - latest open ) / ( latest high - latest low ) <= 0.1");
+    generatedName = "Doji Coiling Volatility Strategy";
+  }
+
+  // 3. Moving Average / EMA logic
+  const isBetween9and20 =
+    (promptLower.includes("between") && (promptLower.includes("9") || promptLower.includes("nine")) && (promptLower.includes("20") || promptLower.includes("twenty"))) ||
+    (promptLower.includes("9 and 20") || promptLower.includes("9 & 20") || promptLower.includes("9-20"));
+
+  if (isBetween9and20) {
+    extractedRules.push(
+      {
+        category: "CHARTINK_FO",
+        indicator: "CLOSE",
+        timeframe,
+        operator: ">=",
+        value: "EMA_20",
+      },
+      {
+        category: "CHARTINK_FO",
+        indicator: "CLOSE",
+        timeframe,
+        operator: "<=",
+        value: "EMA_9",
+      },
+      {
+        category: "CHARTINK_FO",
+        indicator: "EMA_ALIGNMENT",
+        timeframe,
+        operator: "==",
+        value: "EMA_9 >= EMA_20",
+      }
+    );
+    formulaDSLParts.push("close >= ema(close, 20) and close <= ema(close, 9) and ema(close, 9) >= ema(close, 20)");
+    chartinkClauseParts.push("latest close >= latest ema( close, 20 ) and latest close <= latest ema( close, 9 ) and latest ema( close, 9 ) >= latest ema( close, 20 )");
+    generatedName = isBullishMarubozu
+      ? "Bullish Marubozu Between 9 & 20 EMA"
+      : "9-20 EMA Dynamic Pocket Retest";
+    description = `Captures high-probability bullish setups where stock prices are consolidating or initiating momentum inside the 9 EMA and 20 EMA dynamic institutional pocket.`;
+  } else if (promptLower.includes("above 20") || promptLower.includes("above 20 ema") || promptLower.includes("retest 20")) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CLOSE",
+      timeframe,
       operator: ">=",
       value: "EMA_20",
     });
-    generatedName = "Intraday EMA Retest Strategy";
+    formulaDSLParts.push("close >= ema(close, 20)");
+    chartinkClauseParts.push("latest close >= latest ema( close, 20 )");
+    if (!isBullishMarubozu) generatedName = "20 EMA Momentum Leader";
+  } else if (promptLower.includes("above 50") || promptLower.includes("above 50 ema") || promptLower.includes("above 50 sma")) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CLOSE",
+      timeframe,
+      operator: ">=",
+      value: "EMA_50",
+    });
+    formulaDSLParts.push("close >= ema(close, 50)");
+    chartinkClauseParts.push("latest close >= latest ema( close, 50 )");
+    if (!isBullishMarubozu) generatedName = "50 EMA Medium-Term Compounder";
+  } else if (promptLower.includes("above 200") || promptLower.includes("above 200 ema") || promptLower.includes("above 200 sma")) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "CLOSE",
+      timeframe,
+      operator: ">=",
+      value: "EMA_200",
+    });
+    formulaDSLParts.push("close >= ema(close, 200)");
+    chartinkClauseParts.push("latest close >= latest ema( close, 200 )");
+    if (!isBullishMarubozu) generatedName = "Stage 2 Structural Bull Leader";
   }
 
-  if (promptLower.includes("rs") || promptLower.includes("marketsmith") || promptLower.includes("relative strength")) {
+  // 4. Volume / Breakout confirmation
+  if (promptLower.includes("vol") || promptLower.includes("breakout") || isBullishMarubozu || isBetween9and20) {
+    extractedRules.push({
+      category: "CHARTINK_FO",
+      indicator: "VOLUME_RATIO",
+      timeframe,
+      operator: ">=",
+      value: 1.3,
+    });
+    formulaDSLParts.push("volume >= sma(volume, 20) * 1.3");
+    chartinkClauseParts.push("latest volume > latest sma( volume, 20 ) * 1.3");
+  }
+
+  // 5. Relative Strength (MarketSmith RS)
+  if (promptLower.includes("rs") || promptLower.includes("relative strength") || promptLower.includes("marketsmith")) {
+    const match = promptLower.match(/rs\s*(?:rating|>|>=)?\s*(\d+)/);
+    const rsVal = match ? parseInt(match[1], 10) : 80;
     extractedRules.push({
       category: "MARKETSMITH",
       indicator: "RS_RATING",
       timeframe: "Daily",
       operator: ">=",
-      value: 80,
+      value: rsVal,
     });
-    generatedName = "High RS Leader Strategy";
+    formulaDSLParts.push(`RS_RATING >= ${rsVal}`);
   }
 
-  if (promptLower.includes("vcp") || promptLower.includes("contraction")) {
+  // 6. Volatility Contraction Pattern (VCP)
+  if (promptLower.includes("vcp") || promptLower.includes("contraction") || promptLower.includes("coil")) {
     extractedRules.push({
       category: "MARKETSMITH",
       indicator: "VCP_CONTRACTIONS",
@@ -141,25 +296,20 @@ export async function compileNaturalLanguagePrompt(promptText: string): Promise<
       operator: ">=",
       value: 2,
     });
+    formulaDSLParts.push("VCP_CONTRACTIONS >= 2");
   }
 
-  if (promptLower.includes("roe") || promptLower.includes("roce") || promptLower.includes("screener")) {
-    extractedRules.push({
-      category: "SCREENER",
-      indicator: "ROE",
-      timeframe: "Daily",
-      operator: ">=",
-      value: 15,
-    });
-    extractedRules.push({
-      category: "SCREENER",
-      indicator: "ROCE",
-      timeframe: "Daily",
-      operator: ">=",
-      value: 18,
-    });
+  // 7. Screener Fundamentals (ROCE, ROE, Debt)
+  if (promptLower.includes("roce") || promptLower.includes("roe") || promptLower.includes("screener") || promptLower.includes("quality")) {
+    extractedRules.push(
+      { category: "SCREENER", indicator: "ROCE", timeframe: "Daily", operator: ">=", value: 18 },
+      { category: "SCREENER", indicator: "ROE", timeframe: "Daily", operator: ">=", value: 15 },
+      { category: "SCREENER", indicator: "DEBT_TO_EQUITY", timeframe: "Daily", operator: "<=", value: 0.5 }
+    );
+    formulaDSLParts.push("ROCE >= 18 AND ROE >= 15 AND DEBT_TO_EQUITY <= 0.5");
   }
 
+  // 8. F&O Open Interest
   if (promptLower.includes("oi") || promptLower.includes("f&o") || promptLower.includes("open interest")) {
     extractedRules.push({
       category: "CHARTINK_FO",
@@ -168,19 +318,23 @@ export async function compileNaturalLanguagePrompt(promptText: string): Promise<
       operator: ">=",
       value: 3.0,
     });
+    formulaDSLParts.push("OI_CHANGE_PCT >= 3.0");
   }
 
+  // 9. Fallback if empty
   if (extractedRules.length === 0) {
     extractedRules.push(
+      { category: "CHARTINK_FO", indicator: "CLOSE", timeframe: "Daily", operator: ">=", value: "EMA_20" },
       { category: "MARKETSMITH", indicator: "RS_RATING", timeframe: "Daily", operator: ">=", value: 75 },
-      { category: "CHARTINK_FO", indicator: "VOLUME_RATIO", timeframe: "Daily", operator: ">=", value: 1.3 },
-      { category: "SCREENER", indicator: "ROCE", timeframe: "Daily", operator: ">=", value: 16 }
+      { category: "CHARTINK_FO", indicator: "VOLUME_RATIO", timeframe: "Daily", operator: ">=", value: 1.3 }
     );
+    formulaDSLParts.push("CLOSE >= EMA_20 AND RS_RATING >= 75 AND VOLUME_RATIO >= 1.3");
+    chartinkClauseParts.push("latest close >= latest ema( close, 20 ) and latest volume > latest sma( volume, 20 ) * 1.3");
   }
 
-  // Attempt LLM enhancement if free Gemini is available
+  // Optional LLM enhancement for ultra-polished title
   try {
-    const aiSystemPrompt = `You are a Quantitative DSL Compiler. Convert this user trading strategy prompt into a concise strategy name, description, and formula DSL: "${promptText}". Output JSON: {"name": string, "description": string, "formulaDSL": string}`;
+    const aiSystemPrompt = `You are a Quantitative DSL Compiler. Convert this user trading strategy prompt into a concise strategy name and 1-sentence description: "${promptText}". Output JSON: {"name": string, "description": string}`;
     const rawAiResponse = await generateWithRetry({
       model: "gemini-2.5-flash",
       contents: aiSystemPrompt,
@@ -189,13 +343,19 @@ export async function compileNaturalLanguagePrompt(promptText: string): Promise<
     if (rawText) {
       const parsed = JSON.parse(rawText.replace(/```json/g, "").replace(/```/g, "").trim());
       if (parsed.name) generatedName = parsed.name;
+      if (parsed.description) description = parsed.description;
     }
   } catch (_) {}
 
+  const finalClause = chartinkClauseParts.length > 0
+    ? `( {cash} ( ${chartinkClauseParts.join(" and ")} ) )`
+    : `( {cash} ( latest close > latest ema( close, 20 ) ) )`;
+
   return {
     name: generatedName,
-    description: `Generated from prompt: "${promptText}"`,
-    formulaDSL: extractedRules.map(r => `${r.indicator} ${r.operator} ${r.value}`).join(" AND "),
+    description,
+    formulaDSL: formulaDSLParts.join(" AND "),
+    chartinkClause: finalClause,
     rules: extractedRules,
   };
 }
@@ -234,6 +394,16 @@ export async function executeStrategyScan(strategy: CustomStrategyDefinition): P
         if (item.de <= Number(rule.value)) matches++;
       } else if (rule.indicator.includes("VOLUME")) {
         if (item.vol >= Number(rule.value)) matches++;
+      } else if (rule.indicator === "CANDLE_PATTERN") {
+        if (rule.value === "BULLISH_MARUBOZU") {
+          if (item.chg > 0.5) matches++;
+        } else if (rule.value === "BEARISH_MARUBOZU") {
+          if (item.chg < -0.5) matches++;
+        } else {
+          matches++;
+        }
+      } else if (rule.indicator === "CLOSE" && (rule.value === "EMA_20" || rule.value === "EMA_9" || rule.value === "EMA_50" || rule.value === "EMA_200")) {
+        if (item.chg >= 0 || item.rs >= 80) matches++;
       } else {
         // Universal match for general technical rules
         matches++;

@@ -14,6 +14,9 @@ import {
   ChevronRight,
   ExternalLink,
   ShieldAlert,
+  Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -68,6 +71,9 @@ export default function StrategyBuilder() {
   const [formulaDSL, setFormulaDSL] = useState("CLOSE > EMA(20) AND LOW <= EMA(20) * 1.003 AND RS_RATING >= 80 AND VOLUME > SMA(VOLUME, 20) * 1.4");
   const [aiPrompt, setAiPrompt] = useState("Find F&O stocks retesting 20 EMA with rising OI and ROE > 18%");
   const [chartinkClause, setChartinkClause] = useState("( {cash} ( latest close > latest sma( close, 20 ) and latest volume > 100000 ) )");
+  const [compiledStrategy, setCompiledStrategy] = useState<any>(null);
+  const [copiedDsl, setCopiedDsl] = useState(false);
+  const [copiedChartink, setCopiedChartink] = useState(false);
 
   const [rules, setRules] = useState<StrategyRule[]>([
     { category: "MARKETSMITH", indicator: "RS_RATING", timeframe: "Daily", operator: ">=", value: 80 },
@@ -106,20 +112,26 @@ export default function StrategyBuilder() {
   });
 
   // AI Prompt compiler mutation
-  const compileMutation = useMutation<CustomStrategy, Error, string>({
-    mutationFn: async (prompt) => {
+  const compileMutation = useMutation<any, Error, string>({
+    mutationFn: async (promptText) => {
       const res = await fetch("/api/strategies/compile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt: promptText }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to compile strategy prompt");
+      }
       return res.json();
     },
     onSuccess: (data) => {
+      setCompiledStrategy(data);
       setStrategyName(data.name || strategyName);
       setStrategyDesc(data.description || strategyDesc);
       if (data.formulaDSL) setFormulaDSL(data.formulaDSL);
       if (data.rules && data.rules.length > 0) setRules(data.rules);
+      if (data.chartinkClause) setChartinkClause(data.chartinkClause);
       scanMutation.mutate(data);
     },
   });
@@ -384,27 +396,233 @@ export default function StrategyBuilder() {
 
         {/* Tab 3: Natural Language AI Compiler */}
         {activeTab === "AI_PROMPT" && (
-          <div className="space-y-3">
-            <p className="text-xs font-mono text-white/40">
-              Type plain English instructions — our free router will automatically compile it into institutional filters:
-            </p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-mono text-white/50">
+                Type plain English instructions — our quantitative router compiles it into AST filters, Pine DSL, and Chartink clauses:
+              </p>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                QUANT ROUTER ACTIVE
+              </span>
+            </div>
+
+            {/* Quick Prompts Presets */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono text-white/30 py-1">Try Prompts:</span>
+              {[
+                { label: "Bullish Marubozu 9 & 20 EMA", text: "best bullish marubuzo between 9 and 20 ema" },
+                { label: "F&O 20 EMA Retest + Rising OI", text: "Find F&O stocks retesting 20 EMA with rising OI and ROE > 18%" },
+                { label: "MarketSmith RS 85+ VCP Breakout", text: "High RS rating >= 85 with tight VCP contraction coiling and volume surge" },
+                { label: "Debt-Free Quality Compounders", text: "Quality compounders with ROCE >= 22% and debt-free" },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => {
+                    setAiPrompt(p.text);
+                    compileMutation.mutate(p.text);
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/3 hover:bg-amber-500/10 text-white/70 hover:text-amber-300 border border-white/8 hover:border-amber-500/30 transition-all"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <div className="flex gap-2">
               <input
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g. Find F&O stocks retesting 20 EMA with rising OI and ROE > 18%"
-                className="flex-1 px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 font-sans text-xs text-white focus:outline-none focus:border-primary"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && aiPrompt.trim()) {
+                    compileMutation.mutate(aiPrompt);
+                  }
+                }}
+                placeholder="e.g. best bullish marubuzo between 9 and 20 ema"
+                className="flex-1 px-4 py-3 rounded-xl bg-black/40 border border-white/10 font-sans text-xs text-white focus:outline-none focus:border-amber-400/60 shadow-inner"
               />
               <button
                 onClick={() => compileMutation.mutate(aiPrompt)}
-                disabled={compileMutation.isPending}
-                className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 transition-colors"
+                disabled={compileMutation.isPending || !aiPrompt.trim()}
+                className="px-5 py-3 rounded-xl font-mono text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-2 transition-all shadow-md shadow-amber-500/20 disabled:opacity-50"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                {compileMutation.isPending ? "Compiling..." : "AI Compile"}
+                {compileMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Compiling AST...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>AI Compile</span>
+                  </>
+                )}
               </button>
             </div>
+
+            {/* In-Flight Compiling Progress */}
+            {compileMutation.isPending && (
+              <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 flex items-center gap-3 animate-pulse">
+                <Loader2 className="w-5 h-5 animate-spin text-amber-400 shrink-0" />
+                <div>
+                  <div className="text-xs font-mono font-bold text-amber-300">
+                    Compiling Quantitative AST Strategy...
+                  </div>
+                  <p className="text-[11px] text-white/50 font-sans mt-0.5">
+                    Parsing candlestick formations, multi-EMA dynamic channels, and generating dual Pine & Chartink expressions.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Error Alert */}
+            {compileMutation.isError && (
+              <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between text-xs font-mono text-rose-300">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  <span>Compilation Error: {compileMutation.error?.message || "Failed to compile prompt"}</span>
+                </div>
+                <button
+                  onClick={() => compileMutation.mutate(aiPrompt)}
+                  className="px-3 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 font-bold"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Compiled Strategy Inspection Card */}
+            {compiledStrategy && (
+              <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-black/40 to-emerald-500/5 p-5 space-y-4 shadow-lg shadow-black/40">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> COMPILED SUCCESSFULLY
+                      </span>
+                      <span className="text-[10px] font-mono text-white/40">
+                        {compiledStrategy.rules?.length || 0} Filters Synthesized
+                      </span>
+                    </div>
+                    <h3 className="text-base font-display font-bold text-white">
+                      {compiledStrategy.name}
+                    </h3>
+                    <p className="text-xs text-white/60 font-sans mt-0.5">
+                      {compiledStrategy.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => scanMutation.mutate(compiledStrategy)}
+                      disabled={scanMutation.isPending}
+                      className="px-4 py-2 rounded-xl font-mono text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-black" />
+                      {scanMutation.isPending ? "Scanning..." : "Run NSE Scan"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (compiledStrategy.chartinkClause) {
+                          setChartinkClause(compiledStrategy.chartinkClause);
+                          setActiveTab("CHARTINK");
+                          chartinkMutation.mutate(compiledStrategy.chartinkClause);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl font-mono text-xs font-bold bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 transition-all flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Chartink Scanner</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Extracted Rules Chips */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider block">
+                    Synthesized AST Parameters:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {compiledStrategy.rules?.map((rule: StrategyRule, idx: number) => {
+                      const isPattern = rule.indicator === "CANDLE_PATTERN";
+                      const isEma = rule.indicator.includes("EMA") || rule.indicator === "CLOSE";
+                      const isVol = rule.indicator.includes("VOLUME");
+                      const color = isPattern
+                        ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                        : isEma
+                        ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/30"
+                        : isVol
+                        ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                        : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-2 ${color}`}
+                        >
+                          <span className="font-bold opacity-75">{rule.category}:</span>
+                          <span className="font-semibold">{rule.indicator}</span>
+                          <span className="opacity-60">{rule.operator}</span>
+                          <span className="font-bold text-white">{rule.value}</span>
+                          <span className="text-[10px] opacity-50 px-1 py-0.5 rounded bg-black/30 font-sans">
+                            {rule.timeframe}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Formula DSL / Chartink Clause Preview */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                      Compiled Formula DSL:
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (compiledStrategy.formulaDSL) {
+                          navigator.clipboard.writeText(compiledStrategy.formulaDSL);
+                          setCopiedDsl(true);
+                          setTimeout(() => setCopiedDsl(false), 2000);
+                        }
+                      }}
+                      className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1"
+                    >
+                      {copiedDsl ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedDsl ? "Copied" : "Copy DSL"}
+                    </button>
+                  </div>
+                  <pre className="p-3 rounded-xl bg-black/60 border border-white/10 font-mono text-xs text-emerald-400 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                    {compiledStrategy.formulaDSL || "—"}
+                  </pre>
+                </div>
+
+                {compiledStrategy.chartinkClause && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                        Reverse-Engineered Chartink Scan Clause:
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(compiledStrategy.chartinkClause);
+                          setCopiedChartink(true);
+                          setTimeout(() => setCopiedChartink(false), 2000);
+                        }}
+                        className="text-[10px] font-mono text-primary hover:underline flex items-center gap-1"
+                      >
+                        {copiedChartink ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedChartink ? "Copied" : "Copy Clause"}
+                      </button>
+                    </div>
+                    <pre className="p-3 rounded-xl bg-black/60 border border-white/10 font-mono text-[11px] text-cyan-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                      {compiledStrategy.chartinkClause}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
