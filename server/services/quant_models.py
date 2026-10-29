@@ -126,32 +126,7 @@ def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> pd.Dat
         df = None
 
     if df is None or df.empty:
-        # High quality synthetic fallback generator based on symbol seed
-        base = 1500.0 if "RELIANCE" in symbol else (3800.0 if "TCS" in symbol else 850.0)
-        periods_count = 120 if interval == "1d" else (120 if interval == "1mo" else 40)
-        freq = "B" if interval == "1d" else ("ME" if interval == "1mo" else "15min")
-        dates = pd.date_range(end=datetime.now(), periods=periods_count, freq=freq)
-        sym_hash = sum(ord(c) for c in symbol)
-        np.random.seed(sym_hash % 10000)
-        noise = np.random.normal(0.0008, 0.015, size=len(dates))
-        prices = [base]
-        for r in noise:
-            prices.append(prices[-1] * (1.0 + r))
-        prices = prices[1:]
-        close_s = np.array(prices)
-        high_s = close_s * (1.0 + np.random.uniform(0.002, 0.015, size=len(dates)))
-        low_s = close_s * (1.0 - np.random.uniform(0.002, 0.015, size=len(dates)))
-        open_s = low_s + (high_s - low_s) * np.random.uniform(0.2, 0.8, size=len(dates))
-        vol_s = np.random.randint(100000, 3000000, size=len(dates))
-        df = pd.DataFrame({
-            "timestamps": dates,
-            "open": open_s,
-            "high": high_s,
-            "low": low_s,
-            "close": close_s,
-            "volume": vol_s
-        })
-        return df
+        return pd.DataFrame(columns=["timestamps", "open", "high", "low", "close", "volume"])
 
     df = df.reset_index()
     rename_map = {
@@ -617,10 +592,23 @@ class SeasonalityEngine:
     @classmethod
     def compute_10y_seasonality(cls, symbol: str) -> Dict[str, Any]:
         df = fetch_ohlcv(symbol, period="10y", interval="1mo")
+        if df.empty:
+            curr_m = cls.MONTH_NAMES[datetime.now().month - 1]
+            return {
+                "symbol": symbol.upper(),
+                "currentMonth": curr_m,
+                "currentMonthWinRatePct": 0.0,
+                "currentMonthAvgReturnPct": 0.0,
+                "isSeasonalTailwindNow": False,
+                "bestHistoricalMonth": "—",
+                "worstHistoricalMonth": "—",
+                "monthlyMatrix": [],
+            }
         df["timestamps"] = pd.to_datetime(df["timestamps"])
+        df = df.sort_values("timestamps").reset_index(drop=True)
         df["month"] = df["timestamps"].dt.month
         df["year"] = df["timestamps"].dt.year
-        df["monthly_return_pct"] = ((df["close"] - df["open"]) / (df["open"] + 1e-8)) * 100.0
+        df["monthly_return_pct"] = df["close"].pct_change() * 100.0
 
         monthly_stats = []
         current_month = datetime.now().month

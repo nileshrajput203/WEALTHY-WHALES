@@ -96,10 +96,17 @@ class CandleCache {
     interval: string
   ): Promise<any[]> {
     try {
+      const params: any = { interval, includePrePost: false, useYfid: true, corsDomain: 'finance.yahoo.com' };
+      if (range === 'max' || range === '10y') {
+        params.period1 = 0;
+        params.period2 = Math.floor(Date.now() / 1000);
+      } else {
+        params.range = range;
+      }
       const response = await axios.get(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`, {
-        params: { interval, range, includePrePost: false, useYfid: true, corsDomain: 'finance.yahoo.com' },
+        params,
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        timeout: 12000,
+        timeout: 15000,
       });
 
       const r = response.data?.chart?.result?.[0];

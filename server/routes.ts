@@ -2874,91 +2874,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stock seasonality analysis API
+  // Stock seasonality analysis API (100% Authentic Market Data - Screener.in / Trendlyne exact methodology)
   app.get("/api/stock/:symbol/seasonality", async (req, res) => {
     try {
       const rawSymbol = req.params.symbol;
       const symbol = toYahooSymbol(rawSymbol);
 
-      // Fetch entire history (IPO to now) of monthly candles to compute monthly returns
-      const candles = await getYahooHistory(symbol, "max", "1mo");
+      // Fetch entire authentic history (IPO to now) of daily candles to compute authentic monthly returns
+      const candles = await getYahooHistory(symbol, "max", "1d");
       if (!candles || candles.length === 0) {
         return res
           .status(404)
           .json({ message: "No price history found for seasonality" });
       }
 
-      const monthlyReturns: { year: number; month: number; val: number }[] = [];
-      for (let i = 1; i < candles.length; i++) {
-        const prev = candles[i - 1];
-        const curr = candles[i];
-        if (prev.close && curr.close) {
-          const ret = ((curr.close - prev.close) / prev.close) * 100;
-          const date = new Date(curr.time);
-          monthlyReturns.push({
-            year: date.getFullYear(),
-            month: date.getMonth(), // 0 = Jan, 11 = Dec
-            val: Number(ret.toFixed(2)),
-          });
+      // Group daily candles by calendar Year-Month in chronological order
+      // Capture the exact close price on the last trading day of each month
+      const monthLastClose = new Map<string, number>();
+      const monthsInOrder: { year: number; month: number; key: string }[] = [];
+
+      for (let i = 0; i < candles.length; i++) {
+        const c = candles[i];
+        if (c.close == null || isNaN(c.close)) continue;
+        const d = new Date(c.time);
+        const y = d.getFullYear();
+        const m = d.getMonth(); // 0 = Jan, 11 = Dec
+        const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+
+        if (!monthLastClose.has(key)) {
+          monthsInOrder.push({ year: y, month: m, key });
+        }
+        // As candles are chronological, this finalizes on the last trading day of the calendar month
+        monthLastClose.set(key, Number(c.close));
+      }
+
+      // Compute exact monthly returns: (Close_curr_month - Close_prev_month) / Close_prev_month * 100
+      // In financial standard (Screener.in / Trendlyne), the initial listing month has no prior
+      // month-end baseline and is rendered blank (null). Subsequent months are compared to prior month-end.
+      const returnsMap = new Map<string, number>();
+      for (let i = 1; i < monthsInOrder.length; i++) {
+        const prevKey = monthsInOrder[i - 1].key;
+        const currKey = monthsInOrder[i].key;
+        const prevClose = monthLastClose.get(prevKey);
+        const currClose = monthLastClose.get(currKey);
+
+        if (prevClose && currClose && prevClose > 0) {
+          const ret = Number((((currClose - prevClose) / prevClose) * 100).toFixed(2));
+          returnsMap.set(currKey, ret);
         }
       }
 
-      const years = Array.from(new Set(monthlyReturns.map((r) => r.year))).sort(
-        (a, b) => b - a,
-      );
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
+      const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const currentYear = new Date().getFullYear();
+      const years = Array.from(new Set(monthsInOrder.map((r) => r.year))).sort((a, b) => b - a);
 
-      const grid = years
-        .map((year) => {
-          const row: Record<string, any> = { year };
-          let yearlyReturnProduct = 1;
-          let hasData = false;
+      const grid = years.map((year) => {
+        const row: Record<string, any> = { year };
+        let returnProduct = 1;
+        let validMonthsCount = 0;
 
-          months.forEach((m, idx) => {
-            const found = monthlyReturns.find(
-              (r) => r.year === year && r.month === idx,
-            );
-            if (found) {
-              row[m.toLowerCase()] = found.val;
-              yearlyReturnProduct *= 1 + found.val / 100;
-              hasData = true;
-            } else {
-              row[m.toLowerCase()] = null;
-            }
-          });
+        months.forEach((m, idx) => {
+          const key = `${year}-${String(idx + 1).padStart(2, "0")}`;
+          if (returnsMap.has(key)) {
+            const val = returnsMap.get(key)!;
+            row[m] = val;
+            returnProduct *= (1 + val / 100);
+            validMonthsCount++;
+          } else {
+            row[m] = null;
+          }
+        });
 
-          row.yearlyreturns = hasData
-            ? Number(((yearlyReturnProduct - 1) * 100).toFixed(2))
-            : null;
-          return row;
-        })
-        .filter((row) => months.some((m) => row[m.toLowerCase()] !== null));
+        // Yearly Return:
+        // For completed years, if previous year's Dec close exists and current year's Dec close exists:
+        const prevDecKey = `${year - 1}-12`;
+        const thisDecKey = `${year}-12`;
+        if (monthLastClose.has(prevDecKey) && monthLastClose.has(thisDecKey)) {
+          const cPrev = monthLastClose.get(prevDecKey)!;
+          const cThis = monthLastClose.get(thisDecKey)!;
+          row.yearlyreturns = Number((((cThis - cPrev) / cPrev) * 100).toFixed(2));
+        } else if (year === currentYear && validMonthsCount > 0) {
+          // Current year: compound available year-to-date months
+          row.yearlyreturns = Number(((returnProduct - 1) * 100).toFixed(2));
+        } else {
+          // Incomplete IPO year without previous Dec baseline: Screener leaves Yearly blank
+          row.yearlyreturns = null;
+        }
 
-      // Compute aggregates
-      const avgRow: Record<string, any> = {
-        label: "Average Monthly Performance",
-      };
+        return row;
+      }).filter((row) => months.some((m) => row[m] !== null));
+
+      // Compute aggregates across all authentic available months
+      const avgRow: Record<string, any> = { label: "Average Monthly Performance" };
       const positiveCount: Record<string, any> = { label: "Positive Count%" };
       const negativeCount: Record<string, any> = { label: "Negative Count%" };
 
-      months.forEach((m, idx) => {
-        const key = m.toLowerCase();
+      months.forEach((m) => {
         const vals = grid
-          .map((row) => row[key])
-          .filter((v) => v !== null && v !== undefined) as number[];
+          .map((row) => row[m])
+          .filter((v) => v !== null && v !== undefined && typeof v === "number" && !isNaN(v)) as number[];
 
         if (vals.length > 0) {
           const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -2966,13 +2980,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const pctPos = (pos / vals.length) * 100;
           const pctNeg = 100 - pctPos;
 
-          avgRow[key] = Number(avg.toFixed(2));
-          positiveCount[key] = Number(pctPos.toFixed(1));
-          negativeCount[key] = Number(pctNeg.toFixed(1));
+          avgRow[m] = Number(avg.toFixed(2));
+          positiveCount[m] = Number(pctPos.toFixed(1));
+          negativeCount[m] = Number(pctNeg.toFixed(1));
         } else {
-          avgRow[key] = null;
-          positiveCount[key] = null;
-          negativeCount[key] = null;
+          avgRow[m] = null;
+          positiveCount[m] = null;
+          negativeCount[m] = null;
         }
       });
 

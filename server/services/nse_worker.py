@@ -80,27 +80,34 @@ def fetch_quote(symbol):
         return get_mock_quote(symbol, error=str(e))
 
 def get_mock_quote(symbol, error=None):
-    # Generates a realistic quote if API is blocked or offline
-    import random
-    seed_str = f"{symbol}_{datetime.now().strftime('%Y-%m-%d-%H')}"
-    random.seed(seed_str)
-    base_prices = {
-        "RELIANCE": 2450.0, "TCS": 3800.0, "INFY": 1420.0, "HDFCBANK": 1550.0,
-        "ICICIBANK": 1100.0, "SBIN": 820.0, "BHARTIARTL": 1350.0, "ITC": 430.0,
-        "CIPLA": 1450.0, "LUMAXIND": 2600.0
-    }
-    base = base_prices.get(symbol, 500.0)
-    change = round(random.uniform(-15.0, 15.0), 2)
-    change_pct = round((change / base) * 100, 2)
+    # Try fetching authentic quote via yfinance fallback rather than fake random numbers
+    try:
+        import yfinance as yf
+        ticker = f"{symbol}.NS" if not symbol.endswith(('.NS', '.BO')) else symbol
+        t = yf.Ticker(ticker)
+        fast = t.fast_info
+        price = float(fast.get('last_price') or fast.get('regular_market_price') or 0.0)
+        prev = float(fast.get('previous_close') or 0.0)
+        if price > 0:
+            change = round(price - prev, 2) if prev > 0 else 0.0
+            change_pct = round((change / prev) * 100, 2) if prev > 0 else 0.0
+            vol = int(fast.get('last_volume') or 0)
+            return {
+                "success": True,
+                "price": price,
+                "change": change,
+                "changePercent": change_pct,
+                "volume": vol,
+                "deliveryPct": None,
+                "source": "YahooFinance-Authentic",
+                "mocked": False
+            }
+    except Exception:
+        pass
     return {
-        "success": True,
-        "price": base + change,
-        "change": change,
-        "changePercent": change_pct,
-        "volume": random.randint(100000, 2000000),
-        "deliveryPct": round(random.uniform(35.0, 65.0), 2),
-        "mocked": True,
-        "error": error
+        "success": False,
+        "error": error or f"Live quote unavailable for {symbol}",
+        "mocked": False
     }
 
 def fetch_option_chain(symbol):
@@ -160,31 +167,14 @@ def fetch_option_chain(symbol):
         return get_mock_option_chain(symbol, error=str(e))
 
 def get_mock_option_chain(symbol, error=None):
-    import random
-    seed_str = f"{symbol}_{datetime.now().strftime('%Y-%m-%d-%H')}_options"
-    random.seed(seed_str)
-    underlying = 1500.0
-    strikes = [underlying + i*20 for i in range(-5, 6)]
-    calls = []
-    puts = []
-    expiry = datetime.now().strftime("%d-%b-%Y")
-    for s in strikes:
-        calls.append({
-            "strike": s, "expiry": expiry, "ltp": max(1.0, round(underlying - s + random.uniform(5, 15), 2)),
-            "oi": random.randint(100, 10000), "oiChg": random.randint(-500, 2000), "iv": round(random.uniform(12.0, 25.0), 2)
-        })
-        puts.append({
-            "strike": s, "expiry": expiry, "ltp": max(1.0, round(s - underlying + random.uniform(5, 15), 2)),
-            "oi": random.randint(100, 10000), "oiChg": random.randint(-500, 2000), "iv": round(random.uniform(12.0, 25.0), 2)
-        })
     return {
-        "success": True,
-        "underlyingValue": underlying,
-        "expiryDates": [expiry],
-        "calls": calls,
-        "puts": puts,
-        "mocked": True,
-        "error": error
+        "success": False,
+        "underlyingValue": None,
+        "expiryDates": [],
+        "calls": [],
+        "puts": [],
+        "mocked": False,
+        "error": error or f"Live option chain unavailable for {symbol}"
     }
 
 def fetch_bulk_deals(date_str=None):
@@ -212,15 +202,12 @@ def fetch_bulk_deals(date_str=None):
         return get_mock_bulk_deals(error=str(e))
 
 def get_mock_bulk_deals(error=None):
-    import random
-    mock_deals = [
-        {"symbol": "RELIANCE", "name": "Reliance Industries Ltd", "clientName": "SOCIETE GENERALE", "dealType": "Buy", "quantity": 1450000, "price": 2465.20, "date": datetime.now().strftime("%d-%b-%Y")},
-        {"symbol": "TCS", "name": "Tata Consultancy Services", "clientName": "VANGUARD GROUP", "dealType": "Buy", "quantity": 890000, "price": 3810.50, "date": datetime.now().strftime("%d-%b-%Y")},
-        {"symbol": "INFY", "name": "Infosys Ltd", "clientName": "NOMURA INDIA", "dealType": "Sell", "quantity": 1200000, "price": 1412.00, "date": datetime.now().strftime("%d-%b-%Y")},
-        {"symbol": "SBIN", "name": "State Bank of India", "clientName": "SBI MUTUAL FUND", "dealType": "Buy", "quantity": 3100000, "price": 818.40, "date": datetime.now().strftime("%d-%b-%Y")},
-        {"symbol": "CIPLA", "name": "Cipla Ltd", "clientName": "BLACKROCK FUND", "dealType": "Sell", "quantity": 620000, "price": 1455.00, "date": datetime.now().strftime("%d-%b-%Y")}
-    ]
-    return {"success": True, "deals": mock_deals, "mocked": True, "error": error}
+    return {
+        "success": False,
+        "deals": [],
+        "mocked": False,
+        "error": error or "Live bulk deals unavailable from exchange"
+    }
 
 def fetch_insider_trades():
     try:
@@ -273,15 +260,12 @@ def fetch_insider_trades():
         return get_mock_insider_trades(error=str(e))
 
 def get_mock_insider_trades(error=None):
-    import random
-    mock_insiders = [
-        {"symbol": "RELIANCE", "company": "Reliance Industries Ltd", "insider": "Anant Ambani", "relation": "Promoter Group", "txnType": "Buy", "quantity": 150000, "price": 2450.00, "value": 367500000, "date": "2026-05-20", "holdingChange": 0.05},
-        {"symbol": "TCS", "company": "Tata Consultancy Services", "insider": "Tata Sons Pvt Ltd", "relation": "Promoter", "txnType": "Buy", "quantity": 450000, "price": 3812.30, "value": 1715535000, "date": "2026-05-19", "holdingChange": 0.12},
-        {"symbol": "INFY", "company": "Infosys Ltd", "insider": "Nandan Nilekani", "relation": "Promoter/Director", "txnType": "Buy", "quantity": 80000, "price": 1422.00, "value": 113760000, "date": "2026-05-18", "holdingChange": 0.02},
-        {"symbol": "LUMAXIND", "company": "Lumax Industries Ltd", "insider": "Deepak Jain", "relation": "Promoter/Director", "txnType": "Buy", "quantity": 15000, "price": 2610.00, "value": 39150000, "date": "2026-05-15", "holdingChange": 0.08},
-        {"symbol": "CIPLA", "company": "Cipla Ltd", "insider": "MK Hamied", "relation": "Promoter Group", "txnType": "Sell", "quantity": 50000, "price": 1460.00, "value": 73000000, "date": "2026-05-14", "holdingChange": -0.04}
-    ]
-    return {"success": True, "trades": mock_insiders, "mocked": True, "error": error}
+    return {
+        "success": False,
+        "trades": [],
+        "mocked": False,
+        "error": error or "Live insider trades filings unavailable from exchange"
+    }
 
 def fetch_fiidii():
     try:

@@ -2471,25 +2471,49 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Top Row: Average Monthly Performance (Screener.in format) */}
+                  {seasonalityData.stats?.averages && (
+                    <tr className="border-b-2 border-white/15 bg-white/4 font-bold">
+                      <td className="px-3 py-2.5 text-xs font-mono font-bold text-white whitespace-nowrap">
+                        Average Monthly Performance
+                      </td>
+                      {["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].map(m => {
+                        const val = seasonalityData.stats.averages[m];
+                        const bg = getCellBg(val);
+                        return (
+                          <td
+                            key={m}
+                            className="px-2 py-2.5 text-xs font-mono text-center font-bold tabular-nums"
+                            style={{ backgroundColor: bg, color: val !== null ? '#ffffff' : 'rgba(255,255,255,0.2)' }}
+                          >
+                            {val !== null ? `${val > 0 ? "+" : ""}${val.toFixed(2)}%` : "—"}
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-2.5" />
+                    </tr>
+                  )}
+
                   {/* Historical Rows */}
                   {seasonalityData.grid.map((row: any) => (
                     <tr key={row.year} className="border-b border-white/4 last:border-0 hover:bg-white/2">
                       <td className="px-3 py-2.5 text-xs font-mono font-bold text-white/80">{row.year}</td>
-                      {["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].map(m => {
+                      {["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].map((m, mIdx) => {
                         const val = row[m];
                         const bg = getCellBg(val);
+                        const isCurrentMonth = row.year === new Date().getFullYear() && mIdx === new Date().getMonth();
                         return (
                           <td
                             key={m}
                             className="px-2 py-2.5 text-xs font-mono text-center font-bold tabular-nums"
                             style={{ backgroundColor: bg, color: val !== null ? '#ffffff' : 'rgba(255,255,255,0.1)' }}
                           >
-                            {val !== null ? `${val > 0 ? "+" : ""}${val.toFixed(2)}%` : "—"}
+                            {val !== null ? `${val > 0 ? "+" : ""}${val.toFixed(2)}%${isCurrentMonth ? "*" : ""}` : "—"}
                           </td>
                         );
                       })}
                       <td
-                        className={`px-3 py-2.5 text-xs font-mono font-bold text-right tabular-nums ${row.yearlyreturns >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                        className={`px-3 py-2.5 text-xs font-mono font-bold text-right tabular-nums ${row.yearlyreturns != null && row.yearlyreturns >= 0 ? "text-emerald-400" : "text-red-400"}`}
                         style={{ backgroundColor: row.yearlyreturns !== null ? getCellBg(row.yearlyreturns) : 'transparent' }}
                       >
                         {row.yearlyreturns !== null ? `${row.yearlyreturns > 0 ? "+" : ""}${row.yearlyreturns.toFixed(2)}%` : "—"}
@@ -2567,6 +2591,9 @@ export function FundamentalDashboard({ symbol }: { symbol: string }) {
                 <span>&gt;10%</span>
               </div>
             </div>
+            <p className="text-[10px] text-white/40 font-mono italic">
+              * Current month indicates ongoing Month-To-Date (MTD) performance relative to previous month-end close. All historical returns are computed strictly from authentic exchange daily close prices with zero synthetic estimates.
+            </p>
           </div>
         </div>
       )}
