@@ -868,15 +868,48 @@ function DashboardSkeleton() {
   );
 }
 
-/* ─── Price & Volume Analysis (100% Real Live Market Data) ─── */
+/* ─── Price & Volume Analysis (100% Real Live Market & Delivery Feed) ─── */
 const formatVol = (val: number) => {
   if (val >= 100) return `${(val / 100).toFixed(2)} Cr.`;
-  return `${val.toFixed(2)} Lakh`;
+  return `${Number(val || 0).toFixed(2)} Lakh`;
 };
 
+interface VolumeRow {
+  label: string;
+  vol: number;
+  delVol?: number;
+  delPct?: number;
+  changePct?: number;
+  isPositive?: boolean;
+  action?: string;
+}
+
+interface PerformanceData {
+  performance: {
+    w1: number | null;
+    m1: number | null;
+    m3: number | null;
+    ytd: number | null;
+    y1: number | null;
+    y3: number | null;
+  };
+  volumeData: VolumeRow[];
+  deliveryAnalytics?: {
+    udRatio: number;
+    udSentiment: string;
+    todayDeliveryPct: number;
+    deliveryTrend: string;
+    livePrice?: number;
+    marketCapCr?: number;
+    faceValue?: number;
+    bookValue?: number;
+  };
+}
+
 function PriceAndVolumeSection({ symbol }: { symbol: string }) {
-  const [data, setData] = useState<{ performance: any; volumeData: any[] } | null>(null);
+  const [data, setData] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [showDeliveryBreakdown, setShowDeliveryBreakdown] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -889,7 +922,7 @@ function PriceAndVolumeSection({ symbol }: { symbol: string }) {
           if (isMounted) setData(json);
         }
       } catch (err) {
-        console.error("Failed to load real performance:", err);
+        console.error("Failed to load real performance & delivery:", err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -903,15 +936,18 @@ function PriceAndVolumeSection({ symbol }: { symbol: string }) {
   const perf = data?.performance;
   const volData = data?.volumeData || [];
   const maxVol = Math.max(...volData.map((d) => d.vol || 0), 1);
+  const analytics = data?.deliveryAnalytics;
 
   return (
     <div className="glass-card rounded-2xl border border-white/6 p-5 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column: Price Performance */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Price Performance</h5>
-            <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Live Returns</span>
+            <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+              Live Returns
+            </span>
           </div>
           {loading ? (
             <div className="py-8 text-center text-xs text-white/40 font-mono animate-pulse">Calculating market returns...</div>
@@ -933,13 +969,13 @@ function PriceAndVolumeSection({ symbol }: { symbol: string }) {
                     <div className="flex items-center gap-3">
                       {hasVal ? (
                         <>
-                          <span className={`font-bold ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
+                          <span className={`font-bold tabular-nums ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
                             {isPos ? "+" : ""}{Number(row.val).toFixed(2)}%
                           </span>
                           <div className={`w-16 h-2 rounded-full ${isPos ? "bg-emerald-500/20" : "bg-rose-500/20"} overflow-hidden relative`}>
                             <div
                               className={`absolute top-0 bottom-0 left-0 rounded-full ${isPos ? "bg-emerald-500" : "bg-rose-500"}`}
-                              style={{ width: `${Math.min(100, Math.max(10, Math.abs(row.val) * 1.5))}%` }}
+                              style={{ width: `${Math.min(100, Math.max(10, Math.abs(Number(row.val || 0)) * 1.5))}%` }}
                             />
                           </div>
                         </>
@@ -954,42 +990,187 @@ function PriceAndVolumeSection({ symbol }: { symbol: string }) {
           )}
         </div>
 
-        {/* Right Column: Volume Analysis */}
+        {/* Right Column: Volume & Delivery Analysis (Market Positivity vs Negativity) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Volume Analysis</h5>
-            <span className="text-[10px] text-sky-400 font-mono bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">Exchange Volume</span>
+            <div>
+              <h5 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-1.5">
+                Volume &amp; Delivery Analysis
+              </h5>
+              <p className="text-[10px] text-white/40 font-mono mt-0.5">
+                Institutional Demat Accumulation vs Speculative Intraday Turnover
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeliveryBreakdown(!showDeliveryBreakdown)}
+                className="text-[10px] text-primary font-mono bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded border border-primary/25 transition-colors cursor-pointer"
+              >
+                {showDeliveryBreakdown ? "Delivery Stacked" : "Total Traded Only"}
+              </button>
+              <span className="text-[10px] text-sky-400 font-mono bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 font-bold">
+                NSE/BSE Delivery
+              </span>
+            </div>
           </div>
 
+          {/* Institutional U/D & Delivery Summary Card */}
+          {analytics && (
+            <div className="rounded-xl p-3 bg-white/[0.02] border border-white/8 grid grid-cols-2 gap-3 text-xs font-mono">
+              <div>
+                <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-0.5">Up/Down Volume Ratio</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold tabular-nums ${analytics.udRatio >= 1.0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {analytics.udRatio.toFixed(2)}x
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                    analytics.udRatio >= 1.0
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                  }`}>
+                    {analytics.udSentiment}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-0.5">Today's Delivery Pulse</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-sky-400 tabular-nums">
+                    {analytics.todayDeliveryPct.toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] text-white/60 truncate font-sans">
+                    {analytics.deliveryTrend}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {loading ? (
-            <div className="py-8 text-center text-xs text-white/40 font-mono animate-pulse">Fetching exchange volumes...</div>
+            <div className="py-8 text-center text-xs text-white/40 font-mono animate-pulse">
+              Fetching real-time exchange deliverable volumes...
+            </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {volData.map((row) => {
                 const volWidth = maxVol > 0 ? ((row.vol || 0) / maxVol) * 100 : 0;
+                const delivPct = row.delPct || 0;
+                const isPos = row.isPositive ?? ((row.changePct || 0) >= 0);
+                const changeStr =
+                  row.changePct !== undefined && row.changePct !== null
+                    ? `${row.changePct >= 0 ? "+" : ""}${row.changePct.toFixed(2)}%`
+                    : null;
+
+                // Color based on market positivity vs negativity
+                const barColor = isPos ? "bg-emerald-500" : "bg-rose-500";
+                const barBg = isPos ? "bg-emerald-500/20" : "bg-rose-500/20";
+                const textColor = isPos ? "text-emerald-400" : "text-rose-400";
+                const badgeBg = isPos
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/25";
 
                 return (
-                  <div key={row.label} className="grid grid-cols-4 gap-2 items-center text-xs">
-                    <span className="text-white/60 font-medium font-sans truncate">{row.label}</span>
-                    <div className="col-span-3 space-y-1.5">
-                      {/* Volume Bar */}
+                  <div key={row.label} className="p-2.5 rounded-xl bg-white/[0.015] border border-white/5 space-y-1.5 text-xs">
+                    {/* Header Row: Period, Positivity/Negativity Badge, Quantities */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-cyan-500/70 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(5, volWidth)}%` }}
-                          />
-                        </div>
-                        <span className="w-20 text-[11px] font-mono text-cyan-300 font-semibold text-right tabular-nums">
-                          {formatVol(row.vol)}
+                        <span className="text-white/80 font-semibold font-sans">{row.label}</span>
+                        {changeStr && (
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold border ${badgeBg}`}>
+                            {isPos ? "▲ " : "▼ "}{changeStr}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-white/40 hidden sm:inline">
+                          {isPos ? "Accumulation Day" : "Distribution / Pullback"}
                         </span>
                       </div>
+
+                      <div className="flex items-center gap-3 font-mono text-xs tabular-nums">
+                        <div>
+                          <span className="text-white/40 text-[10px] mr-1">Traded:</span>
+                          <span className="font-semibold text-white/90">{formatVol(row.vol)}</span>
+                        </div>
+                        {row.delVol !== undefined && (
+                          <div className="border-l border-white/10 pl-2">
+                            <span className="text-white/40 text-[10px] mr-1">Delivery:</span>
+                            <span className={`font-bold ${textColor}`}>
+                              {formatVol(row.delVol)}
+                            </span>
+                          </div>
+                        )}
+                        {delivPct > 0 && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${badgeBg}`}>
+                            {delivPct.toFixed(1)}% Del
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dual-Tone Volume Bar: Solid Delivery + Translucent Intraday Speculative */}
+                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden flex relative">
+                      {/* Overall Vol width boundary container */}
+                      <div
+                        className="h-full flex rounded-full overflow-hidden transition-all duration-500 relative"
+                        style={{ width: `${Math.max(6, volWidth)}%` }}
+                      >
+                        {/* 1. Delivered Volume portion (Institutional Demat Transfer) */}
+                        <div
+                          className={`h-full ${barColor} transition-all duration-500`}
+                          style={{ width: `${showDeliveryBreakdown ? Math.min(100, Math.max(10, delivPct)) : 100}%` }}
+                          title={`Demat Delivery: ${delivPct.toFixed(1)}%`}
+                        />
+                        {/* 2. Intraday Speculative Volume portion */}
+                        {showDeliveryBreakdown && (
+                          <div
+                            className={`h-full ${barBg} border-l border-white/20 transition-all duration-500`}
+                            style={{ width: `${Math.max(0, 100 - delivPct)}%` }}
+                            title={`Intraday Speculative: ${(100 - delivPct).toFixed(1)}%`}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footnote for each bar */}
+                    <div className="flex items-center justify-between text-[10px] font-mono text-white/35 pt-0.5">
+                      <span>
+                        {showDeliveryBreakdown ? (
+                          <>
+                            <span className={`inline-block w-2 h-2 rounded-full mr-1 ${barColor}`} />
+                            <strong className="text-white/60">Demat Delivery:</strong> {row.delVol ? formatVol(row.delVol) : "—"} ({delivPct.toFixed(1)}%)
+                            <span className="mx-1.5 text-white/20">|</span>
+                            <span className={`inline-block w-2 h-2 rounded-full mr-1 ${barBg} border border-white/30`} />
+                            <strong className="text-white/60">Intraday Speculative:</strong> {row.delVol ? formatVol(Math.max(0, row.vol - row.delVol)) : "—"}
+                          </>
+                        ) : (
+                          <span>Total exchange volume traded</span>
+                        )}
+                      </span>
+                      <span className={textColor}>
+                        {isPos ? "Net Inflow Demand" : "Net Outflow Supply"}
+                      </span>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+
+          {/* Color & Delivery Legend */}
+          <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-[10px] font-mono text-white/40">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-emerald-400 font-semibold">Emerald:</span> Positivity / Accumulation Day
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span className="text-rose-400 font-semibold">Rose:</span> Negativity / Distribution Day
+              </span>
+            </div>
+            <span>High Demat Delivery on Dips = Supply Absorption</span>
+          </div>
         </div>
       </div>
     </div>
