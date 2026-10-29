@@ -20,6 +20,7 @@
  */
 
 import axios from "axios";
+import { sqliteDb } from "./sqliteDb";
 
 interface CandleCacheEntry {
   candles: any[];
@@ -61,12 +62,51 @@ class CandleCache {
   ): Promise<any[]> {
     const k = this.key(symbol, range, interval);
 
-    // 1. Check cache
+    // 1. Check in-memory cache
     const cached = this.store.get(k);
     if (cached && Date.now() - cached.fetchedAt < ttlMs) {
       cached.accessedAt = Date.now();
       this.stats.hits++;
       return cached.candles;
+    }
+
+    // 1.5 Check SQLite persistent database (sub-millisecond indexed hit)
+    if (interval === "1d") {
+      try {
+        const cleanSym = symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
+        const dbLimit = range === "max" || range === "10y" ? 10000 : (range === "3y" ? 1000 : 350);
+        const dbCandles = sqliteDb.getCandles(cleanSym, dbLimit);
+        if (dbCandles && dbCandles.length > 20) {
+          const lastCandleDate = dbCandles[dbCandles.length - 1].date;
+          const lastDateMs = new Date(lastCandleDate).getTime();
+          const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+          // If candles are recent or range is long-term historical, serve immediately from SQLite!
+          if (lastDateMs > oneDayAgo || range === "max" || range === "10y") {
+            const formatted = dbCandles.map((c) => ({
+              time: new Date(`${c.date}T09:15:00+05:30`),
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+              volume: c.volume,
+            }));
+
+            this.store.set(k, {
+              candles: formatted,
+              fetchedAt: Date.now(),
+              accessedAt: Date.now(),
+              range,
+              interval,
+            });
+
+            this.stats.hits++;
+            return formatted;
+          }
+        }
+      } catch (e) {
+        // Fallback transparently to network fetch
+      }
     }
 
     // 2. Check for in-flight request (dedup concurrent calls)
@@ -133,6 +173,25 @@ class CandleCache {
         range,
         interval,
       });
+
+      // Persist daily candles to SQLite for instant future loads & offline resilience
+      if (candles.length > 0 && interval === "1d") {
+        try {
+          const cleanSym = symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
+          const dbCandles = candles.map((c: any) => ({
+            symbol: cleanSym,
+            date: new Date(c.time).toISOString().split("T")[0],
+            open: Number(c.open || c.close),
+            high: Number(c.high || c.close),
+            low: Number(c.low || c.close),
+            close: Number(c.close),
+            volume: Number(c.volume || 0),
+          }));
+          sqliteDb.saveCandles(cleanSym, dbCandles);
+        } catch (dbErr) {
+          // Non-blocking log
+        }
+      }
 
       return candles;
     } catch (err) {

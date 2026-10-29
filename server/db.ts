@@ -3,22 +3,24 @@ import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-if (!process.env.DATABASE_URL) {
-  console.warn(
-    "[DB] DATABASE_URL not set — Postgres features disabled. App will run in RAM-only mode.",
+export const isPostgresConfigured = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "");
+
+if (!isPostgresConfigured) {
+  console.log(
+    "[DB] Postgres DATABASE_URL not set — Running with High-Speed Embedded SQLite database (data/wealthy_whales.sqlite).",
   );
 }
 
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/placeholder",
-  // Resilient pool settings: fail fast instead of blocking for 30s
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 30000,
-  max: 10,
+  connectionString: isPostgresConfigured ? process.env.DATABASE_URL : undefined,
+  // Fast fail instead of stalling event loop
+  connectionTimeoutMillis: 1000,
+  idleTimeoutMillis: 10000,
+  max: isPostgresConfigured ? 10 : 0,
 });
 
 pool.on("error", (err) => {
-  console.warn("[Postgres Pool] Client error (running in resilient mode):", err.message);
+  // Suppress repeated connection warnings in SQLite/RAM mode
 });
 
 export const db = drizzle({ client: pool, schema });

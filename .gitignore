@@ -27,3 +27,7 @@ __pycache__/
 *.pyo
 *.pyd
 
+# SQLite temporary WAL journals
+*.sqlite-wal
+*.sqlite-shm
+
