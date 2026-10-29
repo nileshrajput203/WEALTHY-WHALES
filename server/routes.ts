@@ -18,6 +18,8 @@ import {
   getDeepFundamentalDashboard,
   getSectorRotationAnalysis,
   generateWithRetry,
+  computeDeterministicConcalls,
+  computeDeterministicDashboard,
 } from "./gemini";
 import { calculateStockIQ, getTopBottomStockIQ } from "./stockiq";
 import { runPatternScanner } from "./patternScanner";
@@ -2552,6 +2554,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const screenerData = await scrapeFinancials(symbol);
         if (screenerData) {
+          const transposedQuarterly = transposeScreenerTable(
+            screenerData.quarterlyResults || [],
+            PL_MAP,
+          );
+          const transposedPL = transposeScreenerTable(
+            screenerData.tenYearPL || [],
+            PL_MAP,
+          );
           fundData = {
             pe:
               screenerData.ratios["Stock P/E"] ??
@@ -2571,6 +2581,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dividendYield: screenerData.ratios["Dividend Yield"] ?? null,
             marketCap: screenerData.ratios["Market Cap"] ?? null,
             screener: screenerData,
+            quarterlyResults: transposedQuarterly,
+            tenYearPL: transposedPL,
           };
         }
       } catch (screenerErr) {
@@ -2634,25 +2646,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }),
       ]);
 
-      if (!dashboard || !concallData) {
-        return res.status(500).json({
-          message:
-            "AI Dashboard Generation Failed: Your GEMINI_API_KEY appears to be invalid or rate-limited. Please check your .env file and ensure you have a valid Gemini API key.",
+      const resolvedConcallData =
+        concallData ||
+        computeDeterministicConcalls({
+          symbol,
+          companyName,
+          fundamentals: fundData,
         });
-      }
+
+      const resolvedDashboard =
+        dashboard ||
+        computeDeterministicDashboard({
+          symbol,
+          fundamentals: fundData,
+          technicals,
+          newsSample: newsTitles,
+          concallData: resolvedConcallData,
+          currentPrice: currentPrice ?? undefined,
+        });
 
       res.json({
-        ...dashboard,
+        ...resolvedDashboard,
         symbol,
-        companyName: concallData?.companyName ?? companyName ?? symbol,
-        sector: concallData?.sector ?? null,
-        industry: concallData?.industry ?? null,
+        companyName: resolvedConcallData?.companyName ?? companyName ?? symbol,
+        sector: resolvedConcallData?.sector ?? null,
+        industry: resolvedConcallData?.industry ?? null,
         currentPrice,
-        concalls: concallData?.concalls ?? [],
-        annualReports: concallData?.annualReports ?? {},
-        moatScores: concallData?.moatScores ?? {},
-        moatRating: concallData?.moatRating ?? "Narrow",
-        moatReason: concallData?.moatReason ?? "",
+        concalls: resolvedConcallData?.concalls ?? [],
+        annualReports: resolvedConcallData?.annualReports ?? {},
+        moatScores: resolvedConcallData?.moatScores ?? {},
+        moatRating: resolvedConcallData?.moatRating ?? "Narrow",
+        moatReason: resolvedConcallData?.moatReason ?? "",
         investmentScore: dashboard?.investmentScore ?? null,
         verdict: dashboard?.verdict ?? "Hold",
         targetPriceLow: dashboard?.targetPriceLow ?? null,

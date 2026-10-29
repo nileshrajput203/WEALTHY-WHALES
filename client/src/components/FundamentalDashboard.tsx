@@ -710,87 +710,127 @@ function MOATRadar({ scores, rating, reason }: { scores: Record<string, number>;
   );
 }
 
-/** Risk / Opportunity 2×2 Matrix */
+/** Risk / Opportunity 2×2 Matrix with Dynamic Real-World Asymmetry */
 function RiskMatrix({ risks, opportunities }: { risks: RiskOpp[]; opportunities: RiskOpp[] }) {
+  const riskCount = risks?.length || 0;
+  const oppCount = opportunities?.length || 0;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      {/* Risk list */}
-      <div className="glass-card rounded-2xl border border-red-500/20 overflow-hidden">
-        <div className="px-5 py-4 border-b border-border bg-red-500/5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-            </div>
-            <span className="text-sm font-display font-bold text-red-400">Risk Factors</span>
-          </div>
-        </div>
-        <div className="p-4 space-y-3">
-          {risks.map((r, i) => {
-            const probColor = r.probability === "High" ? "red" : r.probability === "Medium" ? "yellow" : "green";
-            const impColor  = r.impact     === "High" ? "red" : r.impact     === "Medium" ? "yellow" : "green";
-            return (
-              <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-red-500/20 transition-colors">
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <span className="text-xs font-semibold text-foreground font-sans">{r.title}</span>
-                  {r.category && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono flex-shrink-0">{r.category}</span>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{r.description}</p>
-                <div className="flex gap-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
-                    style={{
-                      color: probColor === "red" ? "hsl(0,84%,62%)" : probColor === "yellow" ? "hsl(38,96%,58%)" : "hsl(142,71%,50%)",
-                      borderColor: probColor === "red" ? "hsl(0,84%,62%,0.3)" : probColor === "yellow" ? "hsl(38,96%,58%,0.3)" : "hsl(142,71%,50%,0.3)",
-                      background: probColor === "red" ? "hsl(0,84%,62%,0.08)" : probColor === "yellow" ? "hsl(38,96%,58%,0.08)" : "hsl(142,71%,50%,0.08)",
-                    }}
-                  >P: {r.probability}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
-                    style={{
-                      color: impColor === "red" ? "hsl(0,84%,62%)" : impColor === "yellow" ? "hsl(38,96%,58%)" : "hsl(142,71%,50%)",
-                      borderColor: impColor === "red" ? "hsl(0,84%,62%,0.3)" : impColor === "yellow" ? "hsl(38,96%,58%,0.3)" : "hsl(142,71%,50%,0.3)",
-                      background: impColor === "red" ? "hsl(0,84%,62%,0.08)" : impColor === "yellow" ? "hsl(38,96%,58%,0.08)" : "hsl(142,71%,50%,0.08)",
-                    }}
-                  >I: {r.impact}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+    <div className="space-y-3">
+      {/* Dynamic Asymmetry Summary Pill */}
+      <div className="flex items-center justify-between text-xs font-mono px-3.5 py-1.5 rounded-xl border border-white/8 bg-white/[0.02]">
+        <span className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          Real-World Asymmetry Assessment
+        </span>
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+          riskCount > oppCount
+            ? "bg-red-500/10 text-red-400 border-red-500/20"
+            : oppCount > riskCount
+            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+        }`}>
+          {riskCount > oppCount
+            ? `Defensive Bias: ${riskCount} Risks vs ${oppCount} Opportunities`
+            : oppCount > riskCount
+            ? `Growth Asymmetry: ${oppCount} Opportunities vs ${riskCount} Risks`
+            : `Balanced Profile: ${riskCount} Risks vs ${oppCount} Opportunities`}
+        </span>
       </div>
 
-      {/* Opportunity list */}
-      <div className="glass-card rounded-2xl border border-emerald-500/20 overflow-hidden">
-        <div className="px-5 py-4 border-b border-border bg-emerald-500/5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {/* Risk list */}
+        <div className="glass-card rounded-2xl border border-red-500/20 overflow-hidden">
+          <div className="px-5 py-4 border-b border-border bg-red-500/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+              </div>
+              <span className="text-sm font-display font-bold text-red-400">Risk Factors</span>
             </div>
-            <span className="text-sm font-display font-bold text-emerald-400">Opportunities</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-bold">
+              {riskCount} {riskCount === 1 ? "Factor" : "Factors"}
+            </span>
+          </div>
+          <div className="p-4 space-y-3">
+            {riskCount === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-3 text-center">No major structural red flags identified in filings.</p>
+            ) : (
+              risks.map((r, i) => {
+                const probColor = r.probability === "High" ? "red" : r.probability === "Medium" ? "yellow" : "green";
+                const impColor  = r.impact     === "High" ? "red" : r.impact     === "Medium" ? "yellow" : "green";
+                return (
+                  <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-red-500/20 transition-colors">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <span className="text-xs font-semibold text-foreground font-sans">{r.title}</span>
+                      {r.category && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-mono flex-shrink-0">{r.category}</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{r.description}</p>
+                    <div className="flex gap-2">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
+                        style={{
+                          color: probColor === "red" ? "hsl(0,84%,62%)" : probColor === "yellow" ? "hsl(38,96%,58%)" : "hsl(142,71%,50%)",
+                          borderColor: probColor === "red" ? "hsl(0,84%,62%,0.3)" : probColor === "yellow" ? "hsl(38,96%,58%,0.3)" : "hsl(142,71%,50%,0.3)",
+                          background: probColor === "red" ? "hsl(0,84%,62%,0.08)" : probColor === "yellow" ? "hsl(38,96%,58%,0.08)" : "hsl(142,71%,50%,0.08)",
+                        }}
+                      >P: {r.probability}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
+                        style={{
+                          color: impColor === "red" ? "hsl(0,84%,62%)" : impColor === "yellow" ? "hsl(38,96%,58%)" : "hsl(142,71%,50%)",
+                          borderColor: impColor === "red" ? "hsl(0,84%,62%,0.3)" : impColor === "yellow" ? "hsl(38,96%,58%,0.3)" : "hsl(142,71%,50%,0.3)",
+                          background: impColor === "red" ? "hsl(0,84%,62%,0.08)" : impColor === "yellow" ? "hsl(38,96%,58%,0.08)" : "hsl(142,71%,50%,0.08)",
+                        }}
+                      >I: {r.impact}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-        <div className="p-4 space-y-3">
-          {opportunities.map((o, i) => (
-            <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-emerald-500/20 transition-colors">
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <span className="text-xs font-semibold text-foreground font-sans">{o.title}</span>
-                {o.timeline && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono flex-shrink-0 flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5" />{o.timeline}
-                  </span>
-                )}
+
+        {/* Opportunity list */}
+        <div className="glass-card rounded-2xl border border-emerald-500/20 overflow-hidden">
+          <div className="px-5 py-4 border-b border-border bg-emerald-500/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               </div>
-              <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{o.description}</p>
-              <div className="flex gap-2">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                  P: {o.probability}
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                  I: {o.impact}
-                </span>
-              </div>
+              <span className="text-sm font-display font-bold text-emerald-400">Opportunities</span>
             </div>
-          ))}
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+              {oppCount} {oppCount === 1 ? "Catalyst" : "Catalysts"}
+            </span>
+          </div>
+          <div className="p-4 space-y-3">
+            {oppCount === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-3 text-center">Limited near-term catalysts identified; monitor for cyclical turnaround.</p>
+            ) : (
+              opportunities.map((o, i) => (
+                <div key={i} className="rounded-xl bg-card border border-border p-3 hover:border-emerald-500/20 transition-colors">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <span className="text-xs font-semibold text-foreground font-sans">{o.title}</span>
+                    {o.timeline && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono flex-shrink-0 flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5" />{o.timeline}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-sans leading-relaxed mb-2">{o.description}</p>
+                  <div className="flex gap-2">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                      P: {o.probability}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                      I: {o.impact}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

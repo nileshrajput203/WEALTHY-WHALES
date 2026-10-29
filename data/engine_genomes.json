@@ -1,83 +1,83 @@
 {
   "SWING": {
     "engine": "SWING",
-    "version": 1,
-    "lastUpgraded": "2026-10-28T16:22:29.080Z",
+    "version": 4,
+    "lastUpgraded": "2026-10-28T16:39:44.921Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_grade_score": 65,
-      "max_hold_days": 10,
-      "risk_reward": 2.5,
+      "min_grade_score": 67.19,
+      "max_hold_days": 9.64,
+      "risk_reward": 2.41,
       "atr_tightness_max": 0.06,
-      "volume_dryup_max": 0.85,
+      "volume_dryup_max": 0.82,
       "sl_pct_max": 0.06,
-      "target_return_goal": 7.5
+      "target_return_goal": 7.23
     }
   },
   "HERMES": {
     "engine": "HERMES",
-    "version": 1,
-    "lastUpgraded": "2026-10-28T16:22:29.081Z",
+    "version": 3,
+    "lastUpgraded": "2026-10-28T16:31:44.849Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_score_threshold": 65,
+      "min_score_threshold": 64.92,
       "news_weight": 0.2,
       "fundamental_weight": 0.25,
       "technical_weight": 0.55,
       "atr_compression_min": 0.1,
       "volume_dryup_max": 0.85,
-      "near_high_pct_max": 0.15
+      "near_high_pct_max": 0.14
     }
   },
   "APEX": {
     "engine": "APEX",
-    "version": 2,
-    "lastUpgraded": "2026-10-28T16:22:29.085Z",
+    "version": 4,
+    "lastUpgraded": "2026-10-28T16:32:44.859Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "news_group_weight": 0.21,
+      "news_group_weight": 0.19,
       "fo_group_weight": 0.19,
       "technical_group_weight": 0.29,
-      "gap_group_weight": 0.21,
+      "gap_group_weight": 0.19,
       "macro_group_weight": 0.1,
-      "min_confidence_threshold": 53.07,
-      "target_return_goal": 7.24
+      "min_confidence_threshold": 49.42,
+      "target_return_goal": 7.75
     }
   },
   "IPO": {
     "engine": "IPO",
-    "version": 2,
-    "lastUpgraded": "2026-10-28T16:22:29.088Z",
+    "version": 7,
+    "lastUpgraded": "2026-10-28T16:40:44.925Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_days_since_listing": 10.35,
-      "max_days_since_listing": 106.15,
-      "max_base_depth_pct": 0.36,
+      "min_days_since_listing": 11.46,
+      "max_days_since_listing": 126.08,
+      "max_base_depth_pct": 0.35,
       "consolidation_range_pct": 0.14,
-      "min_score_threshold": 51.75
+      "min_score_threshold": 57.3
     }
   },
   "FUGU": {
     "engine": "FUGU",
-    "version": 1,
-    "lastUpgraded": "2026-10-28T16:22:29.089Z",
+    "version": 4,
+    "lastUpgraded": "2026-10-28T16:35:44.892Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_elite_score": 70,
-      "news_weight": 0.2,
-      "fundamental_weight": 0.2,
-      "technical_weight": 0.35,
-      "pattern_weight": 0.15,
+      "min_elite_score": 77.61,
+      "news_weight": 0.21,
+      "fundamental_weight": 0.21,
+      "technical_weight": 0.38,
+      "pattern_weight": 0.16,
       "candlestick_weight": 0.1
     }
   }

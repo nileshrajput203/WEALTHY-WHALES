@@ -443,3 +443,4 @@ export function getLedgerStats(): {
     recentUpgrades: changelog.slice(0, 15),
   };
 }
+
