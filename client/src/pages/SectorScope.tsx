@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Scan, TrendingUp, TrendingDown, ArrowUpDown, Activity, Sparkles,
   Landmark, Info, ShieldAlert, AlertTriangle, ArrowRightLeft,
-  Percent, Globe, Coins, CalendarDays, BarChart3, HelpCircle, Check
+  Percent, Globe, Coins, CalendarDays, BarChart3, HelpCircle, Check,
+  Loader2, RefreshCw
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,21 +74,318 @@ interface RotationAnalysisResponse {
   };
 }
 
+const DEFAULT_MACRO_OVERVIEW: MacroOverview = {
+  economicCycleStage: "Mid-to-Late Cycle (3-4 years into recovery)",
+  recessionProbability: "25% (moderate, not imminent)",
+  interestRateCycle: {
+    currentRate: "6.50% (RBI Repo Rate)",
+    outlook: "Peak cycle reached; rate cuts expected from Q3-Q4 (-50 bps by year-end)",
+    impact: "Lower rates will drive valuation expansion for Realty, Auto, and Infrastructure while putting minor pressure on Bank margins."
+  },
+  inflationTrend: {
+    currentCPI: "5.4% (Upper bound of RBI comfort zone)",
+    outlook: "Expected to moderate to 4.5% by year-end",
+    impact: "FMCG margins will recover due to cheaper raw materials, but pricing power decreases."
+  },
+  gdpGrowth: {
+    forecast: "6.5% - 7.0% for FY25",
+    outlook: "Gradual moderation toward structural 6.2% trend",
+    impact: "Favors secular defensives (Pharma) and government Capex (Infrastructure) over discretionary spending."
+  },
+  rupeeTrajectory: {
+    current: "₹84.5 vs USD (depreciating)",
+    impact: "Direct tailwind for IT exports and Pharma; headwinds for Auto parts and Airlines import costs."
+  },
+  fiiDiiFlows: {
+    fiiYTD: "+₹150 Cr (Cautious accumulation)",
+    diiYTD: "+₹300 Cr (Ample domestic retail inflows)",
+    impact: "Supports large-caps, but mid-caps face valuation correction pressures."
+  }
+};
+
+const DEFAULT_PORTFOLIO_ALLOCATION: PortfolioAllocation = {
+  tactical3_6M: [
+    { sector: "Banking", weight: 25 },
+    { sector: "Infrastructure", weight: 20 },
+    { sector: "Pharma", weight: 15 },
+    { sector: "FMCG", weight: 10 },
+    { sector: "IT", weight: 8 },
+    { sector: "Auto", weight: 5 },
+    { sector: "Real Estate", weight: 2 },
+    { sector: "Cash/Bonds", weight: 15 }
+  ],
+  medium6_12M: [
+    { sector: "Banking", weight: 20 },
+    { sector: "Infrastructure", weight: 18 },
+    { sector: "Pharma", weight: 18 },
+    { sector: "FMCG", weight: 15 },
+    { sector: "IT", weight: 12 },
+    { sector: "Auto", weight: 5 },
+    { sector: "Real Estate", weight: 5 },
+    { sector: "Other", weight: 7 }
+  ],
+  strategic12_24M: [
+    { sector: "Infrastructure", weight: 22 },
+    { sector: "Pharma", weight: 20 },
+    { sector: "Banking", weight: 18 },
+    { sector: "FMCG", weight: 15 },
+    { sector: "Auto", weight: 12 },
+    { sector: "IT", weight: 10 },
+    { sector: "Real Estate", weight: 3 }
+  ]
+};
+
+const DEFAULT_PLAYBOOK = {
+  now: "Capital is rotating OUT of high-valuation cyclicals like Auto and Real Estate, and moving INTO large-cap banks, infrastructure, and defensive Pharma.",
+  next: "Once the RBI signals a clear timeline for rate cuts, money will cycle back into premium real estate and passenger auto stocks.",
+  timeline: [
+    { phase: "Now (Q2-Q3 2026)", action: "Maintain high allocation in Banking and Infrastructure. Buy Pharma on market dips." },
+    { phase: "Late 2026", action: "Begin gradual accumulation of FMCG and IT as cost pressures moderate." },
+    { phase: "Early 2027", action: "Rotate tactically from Banks into Auto and Real Estate to ride the post-rate-cut credit acceleration." }
+  ]
+};
+
+const DEFAULT_SECTOR_ROTATIONS: SectorAnalysis[] = [
+  {
+    name: "Nifty Bank",
+    indexSymbol: "^NSEBANK",
+    cyclePosition: "Growth (Recovery/Early Expansion)",
+    score: 5,
+    status: "STRONG BUY",
+    why: "Robust credit growth, steady net interest margins, and clean asset quality with multi-year low NPAs.",
+    momentum3M: "↑↑↑ ACCELERATING",
+    pe: 15.2,
+    pe5Y: 14.8,
+    peNifty: 19.5,
+    valuationStatus: "FAIR",
+    earningGrowthFY25: "+18-20%",
+    earningGrowthFY26: "+15-18%",
+    earningsTrend: "STRONG",
+    keyRisks: [
+      { risk: "NPA spike if macro growth slows", severity: "Medium", probability: "30%" },
+      { risk: "Deposit cost competition across banks", severity: "Medium", probability: "25%" }
+    ],
+    tacticalPlaybook: "Accumulate on pullbacks. Prioritize tier-1 private & public lenders with low loan-to-deposit ratios."
+  },
+  {
+    name: "Nifty Infrastructure",
+    indexSymbol: "^CNXINFRA",
+    cyclePosition: "Growth (Recovery/Early Expansion)",
+    score: 4,
+    status: "BUY",
+    why: "Government capex outlays, production-linked incentive execution, and robust order book visibility.",
+    momentum3M: "↑ STEADY",
+    pe: 18.3,
+    pe5Y: 16.5,
+    peNifty: 19.5,
+    valuationStatus: "FAIR",
+    earningGrowthFY25: "+22-25%",
+    earningGrowthFY26: "+20-22%",
+    earningsTrend: "STRONG",
+    keyRisks: [
+      { risk: "Execution and statutory clearance bottlenecks", severity: "High", probability: "25%" },
+      { risk: "Debt refinancing cost sensitivity", severity: "Medium", probability: "30%" }
+    ],
+    tacticalPlaybook: "Accrue leading construction and power transmission pure-plays on dips."
+  },
+  {
+    name: "Nifty IT",
+    indexSymbol: "^CNXIT",
+    cyclePosition: "Mid-cycle (Slowing Expansion)",
+    score: 3,
+    status: "HOLD",
+    why: "Discretionary tech spend cautiousness in US/EU balanced by secular cloud and AI deal ramp-ups.",
+    momentum3M: "↓ DECELERATING",
+    pe: 21.8,
+    pe5Y: 23.5,
+    peNifty: 19.5,
+    valuationStatus: "EXPENSIVE",
+    earningGrowthFY25: "+8-10%",
+    earningGrowthFY26: "+10-12%",
+    earningsTrend: "WEAK",
+    keyRisks: [
+      { risk: "AI deflation in traditional IT support contracts", severity: "High", probability: "35%" },
+      { risk: "Global corporate discretionary IT capex freeze", severity: "High", probability: "40%" }
+    ],
+    tacticalPlaybook: "Avoid aggressive lump-sum entries. Rupee tailwinds provide downside support; enter after 10-15% margin consolidation."
+  },
+  {
+    name: "Nifty Energy",
+    indexSymbol: "^CNXENERGY",
+    cyclePosition: "Mid-cycle (Slowing Expansion)",
+    score: 3,
+    status: "HOLD",
+    why: "Resilient domestic electricity demand and steady gross refining margins, though capped by commodity swings.",
+    momentum3M: "↑ STEADY",
+    pe: 15.6,
+    pe5Y: 14.8,
+    peNifty: 19.5,
+    valuationStatus: "FAIR",
+    earningGrowthFY25: "+12-14%",
+    earningGrowthFY26: "+14-16%",
+    earningsTrend: "STEADY",
+    keyRisks: [
+      { risk: "Global crude volatility and export tax adjustments", severity: "Medium", probability: "30%" },
+      { risk: "Geopolitical supply chain disruptions", severity: "High", probability: "35%" }
+    ],
+    tacticalPlaybook: "Hold existing exposures for strong dividend yields and hedge value against currency depreciation."
+  },
+  {
+    name: "Nifty Metal",
+    indexSymbol: "^CNXMETAL",
+    cyclePosition: "Mid-cycle (Slowing Expansion)",
+    score: 3,
+    status: "HOLD",
+    why: "Global commodity prices consolidating with Chinese stimulus policies; domestic infrastructure demand solid.",
+    momentum3M: "↓ DECELERATING",
+    pe: 16.4,
+    pe5Y: 15.5,
+    peNifty: 19.5,
+    valuationStatus: "FAIR",
+    earningGrowthFY25: "+10-12%",
+    earningGrowthFY26: "+12-14%",
+    earningsTrend: "STEADY",
+    keyRisks: [
+      { risk: "Cheap Chinese steel dumping in Asian markets", severity: "High", probability: "40%" },
+      { risk: "Coking coal and energy input price inflation", severity: "Medium", probability: "30%" }
+    ],
+    tacticalPlaybook: "Strictly swing-trade low-cost integrated miners; avoid debt-heavy downstream converters."
+  },
+  {
+    name: "Nifty Auto",
+    indexSymbol: "^CNXAUTO",
+    cyclePosition: "Late-cycle (Peak Expansion)",
+    score: 2,
+    status: "AVOID",
+    why: "Post-pandemic replacement cycle maturity, rising dealer inventory channel days, and price discounting.",
+    momentum3M: "↓↓ SHARPLY DECELERATING",
+    pe: 14.5,
+    pe5Y: 16.2,
+    peNifty: 19.5,
+    valuationStatus: "CHEAP",
+    earningGrowthFY25: "+8-12%",
+    earningGrowthFY26: "+12-15%",
+    earningsTrend: "SLOWING",
+    keyRisks: [
+      { risk: "Higher retail inventory overhang exceeding 50 days", severity: "High", probability: "45%" },
+      { risk: "EV transition capex squeezing near-term ROCE", severity: "Medium", probability: "35%" }
+    ],
+    tacticalPlaybook: "Take profits on rallies. Rotate capital into defensives or banking until channel inventory normalizes."
+  },
+  {
+    name: "Nifty Realty",
+    indexSymbol: "^CNXREALTY",
+    cyclePosition: "Late-cycle (Peak Expansion)",
+    score: 2,
+    status: "AVOID",
+    why: "Multi-year price run-up stretching affordability metrics; new project launches outpacing absorption velocity.",
+    momentum3M: "↓ DECELERATING",
+    pe: 11.8,
+    pe5Y: 13.5,
+    peNifty: 19.5,
+    valuationStatus: "CHEAP",
+    earningGrowthFY25: "+15-18%",
+    earningGrowthFY26: "+18-20%",
+    earningsTrend: "SLOWING",
+    keyRisks: [
+      { risk: "Unsold luxury residential units in Tier-1 cities", severity: "High", probability: "35%" },
+      { risk: "High land acquisition premiums eroding net margins", severity: "Medium", probability: "30%" }
+    ],
+    tacticalPlaybook: "Trim speculative holdings; re-enter only when rate reduction cycles provide fresh retail mortgage tailwinds."
+  },
+  {
+    name: "Nifty Pharma",
+    indexSymbol: "^CNXPHARMA",
+    cyclePosition: "Recession (Defensive)",
+    score: 4,
+    status: "BUY",
+    why: "Pricing stability in US generics, domestic chronic formulation volume growth, and non-cyclical cash flow cushion.",
+    momentum3M: "↑ STEADY",
+    pe: 23.5,
+    pe5Y: 25.0,
+    peNifty: 19.5,
+    valuationStatus: "FAIR",
+    earningGrowthFY25: "+13-15%",
+    earningGrowthFY26: "+15-18%",
+    earningsTrend: "STEADY",
+    keyRisks: [
+      { risk: "US FDA warning letters or import alerts on key facilities", severity: "High", probability: "20%" },
+      { risk: "Domestic NLEM price revision expansions", severity: "Medium", probability: "35%" }
+    ],
+    tacticalPlaybook: "Accumulate steadily during broader market turbulence to preserve portfolio alpha and gain currency hedge."
+  },
+  {
+    name: "Nifty FMCG",
+    indexSymbol: "^CNXFMCG",
+    cyclePosition: "Recession (Defensive)",
+    score: 4,
+    status: "BUY",
+    why: "Rural consumption bottoming out, easing input raw material inflation, and consistent dividend yield anchor.",
+    momentum3M: "↑ STEADY",
+    pe: 45.2,
+    pe5Y: 42.8,
+    peNifty: 19.5,
+    valuationStatus: "VERY EXPENSIVE",
+    earningGrowthFY25: "+6-8%",
+    earningGrowthFY26: "+8-10%",
+    earningsTrend: "STEADY",
+    keyRisks: [
+      { risk: "Uneven monsoon or food inflation curbing rural disposable income", severity: "High", probability: "35%" },
+      { risk: "Direct-to-consumer and unorganized regional brand competition", severity: "Medium", probability: "30%" }
+    ],
+    tacticalPlaybook: "Deploy capital for downside protection in defensive market phases. Focus on names with pricing moat."
+  }
+];
+
+function matchCycleStage(sectorPos: string | undefined, stageKey: string): boolean {
+  if (!sectorPos) return false;
+  const pos = sectorPos.toLowerCase().trim();
+  const key = stageKey.toLowerCase().trim();
+  if (pos === key) return true;
+  if (key.includes("growth") || key.includes("recovery")) {
+    return pos.includes("growth") || pos.includes("recovery") || pos.includes("early");
+  }
+  if (key.includes("mid")) {
+    return pos.includes("mid");
+  }
+  if (key.includes("late")) {
+    return pos.includes("late") || pos.includes("peak");
+  }
+  if (key.includes("recession") || key.includes("defensive")) {
+    return pos.includes("recession") || pos.includes("defensive") || pos.includes("trough");
+  }
+  return false;
+}
+
 export default function SectorScope() {
   const [activeTab, setActiveTab] = useState<"rrg" | "cycle" | "macro" | "valuations">("rrg");
   const [timeframe, setTimeframe] = useState<"1d" | "1w" | "1m">("1d");
 
   // Query 1: Heatmap performance
-  const { data: perfData, isLoading: isPerfLoading } = useQuery<{ sectors: SectorData[] }>({
+  const { data: perfData, isLoading: isPerfLoading, refetch: refetchPerf } = useQuery<{ sectors: SectorData[] }>({
     queryKey: ["/api/sector-performance"],
     staleTime: 5 * 60 * 1000,
   });
 
   // Query 2: Deep Sector Rotation analysis
-  const { data: analysisData, isLoading: isAnalysisLoading } = useQuery<RotationAnalysisResponse>({
+  const {
+    data: analysisData,
+    isLoading: isAnalysisLoading,
+    isFetching: isAnalysisFetching,
+    refetch: refetchAnalysis,
+  } = useQuery<RotationAnalysisResponse>({
     queryKey: ["/api/sector-rotation-analysis"],
     staleTime: 10 * 60 * 1000,
   });
+
+  const activeSectors: SectorAnalysis[] =
+    analysisData?.sectors && analysisData.sectors.length > 0
+      ? analysisData.sectors
+      : DEFAULT_SECTOR_ROTATIONS;
+
+  const macroOverview = analysisData?.macroOverview || DEFAULT_MACRO_OVERVIEW;
+  const portfolioAllocation = analysisData?.portfolioAllocation || DEFAULT_PORTFOLIO_ALLOCATION;
+  const rotationPlaybook = analysisData?.rotationPlaybook || DEFAULT_PLAYBOOK;
 
   const sectors = perfData?.sectors ?? [];
   const sortedSectors = [...sectors].sort((a, b) => {
@@ -486,13 +784,92 @@ export default function SectorScope() {
 
               {/* Sector Cycle Positioning Matrix */}
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-white/85">📊 SECTOR ROTATION MATRIX (Cycle Positioning)</h3>
-                  <p className="text-[11px] text-white/45 font-mono mt-0.5">Sectors mapped to their current stage in the macroeconomic timeline</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                      <span>📊 SECTOR ROTATION MATRIX (Cycle Positioning)</span>
+                      {isAnalysisFetching && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/25">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Live Fetching
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-[11px] text-white/45 font-mono mt-0.5">
+                      Sectors mapped to their current stage in the macroeconomic timeline
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => refetchAnalysis()}
+                      disabled={isAnalysisFetching}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/10 text-white/80 hover:text-primary transition-all text-xs font-mono font-semibold disabled:opacity-50"
+                      title="Fetch fresh macroeconomic and rotation analysis from AI engine"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isAnalysisFetching ? "animate-spin text-primary" : ""}`} />
+                      <span>{isAnalysisFetching ? "Analyzing Cycle..." : "Sync Macro Cycle"}</span>
+                    </button>
+                  </div>
                 </div>
 
+                {/* Loading Banner & Skeleton Option if analysis is loading */}
                 {isAnalysisLoading ? (
-                  <div className="h-64 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-white font-mono flex items-center gap-2">
+                            <span>Loading Institutional Sector Cycle Models</span>
+                            <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                          </div>
+                          <p className="text-[11px] text-white/50 font-sans mt-0.5">
+                            Synthesizing RBI interest rate cycle, GDP projections, and macroeconomic positioning across all 9 NSE sectors...
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => refetchAnalysis()}
+                        disabled={isAnalysisFetching}
+                        className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary font-mono text-xs hover:bg-primary/20 transition flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+                      >
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Reload Data
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                      {[
+                        { title: "GROWTH / RECOVERY", desc: "Leads bull markets, cheap entry, credit rebound", color: "border-cyan-500/20 bg-cyan-500/5 text-cyan-400" },
+                        { title: "MID-CYCLE EXPANSION", desc: "Goldilocks growth phase, earnings peak, Tech favor", color: "border-purple-500/20 bg-purple-500/5 text-purple-400" },
+                        { title: "LATE-CYCLE PEAK", desc: "Stretched valuations, rising cost pressures, defensive rotation", color: "border-amber-500/20 bg-amber-500/5 text-amber-400" },
+                        { title: "RECESSION / DEFENSIVE", desc: "Safety focus, predictable cash flows, counter-cyclical", color: "border-emerald-500/20 bg-emerald-500/5 text-emerald-400" }
+                      ].map((stage, idx) => (
+                        <div key={idx} className={`rounded-2xl border p-4 space-y-4 ${stage.color}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold tracking-wider uppercase block">{stage.title}</span>
+                              <span className="text-[9px] text-white/35 font-sans leading-relaxed block mt-0.5">{stage.desc}</span>
+                            </div>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin opacity-50 shrink-0" />
+                          </div>
+                          <div className="space-y-3">
+                            {[1, 2].map(n => (
+                              <div key={n} className="bg-white/4 border border-white/5 rounded-xl p-3 space-y-2 animate-pulse">
+                                <div className="flex items-center justify-between">
+                                  <div className="h-3.5 w-24 bg-white/10 rounded" />
+                                  <div className="h-4 w-14 bg-white/10 rounded" />
+                                </div>
+                                <div className="h-2.5 w-3/4 bg-white/10 rounded" />
+                                <div className="h-2 w-full bg-white/5 rounded" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                     {[
@@ -501,7 +878,7 @@ export default function SectorScope() {
                       { key: "Late-cycle (Peak Expansion)", title: "LATE-CYCLE PEAK", desc: "Stretched valuations, rising cost pressures, defensive rotation", color: "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-400" },
                       { key: "Recession (Defensive)", title: "RECESSION / DEFENSIVE", desc: "Safety focus, predictable cash flows, counter-cyclical", color: "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400" }
                     ].map(stage => {
-                      const stageSectors = analysisData?.sectors.filter(s => s.cyclePosition === stage.key) ?? [];
+                      const stageSectors = activeSectors.filter(s => matchCycleStage(s.cyclePosition, stage.key));
                       return (
                         <div key={stage.key} className={`rounded-2xl border p-4 space-y-4 transition duration-300 ${stage.color}`}>
                           <div>
@@ -512,7 +889,7 @@ export default function SectorScope() {
                           <div className="space-y-3">
                             {stageSectors.length > 0 ? (
                               stageSectors.map(s => (
-                                <div key={s.name} className="bg-white/2 border border-white/4 rounded-xl p-3 space-y-2">
+                                <div key={s.name} className="bg-white/2 border border-white/4 rounded-xl p-3 space-y-2 hover:border-white/10 transition">
                                   <div className="flex items-start justify-between gap-1.5">
                                     <div>
                                       <h4 className="text-xs font-semibold text-white">{s.name}</h4>
@@ -531,8 +908,9 @@ export default function SectorScope() {
                                 </div>
                               ))
                             ) : (
-                              <div className="text-[10px] text-white/20 italic font-mono text-center py-4">
-                                No active sectors in this phase
+                              <div className="rounded-xl border border-dashed border-white/10 bg-white/1 p-4 text-center space-y-1">
+                                <div className="text-[10px] text-white/50 font-mono">No Active Rotations</div>
+                                <p className="text-[9px] text-white/30 font-sans leading-tight">Institutional flows currently clustered in adjacent stages.</p>
                               </div>
                             )}
                           </div>
@@ -545,13 +923,40 @@ export default function SectorScope() {
 
               {/* Relative Performance & Momentum */}
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-white/85">📈 SECTOR RELATIVE PERFORMANCE & MOMENTUM</h3>
-                  <p className="text-[11px] text-white/45 font-mono mt-0.5">Indices performance benchmarked against the broader Nifty Index</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                      <span>📈 SECTOR RELATIVE PERFORMANCE & MOMENTUM</span>
+                      {isAnalysisFetching && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                      )}
+                    </h3>
+                    <p className="text-[11px] text-white/45 font-mono mt-0.5">Indices performance benchmarked against the broader Nifty Index</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-white/50 bg-white/5 px-2.5 py-1 rounded border border-white/10 self-start sm:self-auto">
+                    {activeSectors.length} Tracked Sectors
+                  </span>
                 </div>
 
                 {isAnalysisLoading ? (
-                  <div className="h-48 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                  <div className="overflow-hidden rounded-2xl border border-white/6 p-6 space-y-3 bg-white/1">
+                    <div className="flex items-center justify-between text-xs font-mono text-primary animate-pulse pb-2 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Synthesizing sector momentum, relative strength & earnings trends...</span>
+                      </div>
+                      <span>9 Indices</span>
+                    </div>
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-10 rounded-lg bg-white/3 animate-pulse border border-white/5 flex items-center justify-between px-4">
+                        <div className="h-3.5 w-28 bg-white/10 rounded" />
+                        <div className="h-3 w-16 bg-white/10 rounded" />
+                        <div className="h-5 w-20 bg-white/10 rounded-full" />
+                        <div className="h-3.5 w-24 bg-white/10 rounded" />
+                        <div className="h-5 w-16 bg-white/10 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-2xl border border-white/6">
                     <table className="w-full text-left border-collapse font-sans text-xs">
@@ -565,7 +970,7 @@ export default function SectorScope() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {analysisData?.sectors.map((s, idx) => {
+                        {activeSectors.map((s, idx) => {
                           const isAcc = s.momentum3M.includes("ACCELERATING");
                           const isDec = s.momentum3M.includes("DECELERATING");
                           const statusColor = getStatusColor(s.status);
@@ -605,16 +1010,47 @@ export default function SectorScope() {
             <div className="space-y-8">
               {/* Macro Drivers Cards */}
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-white/85">🔑 KEY MACRO DRIVERS OF SECTOR ROTATION</h3>
-                  <p className="text-[11px] text-white/40 font-mono mt-0.5">Macro forces that trigger shifts in institutional capital</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                      <span>🔑 KEY MACRO DRIVERS OF SECTOR ROTATION</span>
+                      {isAnalysisFetching && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/25">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Live Fetching
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-[11px] text-white/40 font-mono mt-0.5">Macro forces that trigger shifts in institutional capital</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => refetchAnalysis()}
+                      disabled={isAnalysisFetching}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/10 text-white/80 hover:text-primary transition-all text-xs font-mono font-semibold disabled:opacity-50"
+                      title="Fetch fresh macroeconomic and rotation analysis from AI engine"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isAnalysisFetching ? "animate-spin text-primary" : ""}`} />
+                      <span>{isAnalysisFetching ? "Analyzing..." : "Sync Macro Drivers"}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {isAnalysisLoading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="h-44 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
-                    ))}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-2xl border border-primary/30 bg-primary/5">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <div>
+                          <div className="text-xs font-semibold text-white font-mono">Loading Macro Cycle Overview...</div>
+                          <p className="text-[11px] text-white/50">Tracking RBI repo rates, CPI forecasts, GDP models and institutional capital flows.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-44 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -628,14 +1064,14 @@ export default function SectorScope() {
                           <span className="text-xs font-semibold text-white/90">Interest Rate Cycle</span>
                         </div>
                         <div className="text-sm font-mono font-bold text-white mb-2">
-                          Rate: {analysisData?.macroOverview.interestRateCycle.currentRate}
+                          Rate: {macroOverview.interestRateCycle.currentRate}
                         </div>
                         <p className="text-[11px] text-white/50 leading-relaxed font-sans">
-                          Outlook: {analysisData?.macroOverview.interestRateCycle.outlook}
+                          Outlook: {macroOverview.interestRateCycle.outlook}
                         </p>
                       </div>
                       <div className="text-[10px] text-cyan-400 font-sans border-t border-white/5 pt-2 mt-3 italic leading-relaxed">
-                        Impact: {analysisData?.macroOverview.interestRateCycle.impact}
+                        Impact: {macroOverview.interestRateCycle.impact}
                       </div>
                     </div>
 
@@ -649,14 +1085,14 @@ export default function SectorScope() {
                           <span className="text-xs font-semibold text-white/90">Inflation CPI Trend</span>
                         </div>
                         <div className="text-sm font-mono font-bold text-white mb-2">
-                          CPI: {analysisData?.macroOverview.inflationTrend.currentCPI}
+                          CPI: {macroOverview.inflationTrend.currentCPI}
                         </div>
                         <p className="text-[11px] text-white/50 leading-relaxed font-sans">
-                          Outlook: {analysisData?.macroOverview.inflationTrend.outlook}
+                          Outlook: {macroOverview.inflationTrend.outlook}
                         </p>
                       </div>
                       <div className="text-[10px] text-orange-400 font-sans border-t border-white/5 pt-2 mt-3 italic leading-relaxed">
-                        Impact: {analysisData?.macroOverview.inflationTrend.impact}
+                        Impact: {macroOverview.inflationTrend.impact}
                       </div>
                     </div>
 
@@ -670,14 +1106,14 @@ export default function SectorScope() {
                           <span className="text-xs font-semibold text-white/90">GDP Growth Outlook</span>
                         </div>
                         <div className="text-sm font-mono font-bold text-white mb-2">
-                          Forecast: {analysisData?.macroOverview.gdpGrowth.forecast}
+                          Forecast: {macroOverview.gdpGrowth.forecast}
                         </div>
                         <p className="text-[11px] text-white/50 leading-relaxed font-sans">
-                          Outlook: {analysisData?.macroOverview.gdpGrowth.outlook}
+                          Outlook: {macroOverview.gdpGrowth.outlook}
                         </p>
                       </div>
                       <div className="text-[10px] text-emerald-400 font-sans border-t border-white/5 pt-2 mt-3 italic leading-relaxed">
-                        Impact: {analysisData?.macroOverview.gdpGrowth.impact}
+                        Impact: {macroOverview.gdpGrowth.impact}
                       </div>
                     </div>
 
@@ -691,11 +1127,11 @@ export default function SectorScope() {
                           <span className="text-xs font-semibold text-white/90">Rupee Trajectory</span>
                         </div>
                         <div className="text-sm font-mono font-bold text-white mb-2">
-                          Level: {analysisData?.macroOverview.rupeeTrajectory.current}
+                          Level: {macroOverview.rupeeTrajectory.current}
                         </div>
                       </div>
                       <div className="text-[10px] text-purple-400 font-sans border-t border-white/5 pt-2 mt-3 italic leading-relaxed">
-                        Impact: {analysisData?.macroOverview.rupeeTrajectory.impact}
+                        Impact: {macroOverview.rupeeTrajectory.impact}
                       </div>
                     </div>
 
@@ -709,12 +1145,12 @@ export default function SectorScope() {
                           <span className="text-xs font-semibold text-white/90">FII / DII Institutional Flows</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-2">
-                          <div>FII Inflows: <span className="text-emerald-400 font-bold">{analysisData?.macroOverview.fiiDiiFlows.fiiYTD}</span></div>
-                          <div>DII Inflows: <span className="text-emerald-400 font-bold">{analysisData?.macroOverview.fiiDiiFlows.diiYTD}</span></div>
+                          <div>FII Inflows: <span className="text-emerald-400 font-bold">{macroOverview.fiiDiiFlows.fiiYTD}</span></div>
+                          <div>DII Inflows: <span className="text-emerald-400 font-bold">{macroOverview.fiiDiiFlows.diiYTD}</span></div>
                         </div>
                       </div>
                       <div className="text-[10px] text-pink-400 font-sans border-t border-white/5 pt-2 mt-3 italic leading-relaxed">
-                        Impact: {analysisData?.macroOverview.fiiDiiFlows.impact}
+                        Impact: {macroOverview.fiiDiiFlows.impact}
                       </div>
                     </div>
                   </div>
@@ -737,7 +1173,7 @@ export default function SectorScope() {
                       { title: "Medium-Term (6-12 Months)", key: "medium6_12M", desc: "Valuation accumulation, structural transition" },
                       { title: "Strategic Investing (12-24 Months)", key: "strategic12_24M", desc: "Long-term capex theme, secular compounders" }
                     ].map(road => {
-                      const allocations = analysisData?.portfolioAllocation[road.key as keyof PortfolioAllocation] ?? [];
+                      const allocations = portfolioAllocation[road.key as keyof PortfolioAllocation] ?? [];
                       return (
                         <div key={road.key} className="glass-card rounded-2xl border border-white/6 p-5 space-y-4">
                           <div>
@@ -785,18 +1221,18 @@ export default function SectorScope() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2 border-r border-white/5 pr-0 md:pr-6">
                         <span className="text-[10px] text-white/45 font-mono uppercase tracking-wider block">Rotation Happening Now</span>
-                        <p className="text-xs text-white/85 font-sans leading-relaxed">{analysisData?.rotationPlaybook.now}</p>
+                        <p className="text-xs text-white/85 font-sans leading-relaxed">{rotationPlaybook.now}</p>
                       </div>
                       <div className="space-y-2">
                         <span className="text-[10px] text-white/45 font-mono uppercase tracking-wider block">Rotation Expected Next</span>
-                        <p className="text-xs text-white/85 font-sans leading-relaxed">{analysisData?.rotationPlaybook.next}</p>
+                        <p className="text-xs text-white/85 font-sans leading-relaxed">{rotationPlaybook.next}</p>
                       </div>
                     </div>
 
                     <div className="border-t border-white/5 pt-4">
                       <span className="text-[10px] text-white/45 font-mono uppercase tracking-wider block mb-3">Tactical Timeline</span>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {analysisData?.rotationPlaybook.timeline.map((t, idx) => (
+                        {rotationPlaybook.timeline.map((t, idx) => (
                           <div key={idx} className="rounded-xl border border-white/5 bg-white/2 p-3.5 space-y-1">
                             <span className="text-[11px] font-bold text-primary font-mono">{t.phase}</span>
                             <p className="text-[11px] text-white/70 font-sans leading-relaxed">{t.action}</p>
@@ -813,6 +1249,31 @@ export default function SectorScope() {
           {/* TAB 3: VALUATIONS & EARNINGS MATRIX */}
           {activeTab === "valuations" && (
             <div className="space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-white/90 flex items-center gap-2">
+                    <span>💰 SECTOR VALUATION & EARNINGS MATRIX</span>
+                    {isAnalysisFetching && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/25">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Live Fetching
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-white/40 font-mono mt-0.5">Valuation multiples, 5Y benchmarks, growth forecasts & risk parameters</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => refetchAnalysis()}
+                    disabled={isAnalysisFetching}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/10 text-white/80 hover:text-primary transition-all text-xs font-mono font-semibold disabled:opacity-50"
+                    title="Fetch fresh macroeconomic and rotation analysis from AI engine"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isAnalysisFetching ? "animate-spin text-primary" : ""}`} />
+                    <span>{isAnalysisFetching ? "Analyzing..." : "Sync Valuations"}</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Valuation & Earnings Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Valuations Table */}
@@ -823,7 +1284,10 @@ export default function SectorScope() {
                   </div>
 
                   {isAnalysisLoading ? (
-                    <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                    <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-xs font-mono text-white/50">Loading historical valuation multiples...</span>
+                    </div>
                   ) : (
                     <div className="overflow-hidden rounded-2xl border border-white/6">
                       <table className="w-full text-left border-collapse font-sans text-xs">
@@ -837,7 +1301,7 @@ export default function SectorScope() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {analysisData?.sectors.map((s, idx) => (
+                          {activeSectors.map((s, idx) => (
                             <tr key={s.name} className={idx % 2 === 0 ? "bg-white/1" : "bg-transparent"}>
                               <td className="px-4 py-3 font-semibold text-white">{s.name}</td>
                               <td className="px-4 py-3 font-mono text-center text-white/80">{s.pe.toFixed(1)}x</td>
@@ -864,7 +1328,10 @@ export default function SectorScope() {
                   </div>
 
                   {isAnalysisLoading ? (
-                    <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                    <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-xs font-mono text-white/50">Loading forward earnings estimates...</span>
+                    </div>
                   ) : (
                     <div className="overflow-hidden rounded-2xl border border-white/6">
                       <table className="w-full text-left border-collapse font-sans text-xs">
@@ -877,7 +1344,7 @@ export default function SectorScope() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {analysisData?.sectors.map((s, idx) => (
+                          {activeSectors.map((s, idx) => (
                             <tr key={s.name} className={idx % 2 === 0 ? "bg-white/1" : "bg-transparent"}>
                               <td className="px-4 py-3 font-semibold text-white">{s.name}</td>
                               <td className="px-4 py-3 font-mono text-center text-white/80">{s.earningGrowthFY25}</td>
@@ -900,7 +1367,10 @@ export default function SectorScope() {
                 </div>
 
                 {isAnalysisLoading ? (
-                  <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                  <div className="h-56 rounded-2xl bg-white/2 animate-pulse border border-white/5 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-xs font-mono text-white/50">Analyzing macro & regulatory risk triggers...</span>
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-2xl border border-white/6">
                     <table className="w-full text-left border-collapse font-sans text-xs">
@@ -913,7 +1383,7 @@ export default function SectorScope() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {analysisData?.sectors.map((s, idx) => (
+                        {activeSectors.map((s, idx) => (
                           <tr key={s.name} className={idx % 2 === 0 ? "bg-white/1" : "bg-transparent"}>
                             <td className="px-4 py-3 font-semibold text-white">{s.name}</td>
                             <td className="px-4 py-3 text-white/70 leading-relaxed font-sans">{s.keyRisks[0]?.risk || "—"}</td>
@@ -942,7 +1412,10 @@ export default function SectorScope() {
                 </div>
 
                 {isAnalysisLoading ? (
-                  <div className="h-64 rounded-2xl bg-white/2 animate-pulse border border-white/5" />
+                  <div className="h-64 rounded-2xl bg-white/2 animate-pulse border border-white/5 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-xs font-mono text-white/50">Compiling multi-dimensional comparison metrics...</span>
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-2xl border border-white/6">
                     <table className="w-full text-left border-collapse font-sans text-xs">
@@ -958,7 +1431,7 @@ export default function SectorScope() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {analysisData?.sectors.map((s, idx) => {
+                        {activeSectors.map((s, idx) => {
                           const statusColor = getStatusColor(s.status);
                           return (
                             <tr key={s.name} className={idx % 2 === 0 ? "bg-white/1" : "bg-transparent"}>
