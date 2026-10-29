@@ -17,6 +17,9 @@ import {
   Loader2,
   Copy,
   Check,
+  Search,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -71,6 +74,7 @@ export default function StrategyBuilder() {
   const [formulaDSL, setFormulaDSL] = useState("CLOSE > EMA(20) AND LOW <= EMA(20) * 1.003 AND RS_RATING >= 80 AND VOLUME > SMA(VOLUME, 20) * 1.4");
   const [aiPrompt, setAiPrompt] = useState("Find F&O stocks retesting 20 EMA with rising OI and ROE > 18%");
   const [chartinkClause, setChartinkClause] = useState("( {cash} ( latest close > latest sma( close, 20 ) and latest volume > 100000 ) )");
+  const [chartinkSearch, setChartinkSearch] = useState("");
   const [compiledStrategy, setCompiledStrategy] = useState<any>(null);
   const [copiedDsl, setCopiedDsl] = useState(false);
   const [copiedChartink, setCopiedChartink] = useState(false);
@@ -100,13 +104,17 @@ export default function StrategyBuilder() {
   });
 
   // Chartink reverse-engineered mutation
-  const chartinkMutation = useMutation<{ success: boolean; source: string; count: number; stocks: any[] }, Error, string>({
+  const chartinkMutation = useMutation<{ success: boolean; source: string; count: number; stocks: any[]; error?: string }, Error, string>({
     mutationFn: async (clause) => {
       const res = await fetch("/api/chartink/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clause }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to execute Chartink scan");
+      }
       return res.json();
     },
   });
@@ -621,76 +629,266 @@ export default function StrategyBuilder() {
                     </pre>
                   </div>
                 )}
+
+                {/* In-Line Scan Execution Status & Candidate Preview */}
+                {scanMutation.isPending && (
+                  <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex items-center gap-3 animate-pulse text-xs font-mono text-emerald-300">
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-bold">Executing Live Multi-Factor Scan & 90-Day Backtest...</div>
+                      <div className="text-[11px] text-white/50 font-sans mt-0.5">Filtering universe against synthesized rules and historical hit rates.</div>
+                    </div>
+                  </div>
+                )}
+
+                {scanMutation.data && scanMutation.data.length > 0 && (
+                  <div className="space-y-2.5 pt-3 border-t border-white/8">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono text-emerald-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Live Matched Candidates ({scanMutation.data.length} Stocks Found):
+                      </span>
+                      <span className="text-[10px] font-mono text-white/40">
+                        Top Setups Ranked by RS & Win Rate
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                      {scanMutation.data.slice(0, 6).map((stk) => (
+                        <div
+                          key={stk.symbol}
+                          onClick={() => handleDeployToChart(stk.symbol)}
+                          className="p-3 rounded-xl bg-black/40 hover:bg-white/5 border border-white/8 hover:border-emerald-500/40 cursor-pointer transition-all flex items-center justify-between group"
+                        >
+                          <div>
+                            <div className="font-bold text-white text-xs font-mono group-hover:text-emerald-400 transition-colors flex items-center gap-1">
+                              {stk.symbol}
+                              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <div className="text-[10px] text-white/50 truncate max-w-[130px] font-sans">{stk.companyName}</div>
+                            <div className="text-[9px] font-mono text-indigo-300 mt-0.5">RS {stk.rsRating} • {stk.hitRate90d}% Win Rate</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-white text-xs font-mono">₹{stk.price}</div>
+                            <div className={`text-[10px] font-mono font-bold ${stk.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {stk.changePercent >= 0 ? "+" : ""}{stk.changePercent}%
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
         {/* Tab 4: Live Chartink Clause Scanner (Reverse-Engineered) */}
-        {activeTab === "CHARTINK" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-mono text-white/50">
-                Directly run Chartink scan clauses with zero API keys. Automated CSRF & session handling extracts real-time matches directly from live NSE market data.
-              </p>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                CSRF BYPASS ACTIVE
-              </span>
-            </div>
+        {activeTab === "CHARTINK" && (() => {
+          const chartinkStocks = chartinkMutation.data?.stocks || [];
+          const filteredChartinkStocks = chartinkStocks.filter((stk: any) => {
+            if (!chartinkSearch.trim()) return true;
+            const q = chartinkSearch.toLowerCase().trim();
+            return (stk.symbol || "").toLowerCase().includes(q) || (stk.name || "").toLowerCase().includes(q);
+          });
 
-            {/* Quick Chartink Presets */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-mono text-white/30 py-1">Presets:</span>
-              {[
-                {
-                  label: "Price > 20 SMA & Vol > 100k",
-                  clause: "( {cash} ( latest close > latest sma( close, 20 ) and latest volume > 100000 ) )",
-                },
-                {
-                  label: "Bullish 15m 20 EMA Breakout",
-                  clause: "( {cash} ( latest close > latest ema( close, 20 ) and 1 day ago close <= 1 day ago ema( close, 20 ) and latest volume > 200000 ) )",
-                },
-                {
-                  label: "High Volume Movers (> 3x 20d Avg)",
-                  clause: "( {cash} ( latest volume > latest sma( volume, 20 ) * 3 and latest close > latest open ) )",
-                },
-              ].map((p) => (
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-mono text-white/50">
+                  Directly run Chartink scan clauses with zero API keys. Automated CSRF & session handling extracts real-time matches directly from live NSE market data.
+                </p>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  CSRF BYPASS ACTIVE
+                </span>
+              </div>
+
+              {/* Quick Chartink Presets */}
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs font-mono text-white/30 py-1">Presets:</span>
+                {[
+                  {
+                    label: "Price > 20 SMA & Vol > 100k",
+                    clause: "( {cash} ( latest close > latest sma( close, 20 ) and latest volume > 100000 ) )",
+                  },
+                  {
+                    label: "Bullish 15m 20 EMA Breakout",
+                    clause: "( {cash} ( latest close > latest ema( close, 20 ) and 1 day ago close <= 1 day ago ema( close, 20 ) and latest volume > 200000 ) )",
+                  },
+                  {
+                    label: "High Volume Movers (> 3x 20d Avg)",
+                    clause: "( {cash} ( latest volume > latest sma( volume, 20 ) * 3 and latest close > latest open ) )",
+                  },
+                  {
+                    label: "Bullish Marubozu (9 & 20 EMA Band)",
+                    clause: "( {cash} ( latest close > latest open and ( latest close - latest open ) / ( latest high - latest low ) >= 0.85 and latest close >= latest ema( close, 20 ) and latest close <= latest ema( close, 9 ) and latest ema( close, 9 ) >= latest ema( close, 20 ) and latest volume > latest sma( volume, 20 ) * 1.3 ) )",
+                  },
+                ].map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => {
+                      setChartinkClause(p.clause);
+                      chartinkMutation.mutate(p.clause);
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/3 hover:bg-emerald-500/10 text-white/70 hover:text-emerald-300 border border-white/8 hover:border-emerald-500/30 transition-all"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                rows={3}
+                value={chartinkClause}
+                onChange={(e) => setChartinkClause(e.target.value)}
+                placeholder="Paste or write any Chartink scan clause..."
+                className="w-full p-4 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-emerald-400 focus:outline-none focus:border-primary leading-relaxed shadow-inner"
+              />
+
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <span className="text-[11px] font-mono text-white/40">
+                  Segment: Cash / Futures / Options • Universe: All NSE Equities
+                </span>
                 <button
-                  key={p.label}
-                  onClick={() => setChartinkClause(p.clause)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-mono bg-white/3 hover:bg-white/8 text-white/70 hover:text-white border border-white/8 transition-colors"
+                  onClick={() => chartinkMutation.mutate(chartinkClause)}
+                  disabled={chartinkMutation.isPending || !chartinkClause.trim()}
+                  className="px-6 py-2.5 rounded-xl font-mono text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
                 >
-                  {p.label}
+                  {chartinkMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-black" />
+                      <span>Connecting to Chartink Engine...</span>
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="w-4 h-4 text-black" />
+                      <span>Run Live Chartink Scan</span>
+                    </>
+                  )}
                 </button>
-              ))}
-            </div>
+              </div>
 
-            <textarea
-              rows={3}
-              value={chartinkClause}
-              onChange={(e) => setChartinkClause(e.target.value)}
-              className="w-full p-4 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-emerald-400 focus:outline-none focus:border-primary leading-relaxed"
-            />
+              {/* In-Flight Scanning Progress Indicator */}
+              {chartinkMutation.isPending && (
+                <div className="p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex items-center gap-4 animate-pulse">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-400 shrink-0" />
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-mono font-bold text-emerald-300">
+                      Querying Live NSE Market Session via Chartink Screener...
+                    </div>
+                    <p className="text-[11px] text-white/50 font-sans">
+                      Automated CSRF handshake established. Filtering real-time tick volume & price action across all 2,000+ NSE listed cash equities.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-mono text-white/40">
-                Segment: Cash / Futures / Options
-              </span>
-              <button
-                onClick={() => chartinkMutation.mutate(chartinkClause)}
-                disabled={chartinkMutation.isPending}
-                className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20"
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                {chartinkMutation.isPending ? "Connecting to Chartink Engine..." : "Run Live Chartink Scan"}
-              </button>
+              {/* Error / Fallback Alert Card */}
+              {(chartinkMutation.isError || (chartinkMutation.data && !chartinkMutation.data.success)) && (
+                <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-rose-300">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="font-bold">Chartink Scanner Connection Notice</div>
+                      <p className="text-[11px] text-rose-300/80 mt-0.5">
+                        {chartinkMutation.error?.message || chartinkMutation.data?.error || "Chartink server rate limit encountered. Switched to institutional local engine."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => chartinkMutation.mutate(chartinkClause)}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 font-bold text-white transition-colors flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry Scan
+                  </button>
+                </div>
+              )}
+
+              {/* Results Table (Directly Inside Tab) */}
+              {chartinkMutation.data && chartinkMutation.data.success && (
+                <div className="rounded-xl border border-emerald-500/30 bg-black/40 p-4 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <h3 className="text-sm font-display font-bold text-white">
+                        Chartink Scanned Matches ({filteredChartinkStocks.length} of {chartinkMutation.data.count} Stocks)
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {chartinkMutation.data.source}
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        placeholder="Filter by symbol or name..."
+                        value={chartinkSearch}
+                        onChange={(e) => setChartinkSearch(e.target.value)}
+                        className="pl-8 pr-3 py-1.5 rounded-lg bg-black/60 border border-white/10 text-xs font-mono text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50 w-full sm:w-56"
+                      />
+                    </div>
+                  </div>
+
+                  {filteredChartinkStocks.length === 0 ? (
+                    <div className="p-8 text-center text-xs font-mono text-white/40">
+                      No stocks match the criteria in the latest NSE session. Try loosening filters or choosing another preset.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-[11px] font-mono text-white/40 uppercase">
+                            <th className="py-2.5 px-3">Symbol / Company</th>
+                            <th className="py-2.5 px-3">Price</th>
+                            <th className="py-2.5 px-3 text-center">Change %</th>
+                            <th className="py-2.5 px-3 text-center">Volume</th>
+                            <th className="py-2.5 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs font-mono">
+                          {filteredChartinkStocks.map((stk: any) => (
+                            <tr key={stk.symbol} className="hover:bg-white/2 transition-colors">
+                              <td className="py-2.5 px-3">
+                                <div className="font-bold text-white text-sm">{stk.symbol}</div>
+                                <div className="text-[10px] text-white/40 font-sans truncate max-w-xs">{stk.name}</div>
+                              </td>
+                              <td className="py-2.5 px-3 font-bold text-white">₹{stk.price}</td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  stk.changePercent >= 0
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                }`}>
+                                  {stk.changePercent >= 0 ? "+" : ""}{stk.changePercent}%
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-white/60">
+                                {Number(stk.volume).toLocaleString("en-IN")}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                <Link
+                                  href={`/stock/${stk.symbol}`}
+                                  className="px-3 py-1 rounded-lg text-xs font-bold bg-white/5 hover:bg-emerald-500 text-white hover:text-black border border-white/10 transition-colors inline-flex items-center gap-1"
+                                >
+                                  Chart <ChevronRight className="w-3 h-3" />
+                                </Link>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
-      {/* Chartink Live Scan Results */}
-      {chartinkMutation.data && (
+      {/* Persistent Scan Results for Non-Chartink Tabs */}
+      {chartinkMutation.data && chartinkMutation.data.success && activeTab !== "CHARTINK" && (
         <div className="glass-card rounded-2xl border border-emerald-500/30 bg-emerald-500/3 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>

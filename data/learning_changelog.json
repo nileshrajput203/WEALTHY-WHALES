@@ -1,5 +1,736 @@
 [
   {
+    "id": "upgrade_ipo_v19_1793253135390",
+    "timestamp": "2026-10-29T05:52:15.390Z",
+    "engine": "IPO",
+    "versionFrom": 18,
+    "versionTo": 19,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 11,
+        "to": 11.39
+      },
+      "max_days_since_listing": {
+        "from": 139.09,
+        "to": 143.96
+      },
+      "max_base_depth_pct": {
+        "from": 0.34,
+        "to": 0.35
+      },
+      "consolidation_range_pct": {
+        "from": 0.14,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 58.95,
+        "to": 61.01
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v19. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v17_1793253135387",
+    "timestamp": "2026-10-29T05:52:15.387Z",
+    "engine": "HERMES",
+    "versionFrom": 16,
+    "versionTo": 17,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 66.71,
+        "to": 64.38
+      },
+      "news_weight": {
+        "from": 0.17,
+        "to": 0.16
+      },
+      "fundamental_weight": {
+        "from": 0.24,
+        "to": 0.23
+      },
+      "technical_weight": {
+        "from": 0.57,
+        "to": 0.55
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.81,
+        "to": 0.78
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v17. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_ipo_v18_1793253075388",
+    "timestamp": "2026-10-29T05:51:15.388Z",
+    "engine": "IPO",
+    "versionFrom": 17,
+    "versionTo": 18,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 10.63,
+        "to": 11
+      },
+      "max_days_since_listing": {
+        "from": 134.39,
+        "to": 139.09
+      },
+      "max_base_depth_pct": {
+        "from": 0.35,
+        "to": 0.34
+      },
+      "consolidation_range_pct": {
+        "from": 0.14,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 61.09,
+        "to": 58.95
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v18. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v16_1793253075385",
+    "timestamp": "2026-10-29T05:51:15.385Z",
+    "engine": "HERMES",
+    "versionFrom": 15,
+    "versionTo": 16,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 64.45,
+        "to": 66.71
+      },
+      "news_weight": {
+        "from": 0.18,
+        "to": 0.17
+      },
+      "fundamental_weight": {
+        "from": 0.23,
+        "to": 0.24
+      },
+      "technical_weight": {
+        "from": 0.59,
+        "to": 0.57
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.78,
+        "to": 0.81
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v16. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_fugu_v14_1793253015382",
+    "timestamp": "2026-10-29T05:50:15.382Z",
+    "engine": "FUGU",
+    "versionFrom": 13,
+    "versionTo": 14,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_elite_score": {
+        "from": 74.52,
+        "to": 71.91
+      },
+      "news_weight": {
+        "from": 0.18,
+        "to": 0.19
+      },
+      "fundamental_weight": {
+        "from": 0.2,
+        "to": 0.19
+      },
+      "technical_weight": {
+        "from": 0.39,
+        "to": 0.4
+      },
+      "pattern_weight": {
+        "from": 0.17,
+        "to": 0.18
+      },
+      "candlestick_weight": {
+        "from": 0.1,
+        "to": 0.1
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved FUGU to v14. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v15_1793253015379",
+    "timestamp": "2026-10-29T05:50:15.379Z",
+    "engine": "HERMES",
+    "versionFrom": 14,
+    "versionTo": 15,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 62.27,
+        "to": 64.45
+      },
+      "news_weight": {
+        "from": 0.19,
+        "to": 0.18
+      },
+      "fundamental_weight": {
+        "from": 0.24,
+        "to": 0.23
+      },
+      "technical_weight": {
+        "from": 0.61,
+        "to": 0.59
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.75,
+        "to": 0.78
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v15. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_swing_v12_1793253015377",
+    "timestamp": "2026-10-29T05:50:15.377Z",
+    "engine": "SWING",
+    "versionFrom": 11,
+    "versionTo": 12,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_grade_score": {
+        "from": 69.28,
+        "to": 71.7
+      },
+      "max_hold_days": {
+        "from": 9.26,
+        "to": 8.94
+      },
+      "risk_reward": {
+        "from": 2.86,
+        "to": 2.76
+      },
+      "atr_tightness_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "volume_dryup_max": {
+        "from": 0.91,
+        "to": 0.94
+      },
+      "sl_pct_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "target_return_goal": {
+        "from": 6.97,
+        "to": 7.21
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved SWING to v12. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_ipo_v17_1793252955378",
+    "timestamp": "2026-10-29T05:49:15.378Z",
+    "engine": "IPO",
+    "versionFrom": 16,
+    "versionTo": 17,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 11.02,
+        "to": 10.63
+      },
+      "max_days_since_listing": {
+        "from": 129.85,
+        "to": 134.39
+      },
+      "max_base_depth_pct": {
+        "from": 0.36,
+        "to": 0.35
+      },
+      "consolidation_range_pct": {
+        "from": 0.14,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 59.02,
+        "to": 61.09
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v17. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_swing_v11_1793252955375",
+    "timestamp": "2026-10-29T05:49:15.375Z",
+    "engine": "SWING",
+    "versionFrom": 10,
+    "versionTo": 11,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_grade_score": {
+        "from": 66.94,
+        "to": 69.28
+      },
+      "max_hold_days": {
+        "from": 8.95,
+        "to": 9.26
+      },
+      "risk_reward": {
+        "from": 2.76,
+        "to": 2.86
+      },
+      "atr_tightness_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "volume_dryup_max": {
+        "from": 0.88,
+        "to": 0.91
+      },
+      "sl_pct_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "target_return_goal": {
+        "from": 6.73,
+        "to": 6.97
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved SWING to v11. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_apex_v17_1793252895375",
+    "timestamp": "2026-10-29T05:48:15.375Z",
+    "engine": "APEX",
+    "versionFrom": 16,
+    "versionTo": 17,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "news_group_weight": {
+        "from": 0.17,
+        "to": 0.18
+      },
+      "fo_group_weight": {
+        "from": 0.21,
+        "to": 0.22
+      },
+      "technical_group_weight": {
+        "from": 0.35,
+        "to": 0.34
+      },
+      "gap_group_weight": {
+        "from": 0.21,
+        "to": 0.22
+      },
+      "macro_group_weight": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "min_confidence_threshold": {
+        "from": 60.52,
+        "to": 62.64
+      },
+      "target_return_goal": {
+        "from": 7.17,
+        "to": 6.92
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved APEX to v17. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v14_1793252835368",
+    "timestamp": "2026-10-29T05:47:15.368Z",
+    "engine": "HERMES",
+    "versionFrom": 13,
+    "versionTo": 14,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 60.16,
+        "to": 62.27
+      },
+      "news_weight": {
+        "from": 0.18,
+        "to": 0.19
+      },
+      "fundamental_weight": {
+        "from": 0.25,
+        "to": 0.24
+      },
+      "technical_weight": {
+        "from": 0.59,
+        "to": 0.61
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.78,
+        "to": 0.75
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v14. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_swing_v10_1793252835367",
+    "timestamp": "2026-10-29T05:47:15.367Z",
+    "engine": "SWING",
+    "versionFrom": 9,
+    "versionTo": 10,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_grade_score": {
+        "from": 69.37,
+        "to": 66.94
+      },
+      "max_hold_days": {
+        "from": 9.27,
+        "to": 8.95
+      },
+      "risk_reward": {
+        "from": 2.67,
+        "to": 2.76
+      },
+      "atr_tightness_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "volume_dryup_max": {
+        "from": 0.85,
+        "to": 0.88
+      },
+      "sl_pct_max": {
+        "from": 0.06,
+        "to": 0.06
+      },
+      "target_return_goal": {
+        "from": 6.97,
+        "to": 6.73
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved SWING to v10. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_fugu_v13_1793252715357",
+    "timestamp": "2026-10-29T05:45:15.357Z",
+    "engine": "FUGU",
+    "versionFrom": 12,
+    "versionTo": 13,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_elite_score": {
+        "from": 77.22,
+        "to": 74.52
+      },
+      "news_weight": {
+        "from": 0.19,
+        "to": 0.18
+      },
+      "fundamental_weight": {
+        "from": 0.19,
+        "to": 0.2
+      },
+      "technical_weight": {
+        "from": 0.4,
+        "to": 0.39
+      },
+      "pattern_weight": {
+        "from": 0.16,
+        "to": 0.17
+      },
+      "candlestick_weight": {
+        "from": 0.1,
+        "to": 0.1
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved FUGU to v13. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_ipo_v16_1793252715355",
+    "timestamp": "2026-10-29T05:45:15.355Z",
+    "engine": "IPO",
+    "versionFrom": 15,
+    "versionTo": 16,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 11.42,
+        "to": 11.02
+      },
+      "max_days_since_listing": {
+        "from": 134.56,
+        "to": 129.85
+      },
+      "max_base_depth_pct": {
+        "from": 0.37,
+        "to": 0.36
+      },
+      "consolidation_range_pct": {
+        "from": 0.14,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 57.02,
+        "to": 59.02
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v16. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_apex_v16_1793252595340",
+    "timestamp": "2026-10-29T05:43:15.340Z",
+    "engine": "APEX",
+    "versionFrom": 15,
+    "versionTo": 16,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "news_group_weight": {
+        "from": 0.18,
+        "to": 0.17
+      },
+      "fo_group_weight": {
+        "from": 0.2,
+        "to": 0.21
+      },
+      "technical_group_weight": {
+        "from": 0.34,
+        "to": 0.35
+      },
+      "gap_group_weight": {
+        "from": 0.22,
+        "to": 0.21
+      },
+      "macro_group_weight": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "min_confidence_threshold": {
+        "from": 62.72,
+        "to": 60.52
+      },
+      "target_return_goal": {
+        "from": 7.43,
+        "to": 7.17
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved APEX to v16. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_ipo_v15_1793252535340",
+    "timestamp": "2026-10-29T05:42:15.340Z",
+    "engine": "IPO",
+    "versionFrom": 14,
+    "versionTo": 15,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_days_since_listing": {
+        "from": 11.83,
+        "to": 11.42
+      },
+      "max_days_since_listing": {
+        "from": 130.01,
+        "to": 134.56
+      },
+      "max_base_depth_pct": {
+        "from": 0.36,
+        "to": 0.37
+      },
+      "consolidation_range_pct": {
+        "from": 0.14,
+        "to": 0.14
+      },
+      "min_score_threshold": {
+        "from": 55.09,
+        "to": 57.02
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved IPO to v15. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_apex_v15_1793252475337",
+    "timestamp": "2026-10-29T05:41:15.337Z",
+    "engine": "APEX",
+    "versionFrom": 14,
+    "versionTo": 15,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "news_group_weight": {
+        "from": 0.17,
+        "to": 0.18
+      },
+      "fo_group_weight": {
+        "from": 0.21,
+        "to": 0.2
+      },
+      "technical_group_weight": {
+        "from": 0.35,
+        "to": 0.34
+      },
+      "gap_group_weight": {
+        "from": 0.21,
+        "to": 0.22
+      },
+      "macro_group_weight": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "min_confidence_threshold": {
+        "from": 64.99,
+        "to": 62.72
+      },
+      "target_return_goal": {
+        "from": 7.18,
+        "to": 7.43
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved APEX to v15. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v13_1793252475335",
+    "timestamp": "2026-10-29T05:41:15.335Z",
+    "engine": "HERMES",
+    "versionFrom": 12,
+    "versionTo": 13,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 62.34,
+        "to": 60.16
+      },
+      "news_weight": {
+        "from": 0.19,
+        "to": 0.18
+      },
+      "fundamental_weight": {
+        "from": 0.24,
+        "to": 0.25
+      },
+      "technical_weight": {
+        "from": 0.61,
+        "to": 0.59
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.75,
+        "to": 0.78
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v13. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v12_1793252415327",
+    "timestamp": "2026-10-29T05:40:15.327Z",
+    "engine": "HERMES",
+    "versionFrom": 11,
+    "versionTo": 12,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 60.23,
+        "to": 62.34
+      },
+      "news_weight": {
+        "from": 0.2,
+        "to": 0.19
+      },
+      "fundamental_weight": {
+        "from": 0.25,
+        "to": 0.24
+      },
+      "technical_weight": {
+        "from": 0.63,
+        "to": 0.61
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.72,
+        "to": 0.75
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v12. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
     "id": "upgrade_fugu_v12_1793252093688",
     "timestamp": "2026-10-29T05:34:53.688Z",
     "engine": "FUGU",

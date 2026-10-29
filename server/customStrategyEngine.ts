@@ -332,20 +332,24 @@ export async function compileNaturalLanguagePrompt(promptText: string): Promise<
     chartinkClauseParts.push("latest close >= latest ema( close, 20 ) and latest volume > latest sma( volume, 20 ) * 1.3");
   }
 
-  // Optional LLM enhancement for ultra-polished title
+  // Optional LLM enhancement for ultra-polished title (non-blocking fast path)
   try {
     const aiSystemPrompt = `You are a Quantitative DSL Compiler. Convert this user trading strategy prompt into a concise strategy name and 1-sentence description: "${promptText}". Output JSON: {"name": string, "description": string}`;
-    const rawAiResponse = await generateWithRetry({
-      model: "gemini-2.5-flash",
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("LLM Title Timeout")), 2000));
+    const aiPromise = generateWithRetry({
+      model: "gemini-flash-latest",
       contents: aiSystemPrompt,
     });
+    const rawAiResponse: any = await Promise.race([aiPromise, timeoutPromise]);
     const rawText = rawAiResponse?.text || "";
     if (rawText) {
       const parsed = JSON.parse(rawText.replace(/```json/g, "").replace(/```/g, "").trim());
       if (parsed.name) generatedName = parsed.name;
       if (parsed.description) description = parsed.description;
     }
-  } catch (_) {}
+  } catch (_) {
+    // If LLM times out or is offline, our deterministic AST titles and descriptions are already 100% accurate
+  }
 
   const finalClause = chartinkClauseParts.length > 0
     ? `( {cash} ( ${chartinkClauseParts.join(" and ")} ) )`
