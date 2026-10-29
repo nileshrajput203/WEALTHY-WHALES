@@ -291,7 +291,8 @@ export async function runMorningScan(): Promise<void> {
     }
     
     if (predictions.length < 10) {
-      throw new Error(`Insufficient successful stock scans (${predictions.length}). Need at least 10.`);
+      console.warn(`[APEXEngine] Insufficient successful stock scans (${predictions.length}). Skipping today's morning ranking.`);
+      return;
     }
     
     // Sort descending

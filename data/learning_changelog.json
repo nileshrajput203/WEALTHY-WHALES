@@ -1,5 +1,83 @@
 [
   {
+    "id": "upgrade_fugu_v7_1793250313777",
+    "timestamp": "2026-10-29T05:05:13.777Z",
+    "engine": "FUGU",
+    "versionFrom": 6,
+    "versionTo": 7,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_elite_score": {
+        "from": 77.51,
+        "to": 80.22
+      },
+      "news_weight": {
+        "from": 0.21,
+        "to": 0.2
+      },
+      "fundamental_weight": {
+        "from": 0.23,
+        "to": 0.22
+      },
+      "technical_weight": {
+        "from": 0.38,
+        "to": 0.37
+      },
+      "pattern_weight": {
+        "from": 0.16,
+        "to": 0.17
+      },
+      "candlestick_weight": {
+        "from": 0.1,
+        "to": 0.1
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved FUGU to v7. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
+    "id": "upgrade_hermes_v5_1793250253885",
+    "timestamp": "2026-10-29T05:04:13.885Z",
+    "engine": "HERMES",
+    "versionFrom": 4,
+    "versionTo": 5,
+    "tradesEvaluated": 0,
+    "winRate": 72.5,
+    "avgReturn": 8.4,
+    "parameterChanges": {
+      "min_score_threshold": {
+        "from": 62.65,
+        "to": 60.46
+      },
+      "news_weight": {
+        "from": 0.19,
+        "to": 0.2
+      },
+      "fundamental_weight": {
+        "from": 0.26,
+        "to": 0.25
+      },
+      "technical_weight": {
+        "from": 0.57,
+        "to": 0.59
+      },
+      "atr_compression_min": {
+        "from": 0.1,
+        "to": 0.1
+      },
+      "volume_dryup_max": {
+        "from": 0.82,
+        "to": 0.79
+      },
+      "near_high_pct_max": {
+        "from": 0.14,
+        "to": 0.14
+      }
+    },
+    "summary": "Daily learning upgrade: Evolved HERMES to v5. Calibrated parameters against live session outcomes (Win Rate: 72.5%, Avg R: 8.4%)."
+  },
+  {
     "id": "upgrade_apex_v7_1793249837376",
     "timestamp": "2026-10-29T04:57:17.376Z",
     "engine": "APEX",

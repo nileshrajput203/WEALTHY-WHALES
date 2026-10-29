@@ -3,74 +3,10 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════
-   INSTITUTIONAL THEME — PRO OBSIDIAN DARK
+   INSTITUTIONAL THEME SYSTEM — PRO LIGHT & OBSIDIAN DARK
 ═══════════════════════════════════════════ */
 :root {
-  color-scheme: dark !important;
-  --button-outline: rgba(255,255,255, .08);
-  --badge-outline:  rgba(255,255,255, .04);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-
-  /* True near-black background — the signature of pro trading apps */
-  --background:    0 0% 4%;
-  --foreground:    0 0% 95%;
-  --border:        0 0% 14%;
-
-  /* Slightly lifted card surface */
-  --card:            0 0% 7%;
-  --card-foreground: 0 0% 95%;
-  --card-border:     0 0% 12%;
-
-  /* Sidebar */
-  --sidebar:           0 0% 5%;
-  --sidebar-foreground: 0 0% 95%;
-  --sidebar-border:    0 0% 10%;
-  --sidebar-primary:   260 84% 65%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent:    0 0% 10%;
-  --sidebar-accent-foreground: 0 0% 95%;
-  --sidebar-ring:      260 84% 65%;
-
-  /* Popover */
-  --popover:           0 0% 9%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border:    0 0% 15%;
-
-  /* Primary: Electric Indigo — used for CTAs, active states, glows */
-  --primary:           260 84% 65%;
-  --primary-foreground: 0 0% 98%;
-
-  /* Secondary: subtle lifted surface */
-  --secondary:           0 0% 12%;
-  --secondary-foreground: 0 0% 95%;
-
-  /* Muted */
-  --muted:              0 0% 10%;
-  --muted-foreground:   0 0% 55%;
-
-  /* Accent: Vivid Indigo glow — used for hover/interactive states */
-  --accent:             260 84% 65%;
-  --accent-foreground:  0 0% 98%;
-
-  /* Financial data colors — high contrast for legibility */
-  --success:            142 71% 50%;
-  --success-foreground: 0 0% 5%;
-  --bullish:            142 71% 50%;
-  --bearish:            0 84% 62%;
-  --destructive:        0 84% 62%;
-  --destructive-foreground: 0 0% 98%;
-
-  --input:              0 0% 18%;
-  --ring:               260 84% 65%;
-
-  /* Chart palette — vivid for financial data */
-  --chart-1: 260 84% 68%;
-  --chart-2: 142 71% 52%;
-  --chart-3: 0 84% 64%;
-  --chart-4: 217 91% 66%;
-  --chart-5: 38 96% 58%;
+  color-scheme: light dark;
 
   --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -78,47 +14,112 @@
   --font-mono:    'JetBrains Mono', 'Courier New', monospace;
   --radius:       .75rem;
 
-  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.40);
-  --shadow-xs:  0px 1px 3px 0px hsl(0 0% 0% / 0.50);
-  --shadow-sm:  0px 2px 4px -1px hsl(0 0% 0% / 0.45), 0px 1px 2px -1px hsl(0 0% 0% / 0.50);
-  --shadow:     0px 4px 6px -1px hsl(0 0% 0% / 0.50), 0px 2px 4px -2px hsl(0 0% 0% / 0.45);
-  --shadow-md:  0px 6px 10px -2px hsl(0 0% 0% / 0.55), 0px 4px 6px -2px hsl(0 0% 0% / 0.50);
-  --shadow-lg:  0px 10px 15px -3px hsl(0 0% 0% / 0.60), 0px 4px 6px -4px hsl(0 0% 0% / 0.50);
-  --shadow-xl:  0px 20px 25px -5px hsl(0 0% 0% / 0.65), 0px 8px 10px -6px hsl(0 0% 0% / 0.50);
-  --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.75);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
-
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 /* ═══════════════════════════════════════════
-   DARK MODE — Premium financial dark theme
-   Base: near-black (#0a0a0a)
-   Primary: Electric Indigo 260°
-   Accent: Vivid Indigo glow for hover states
+   PRO DAY (LIGHT THEME) — Pure Institutional High-Contrast White
+═══════════════════════════════════════════ */
+.light,
+:root:not(.dark) {
+  color-scheme: light;
+  --button-outline: rgba(15, 23, 42, 0.08);
+  --badge-outline:  rgba(15, 23, 42, 0.05);
+  --opaque-button-border-intensity: -9;
+  --elevate-1: rgba(15, 23, 42, 0.03);
+  --elevate-2: rgba(15, 23, 42, 0.06);
+
+  /* Clean off-white canvas — zero glare, maximum clarity */
+  --background:    210 20% 98%;      /* #F8FAFC (Slate 50) */
+  --foreground:    222 47% 11%;      /* #0F172A (Slate 900) - 14:1 AAA contrast */
+  --border:        214 32% 91%;      /* #E2E8F0 (Slate 200) */
+
+  /* Crisp pure white elevated cards */
+  --card:            0 0% 100%;      /* #FFFFFF */
+  --card-foreground: 222 47% 11%;   /* #0F172A */
+  --card-border:     214 32% 91%;   /* #E2E8F0 */
+
+  /* Sidebar */
+  --sidebar:           210 20% 97%;  /* #F1F5F9 */
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border:    214 32% 90%;
+  --sidebar-primary:   243 75% 59%;  /* #4F46E5 */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:    214 32% 93%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring:      243 75% 59%;
+
+  /* Popover */
+  --popover:           0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border:    214 32% 91%;
+
+  /* Primary: Professional Electric Indigo */
+  --primary:           243 75% 59%;  /* #4F46E5 (Indigo 600) */
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary */
+  --secondary:           210 20% 94%; /* #E2E8F0 */
+  --secondary-foreground: 222 47% 15%;
+
+  /* Muted */
+  --muted:              210 20% 94%; /* #F1F5F9 */
+  --muted-foreground:   215 16% 45%; /* #64748B (Slate 500) */
+
+  /* Accent */
+  --accent:             243 75% 59%;
+  --accent-foreground:  0 0% 100%;
+
+  /* High-Contrast Financial Colors for Light Canvas */
+  --success:            160 84% 36%; /* #059669 (Emerald 600) */
+  --success-foreground: 0 0% 100%;
+  --bullish:            160 84% 36%;
+  --bearish:            350 89% 52%; /* #E11D48 (Rose 600) */
+  --destructive:        350 89% 52%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input:              214 32% 91%;
+  --ring:               243 75% 59%;
+
+  /* Chart palette */
+  --chart-1: 243 75% 59%;
+  --chart-2: 160 84% 36%;
+  --chart-3: 350 89% 52%;
+  --chart-4: 217 91% 55%;
+  --chart-5: 38 92% 48%;
+
+  /* Professional subtle drop shadows */
+  --shadow-2xs: 0px 1px 2px 0px rgba(15, 23, 42, 0.04);
+  --shadow-xs:  0px 1px 3px 0px rgba(15, 23, 42, 0.07);
+  --shadow-sm:  0px 2px 4px -1px rgba(15, 23, 42, 0.06), 0px 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow:     0px 4px 6px -1px rgba(15, 23, 42, 0.06), 0px 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-md:  0px 6px 12px -2px rgba(15, 23, 42, 0.08), 0px 3px 6px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg:  0px 10px 18px -3px rgba(15, 23, 42, 0.09), 0px 4px 8px -4px rgba(15, 23, 42, 0.04);
+  --shadow-xl:  0px 20px 25px -5px rgba(15, 23, 42, 0.10), 0px 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-2xl: 0px 25px 50px -12px rgba(15, 23, 42, 0.15);
+
+  --sidebar-primary-border: hsl(var(--sidebar-primary));
+  --sidebar-accent-border: hsl(var(--sidebar-accent));
+  --primary-border: hsl(var(--primary));
+  --secondary-border: hsl(var(--secondary));
+  --muted-border: hsl(var(--muted));
+  --accent-border: hsl(var(--accent));
+  --destructive-border: hsl(var(--destructive));
+}
+
+/* ═══════════════════════════════════════════
+   PRO DARK (OBSIDIAN THEME) — True Pro Trader Dark
 ═══════════════════════════════════════════ */
 .dark {
+  color-scheme: dark;
   --button-outline: rgba(255,255,255, .08);
   --badge-outline:  rgba(255,255,255, .04);
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* True near-black background — the signature of pro trading apps */
+  /* True near-black background */
   --background:    0 0% 4%;
   --foreground:    0 0% 95%;
   --border:        0 0% 14%;
@@ -143,11 +144,11 @@
   --popover-foreground: 0 0% 95%;
   --popover-border:    0 0% 15%;
 
-  /* Primary: Electric Indigo — used for CTAs, active states, glows */
+  /* Primary: Electric Indigo */
   --primary:           260 84% 65%;
   --primary-foreground: 0 0% 98%;
 
-  /* Secondary: subtle lifted surface */
+  /* Secondary */
   --secondary:           0 0% 12%;
   --secondary-foreground: 0 0% 95%;
 
@@ -155,11 +156,11 @@
   --muted:              0 0% 10%;
   --muted-foreground:   0 0% 55%;
 
-  /* Accent: Vivid Indigo glow — used for hover/interactive states */
+  /* Accent */
   --accent:             260 84% 65%;
   --accent-foreground:  0 0% 98%;
 
-  /* Financial data colors — high contrast for legibility */
+  /* Financial data colors */
   --success:            142 71% 50%;
   --success-foreground: 0 0% 5%;
   --bullish:            142 71% 50%;
@@ -170,14 +171,14 @@
   --input:              0 0% 18%;
   --ring:               260 84% 65%;
 
-  /* Chart palette — vivid for financial data */
+  /* Chart palette */
   --chart-1: 260 84% 68%;
   --chart-2: 142 71% 52%;
   --chart-3: 0 84% 64%;
   --chart-4: 217 91% 66%;
   --chart-5: 38 96% 58%;
 
-  /* Deep shadows for dark glass-morphism */
+  /* Deep shadows */
   --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.40);
   --shadow-xs:  0px 1px 3px 0px hsl(0 0% 0% / 0.50);
   --shadow-sm:  0px 2px 4px -1px hsl(0 0% 0% / 0.45), 0px 1px 2px -1px hsl(0 0% 0% / 0.50);
@@ -188,19 +189,12 @@
   --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.75);
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 /* ═══════════════════════════════════════════
@@ -279,17 +273,20 @@
   /* ── Glassmorphism card ─────────────── */
   /**
    * Premium glass card — use as a base for panels.
-   * Dark: near-transparent white tint with heavy backdrop blur.
+   * Light: Crisp white with subtle border and elevation.
+   * Dark: Near-transparent white tint with heavy backdrop blur.
    */
   .glass-card {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
   }
   .dark .glass-card {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
   }
 
   /* ── Glow effects ───────────────────── */

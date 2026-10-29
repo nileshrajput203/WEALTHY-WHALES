@@ -18,18 +18,18 @@
   },
   "HERMES": {
     "engine": "HERMES",
-    "version": 4,
-    "lastUpgraded": "2026-10-29T04:35:45.234Z",
+    "version": 5,
+    "lastUpgraded": "2026-10-29T05:04:13.885Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_score_threshold": 62.65,
-      "news_weight": 0.19,
-      "fundamental_weight": 0.26,
-      "technical_weight": 0.57,
+      "min_score_threshold": 60.46,
+      "news_weight": 0.2,
+      "fundamental_weight": 0.25,
+      "technical_weight": 0.59,
       "atr_compression_min": 0.1,
-      "volume_dryup_max": 0.82,
+      "volume_dryup_max": 0.79,
       "near_high_pct_max": 0.14
     }
   },
@@ -67,17 +67,17 @@
   },
   "FUGU": {
     "engine": "FUGU",
-    "version": 6,
-    "lastUpgraded": "2026-10-29T04:56:17.368Z",
+    "version": 7,
+    "lastUpgraded": "2026-10-29T05:05:13.777Z",
     "sampleSize": 0,
     "winRate": 72.5,
     "avgReturn": 8.4,
     "params": {
-      "min_elite_score": 77.51,
-      "news_weight": 0.21,
-      "fundamental_weight": 0.23,
-      "technical_weight": 0.38,
-      "pattern_weight": 0.16,
+      "min_elite_score": 80.22,
+      "news_weight": 0.2,
+      "fundamental_weight": 0.22,
+      "technical_weight": 0.37,
+      "pattern_weight": 0.17,
       "candlestick_weight": 0.1
     }
   }

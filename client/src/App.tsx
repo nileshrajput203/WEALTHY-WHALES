@@ -55,14 +55,50 @@ import { AuthModal } from "@/components/AuthModal";
 
 
 function ThemeToggle() {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 font-mono text-xs shadow-xs">
+        <Moon className="h-3.5 w-3.5 text-indigo-400" />
+        <span className="hidden sm:inline text-[10px] font-bold tracking-wider text-slate-400 uppercase">Pro Dark</span>
+      </div>
+    );
+  }
+
+  const isDark = (resolvedTheme || theme) === "dark";
+
   return (
-    <div
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 font-mono shadow-xs"
-      title="Institutional Dark Terminal Active"
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={isDark ? "Switch to Pro Day Terminal" : "Switch to Pro Dark Terminal"}
+      className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-full font-mono text-xs font-bold transition-all duration-300 shadow-sm border cursor-pointer select-none ${
+        isDark
+          ? "bg-[#0B0F19]/90 hover:bg-[#111827] text-slate-200 border-white/10 hover:border-indigo-500/50 hover:shadow-[0_0_12px_rgba(99,102,241,0.25)]"
+          : "bg-white hover:bg-slate-50 text-slate-900 border-slate-300 hover:border-amber-500/50 shadow-sm hover:shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+      }`}
+      title={isDark ? "Switch to Pro Day Mode (High-Contrast White Terminal)" : "Switch to Pro Dark Mode (Obsidian Terminal)"}
     >
-      <Moon className="h-3.5 w-3.5 text-indigo-400" />
-      <span className="hidden sm:inline text-[10px] font-bold tracking-wider text-slate-400 uppercase">Pro Dark</span>
-    </div>
+      {isDark ? (
+        <>
+          <Moon className="h-3.5 w-3.5 text-indigo-400 transition-transform duration-300 group-hover:-rotate-12" />
+          <span className="text-[10px] tracking-wider text-slate-300 uppercase font-semibold">Pro Dark</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+        </>
+      ) : (
+        <>
+          <Sun className="h-3.5 w-3.5 text-amber-500 transition-transform duration-300 group-hover:rotate-45" />
+          <span className="text-[10px] tracking-wider text-slate-900 uppercase font-bold">Pro Day</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+        </>
+      )}
+    </button>
   );
 }
 
@@ -256,7 +292,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" enableSystem={false}>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <ViewModeProvider>
