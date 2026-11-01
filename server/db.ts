@@ -11,17 +11,32 @@ if (!isPostgresConfigured) {
   );
 }
 
-export const pool = new pg.Pool({
-  connectionString: isPostgresConfigured ? process.env.DATABASE_URL : undefined,
-  // Fast fail instead of stalling event loop
-  connectionTimeoutMillis: 1000,
-  idleTimeoutMillis: 10000,
-  max: isPostgresConfigured ? 10 : 0,
-});
+const mockClient = {
+  query: async () => ({ rows: [], rowCount: 0, fields: [] }),
+  release: () => {},
+};
 
-pool.on("error", (err) => {
-  // Suppress repeated connection warnings in SQLite/RAM mode
-});
+const mockPool: any = {
+  query: async () => ({ rows: [], rowCount: 0, fields: [] }),
+  connect: async () => mockClient,
+  on: () => {},
+  end: async () => {},
+};
+
+export const pool: pg.Pool = isPostgresConfigured
+  ? new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
+      max: 10,
+    })
+  : mockPool;
+
+if (isPostgresConfigured) {
+  pool.on("error", (err) => {
+    console.warn("[Postgres Pool] Client error (running in resilient mode):", err.message);
+  });
+}
 
 export const db = drizzle({ client: pool, schema });
 
