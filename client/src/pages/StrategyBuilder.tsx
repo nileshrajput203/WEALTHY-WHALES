@@ -738,6 +738,7 @@ export default function StrategyBuilder() {
 
               <textarea
                 rows={3}
+                spellCheck={false}
                 value={chartinkClause}
                 onChange={(e) => setChartinkClause(e.target.value)}
                 placeholder="Paste or write any Chartink scan clause..."
