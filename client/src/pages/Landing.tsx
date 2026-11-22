@@ -56,6 +56,32 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background w-full max-w-full overflow-x-hidden">
+      {/* ── Top Header / Brand Nav ── */}
+      <header className="sticky top-0 z-50 w-full border-b border-white/8 backdrop-blur-xl bg-background/80 px-5 md:px-8 lg:px-12 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/logo.png"
+            alt="Wealthy Whales"
+            className="w-8 h-8 rounded-lg object-contain border border-white/10 shrink-0 bg-black/20"
+          />
+          <span className="font-display font-bold text-foreground text-base tracking-tight">
+            Wealthy Whales
+          </span>
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] text-emerald-400 font-mono font-bold uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            NSE · BSE Live
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="px-3.5 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-mono font-semibold text-white transition-all cursor-pointer"
+          >
+            Terminal Sign In
+          </button>
+        </div>
+      </header>
+
       <AnimatedHero
         onGetStarted={() => setShowAuthModal(true)}
         onExploreFree={() => setShowAuthModal(true)}

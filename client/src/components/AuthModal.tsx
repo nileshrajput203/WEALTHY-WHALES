@@ -69,9 +69,11 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
       <DialogContent className="sm:max-w-md bg-[#0C1017] border border-[#1E293B] text-foreground shadow-2xl p-6 rounded-2xl backdrop-blur-2xl">
         <DialogHeader className="space-y-1.5 pb-2">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Wealthy Whales"
+              className="w-8 h-8 rounded-lg object-contain border border-primary/30 shrink-0 bg-black/20"
+            />
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
               Wealthy Whales Terminal
             </span>

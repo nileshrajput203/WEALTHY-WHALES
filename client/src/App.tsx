@@ -200,6 +200,11 @@ function AppContent() {
             <div className="flex items-center gap-3 flex-shrink-0">
               <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:hidden" />
               <div className="hidden sm:flex items-center gap-2.5">
+                <img
+                  src="/logo.png"
+                  alt="Wealthy Whales"
+                  className="w-7 h-7 rounded-md object-contain border border-white/10 shrink-0 bg-black/20"
+                />
                 <span className="text-base font-bold font-display text-foreground leading-none tracking-tight">
                   Wealthy Whales
                 </span>

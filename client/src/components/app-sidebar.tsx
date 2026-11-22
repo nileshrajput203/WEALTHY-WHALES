@@ -171,11 +171,11 @@ export function AppSidebar() {
     >
       {/* Brand header inside sidebar */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border/50">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold font-display text-sm flex-shrink-0 bg-primary/15 text-primary border border-primary/25 shadow-xs"
-        >
-          WW
-        </div>
+        <img
+          src="/logo.png"
+          alt="Wealthy Whales"
+          className="w-8 h-8 rounded-lg object-contain flex-shrink-0 border border-primary/25 shadow-xs bg-black/20"
+        />
         <div className="flex flex-col min-w-0">
           <span className="text-[14px] font-bold font-display text-foreground leading-none tracking-tight">
             Wealthy Whales
