@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "nse-bhavcopy": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.nseindia.in/bhavcopy/cm/mcp"
+      ]
+    },
+    "cm-market": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.nseindia.in/cmmkt/mcp"
+      ]
+    }
+  }
+}
